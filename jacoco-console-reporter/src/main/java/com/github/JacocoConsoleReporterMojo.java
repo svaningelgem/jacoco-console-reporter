@@ -8,6 +8,8 @@ import org.jacoco.core.analysis.*;
 import org.jacoco.core.data.ExecutionDataReader;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.data.SessionInfoStore;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -58,7 +60,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
     }
 
-    private DirectoryNode buildDirectoryTree(IBundleCoverage bundle) {
+    private @NotNull DirectoryNode buildDirectoryTree(@NotNull IBundleCoverage bundle) {
         DirectoryNode root = new DirectoryNode("");
         for (IPackageCoverage packageCoverage : bundle.getPackages()) {
             String packageName = packageCoverage.getName().replace('.', '/');
@@ -103,8 +105,8 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         int metricsWidth = 25;
 
         // Create format strings
-        String headerFormat = "%-" + packageWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s%n";
-        String lineFormat = "%-" + packageWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s%n";
+        String headerFormat = "%-" + packageWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s";
+        String lineFormat = "%-" + packageWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s";
 
         // Print header
         getLog().info("Overall Coverage Summary");
@@ -137,34 +139,42 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
                 formatCoverage(total.coveredLines, total.totalLines)));
     }
 
-    private void printDirectoryTree(DirectoryNode node, String indent, String packageName, String format) {
+    private void printDirectoryTree(@NotNull DirectoryNode node, String indent, @NotNull String packageName, String format) {
+        // First, determine if this node should be printed or collapsed
+        boolean shouldPrintCurrentNode = !node.sourceFiles.isEmpty() || node.subdirectories.size() > 1;
+
         String currentPackage = packageName.isEmpty() ? node.name : packageName + "." + node.name;
-        if (currentPackage.isEmpty()) currentPackage = "(default package)";
 
-        // Print package metrics
-        CoverageMetrics aggregated = node.aggregateMetrics();
-        getLog().info(String.format(format,
-                indent + currentPackage,
-                formatCoverage(aggregated.coveredClasses, aggregated.totalClasses),
-                formatCoverage(aggregated.coveredMethods, aggregated.totalMethods),
-                formatCoverage(aggregated.coveredBranches, aggregated.totalBranches),
-                formatCoverage(aggregated.coveredLines, aggregated.totalLines)));
-
-        String childIndent = indent + "  ";
-
-        // Print files
-        int fileCount = node.sourceFiles.size();
-        for (int i = 0; i < fileCount; i++) {
-            SourceFileCoverageData file = node.sourceFiles.get(i);
-            boolean isLastFile = i == fileCount - 1 && node.subdirectories.isEmpty();
-            String prefix = isLastFile ? "└─ " : "├─ ";
-
+        // If this is not root and we should print this node, or if this is a leaf package node
+        if (!currentPackage.isEmpty() && (shouldPrintCurrentNode || node.subdirectories.isEmpty())) {
+            // Print package metrics
+            CoverageMetrics aggregated = node.aggregateMetrics();
             getLog().info(String.format(format,
-                    childIndent + prefix + file.fileName,
-                    formatCoverage(file.metrics.coveredClasses, file.metrics.totalClasses),
-                    formatCoverage(file.metrics.coveredMethods, file.metrics.totalMethods),
-                    formatCoverage(file.metrics.coveredBranches, file.metrics.totalBranches),
-                    formatCoverage(file.metrics.coveredLines, file.metrics.totalLines)));
+                    indent + currentPackage,
+                    formatCoverage(aggregated.coveredClasses, aggregated.totalClasses),
+                    formatCoverage(aggregated.coveredMethods, aggregated.totalMethods),
+                    formatCoverage(aggregated.coveredBranches, aggregated.totalBranches),
+                    formatCoverage(aggregated.coveredLines, aggregated.totalLines)));
+
+            String childIndent = indent + "  ";
+
+            // Print files
+            int fileCount = node.sourceFiles.size();
+            for (int i = 0; i < fileCount; i++) {
+                SourceFileCoverageData file = node.sourceFiles.get(i);
+                boolean isLastFile = i == fileCount - 1 && node.subdirectories.isEmpty();
+                String prefix = isLastFile ? "└─ " : "├─ ";
+
+                getLog().info(String.format(format,
+                        childIndent + prefix + file.fileName,
+                        formatCoverage(file.metrics.coveredClasses, file.metrics.totalClasses),
+                        formatCoverage(file.metrics.coveredMethods, file.metrics.totalMethods),
+                        formatCoverage(file.metrics.coveredBranches, file.metrics.totalBranches),
+                        formatCoverage(file.metrics.coveredLines, file.metrics.totalLines)));
+            }
+
+            // For subdirectories, use the current indent
+            indent = childIndent;
         }
 
         // Print subdirectories
@@ -172,12 +182,19 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         for (int i = 0; i < subdirs.size(); i++) {
             DirectoryNode subdir = subdirs.get(i);
             boolean isLastDir = i == subdirs.size() - 1;
-            String nextIndent = childIndent + (isLastDir ? "  " : "│ ");
-            printDirectoryTree(subdir, nextIndent, currentPackage, format);
+            String nextIndent = indent + (isLastDir ? "  " : "│ ");
+
+            // If this is the only subdirectory and we have no files, pass through the current package name
+            if (subdirs.size() == 1 && node.sourceFiles.isEmpty() && !shouldPrintCurrentNode) {
+                printDirectoryTree(subdir, indent, currentPackage, format);
+            } else {
+                printDirectoryTree(subdir, nextIndent, "", format);
+            }
         }
     }
 
-    private String formatCoverage(int covered, int total) {
+    @Contract(pure = true)
+    private @NotNull String formatCoverage(int covered, int total) {
         if (total == 0) return "100.00% (0/0)";
         double percentage = (double) covered / total * 100;
         return String.format("%6.2f%% (%d/%d)", percentage, covered, total);
@@ -217,7 +234,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     static class CoverageMetrics {
         int totalClasses, coveredClasses, totalMethods, coveredMethods, totalLines, coveredLines, totalBranches, coveredBranches;
 
-        void add(CoverageMetrics other) {
+        void add(@NotNull CoverageMetrics other) {
             totalClasses += other.totalClasses;
             coveredClasses += other.coveredClasses;
             totalMethods += other.totalMethods;

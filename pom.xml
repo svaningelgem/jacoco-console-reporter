@@ -33,6 +33,7 @@
                 <artifactId>maven-plugin-api</artifactId>
                 <version>${maven.plugin.api.version}</version>
             </dependency>
+
             <!-- https://mvnrepository.com/artifact/org.apache.maven/maven-core -->
             <dependency>
                 <groupId>org.apache.maven</groupId>
@@ -40,12 +41,21 @@
                 <version>${maven.plugin.api.version}</version>
                 <scope>provided</scope>
             </dependency>
+
             <!-- https://mvnrepository.com/artifact/org.apache.maven/maven-compat -->
             <dependency>
                 <groupId>org.apache.maven</groupId>
                 <artifactId>maven-compat</artifactId>
                 <version>${maven.plugin.api.version}</version>
                 <scope>test</scope>
+            </dependency>
+
+            <!-- https://mvnrepository.com/artifact/org.jetbrains/annotations -->
+            <dependency>
+                <groupId>org.jetbrains</groupId>
+                <artifactId>annotations</artifactId>
+                <version>26.0.2</version>
+                <scope>compile</scope>
             </dependency>
 
             <!-- Logging -->
@@ -82,6 +92,7 @@
                 <version>${maven.plugin.testing.version}</version>
                 <scope>test</scope>
             </dependency>
+
             <!-- https://mvnrepository.com/artifact/junit/junit -->
             <dependency>
                 <groupId>junit</groupId>
@@ -89,6 +100,7 @@
                 <version>${junit4.version}</version>
                 <scope>test</scope>
             </dependency>
+
             <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
@@ -96,6 +108,7 @@
                 <version>${junit.version}</version>
                 <scope>test</scope>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 

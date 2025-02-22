@@ -2,6 +2,8 @@ package com.github;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.testing.MojoRule;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -17,10 +19,10 @@ public class JacocoConsoleReporterMojoTest {
     private final File testProjectDir = new File("../test-project");
     private final File testProjectJacocoExec = new File(testProjectDir, "target/jacoco.exec");
     private final File testProjectClasses = new File(testProjectDir, "target/classes");
+    private final File pom = new File(getBasedir(),"src/test/resources/unit/pom.xml");
 
     @Test
     public void testExecuteWithMissingExecFile() throws Exception {
-        File pom = getTestFile("src/test/resources/unit/pom.xml");
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
@@ -41,7 +43,6 @@ public class JacocoConsoleReporterMojoTest {
 
     @Test(expected = MojoExecutionException.class)
     public void testExecuteWithInvalidClassesDirectory() throws Exception {
-        File pom = getTestFile("src/test/resources/unit/pom.xml");
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
@@ -59,7 +60,6 @@ public class JacocoConsoleReporterMojoTest {
 
     @Test
     public void testExecute() throws Exception {
-        File pom = getTestFile("src/test/resources/unit/pom.xml");
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
@@ -73,10 +73,6 @@ public class JacocoConsoleReporterMojoTest {
         mojo.classesDirectory = testProjectClasses;
 
         mojo.execute();
-    }
-
-    private File getTestFile(String path) {
-        return new File(new File(getBasedir()), path);
     }
 
     private String getBasedir() {
