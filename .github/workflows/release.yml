@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v?[0-9]+.[0-9]+.[0-9]'
@@ -18,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for getting tag information
+          fetch-depth: 0
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -30,6 +31,10 @@ jobs:
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+
+      - name: Fake settings-security.xml to silence a huge stacktrace
+        run: |
+          touch ~/.m2/settings-security.xml
 
       - name: Set version from tag
         run: |
@@ -44,14 +49,19 @@ jobs:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
 
+      - name: scan build folder for exec data
+        if: always()
+        run: |
+          find ~ -type f -name \*.exec | grep target
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             jacoco-console-reporter/target/*.jar
-            !jacoco-console-reporter/target/*-sources.jar
-            !jacoco-console-reporter/target/*-javadoc.jar
+            jacoco-console-reporter/target/*-sources.jar
+            jacoco-console-reporter/target/*-javadoc.jar
           generate_release_notes: true
-          tag_name: ${{ github.ref_name }}  # Use the tag name for the release
+          tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
