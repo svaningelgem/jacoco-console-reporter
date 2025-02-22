@@ -1,4 +1,4 @@
-package com.github;
+package io.github.svaningelgem;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
