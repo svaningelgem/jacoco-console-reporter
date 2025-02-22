@@ -19,15 +19,37 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+/**
+ * Maven plugin for generating a console-based coverage report from JaCoCo execution data.
+ * This plugin reads JaCoCo execution data and class files to create a hierarchical
+ * coverage report directly in the console, making it easy to view coverage metrics
+ * without needing to generate HTML or XML reports.
+ *
+ * @goal report
+ * @phase verify
+ */
 @Mojo(name = "report")
 public class JacocoConsoleReporterMojo extends AbstractMojo {
 
+    /**
+     * Location of the JaCoCo execution data file (jacoco.exec).
+     */
     @Parameter(defaultValue = "${project.build.directory}/jacoco.exec", property = "jacocoExecFile", required = true)
     File jacocoExecFile;
 
+    /**
+     * Directory containing the compiled Java classes.
+     */
     @Parameter(defaultValue = "${project.build.outputDirectory}", property = "classesDirectory", required = true)
     File classesDirectory;
 
+    /**
+     * Executes the plugin, generating a console-based coverage report.
+     * The report includes coverage metrics for classes, methods, branches, and lines,
+     * organized in a tree structure by package.
+     *
+     * @throws MojoExecutionException if there's an error processing the JaCoCo data or class files
+     */
     public void execute() throws MojoExecutionException {
         if (!jacocoExecFile.exists()) {
             getLog().warn("No coverage data found at " + jacocoExecFile.getAbsolutePath() + "; ensure JaCoCo plugin ran with tests.");
@@ -60,6 +82,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
     }
 
+    /**
+     * Builds a tree structure representing the package hierarchy and their coverage metrics.
+     *
+     * @param bundle The bundle containing coverage data for all analyzed classes
+     * @return The root node of the directory tree containing coverage information
+     */
     private @NotNull DirectoryNode buildDirectoryTree(@NotNull IBundleCoverage bundle) {
         DirectoryNode root = new DirectoryNode("");
         for (IPackageCoverage packageCoverage : bundle.getPackages()) {
@@ -99,6 +127,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         return root;
     }
 
+    /**
+     * Prints the coverage report to the console in a tree-like structure.
+     * The report includes coverage metrics for each package and source file.
+     *
+     * @param root The root node of the directory tree containing coverage information
+     */
     private void printCoverageReport(DirectoryNode root) {
         // Define column widths
         int packageWidth = 40;
@@ -139,6 +173,14 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
                 formatCoverage(total.coveredLines, total.totalLines)));
     }
 
+    /**
+     * Recursively prints the directory tree with coverage metrics.
+     *
+     * @param node        The current directory node
+     * @param indent      The current indentation level
+     * @param packageName The full package name up to this point
+     * @param format      The format string for output formatting
+     */
     private void printDirectoryTree(@NotNull DirectoryNode node, String indent, @NotNull String packageName, String format) {
         // First, determine if this node should be printed or collapsed
         boolean shouldPrintCurrentNode = !node.sourceFiles.isEmpty() || node.subdirectories.size() > 1;
@@ -159,10 +201,9 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             String childIndent = indent + "  ";
 
             // Print files
-            int fileCount = node.sourceFiles.size();
-            for (int i = 0; i < fileCount; i++) {
+            for (int i = 0; i < node.sourceFiles.size(); i++) {
                 SourceFileCoverageData file = node.sourceFiles.get(i);
-                boolean isLastFile = i == fileCount - 1 && node.subdirectories.isEmpty();
+                boolean isLastFile = i == node.sourceFiles.size() - 1 && node.subdirectories.isEmpty();
                 String prefix = isLastFile ? "└─ " : "├─ ";
 
                 getLog().info(String.format(format,
@@ -193,6 +234,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
     }
 
+    /**
+     * Formats coverage metrics as a percentage with covered/total values.
+     *
+     * @param covered Number of covered items
+     * @param total   Total number of items
+     * @return Formatted string showing percentage and ratio (e.g., "75.00% (3/4)")
+     */
     @Contract(pure = true)
     private @NotNull String formatCoverage(int covered, int total) {
         if (total == 0) return "100.00% (0/0)";
@@ -200,15 +248,38 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         return String.format("%6.2f%% (%d/%d)", percentage, covered, total);
     }
 
+    /**
+     * Represents a node in the directory tree structure, containing coverage information
+     * for a package and its source files.
+     */
     static class DirectoryNode {
+        /**
+         * Name of the directory/package component
+         */
         String name;
+        /**
+         * Map of subdirectories, keyed by name
+         */
         Map<String, DirectoryNode> subdirectories = new TreeMap<>();
+        /**
+         * List of source files in this directory
+         */
         List<SourceFileCoverageData> sourceFiles = new ArrayList<>();
 
+        /**
+         * Creates a new directory node with the given name.
+         *
+         * @param name The name of the directory/package component
+         */
         DirectoryNode(String name) {
             this.name = name;
         }
 
+        /**
+         * Aggregates coverage metrics for this directory and all its subdirectories.
+         *
+         * @return Combined coverage metrics for the entire subtree
+         */
         CoverageMetrics aggregateMetrics() {
             CoverageMetrics aggregated = new CoverageMetrics();
             for (SourceFileCoverageData file : sourceFiles) {
@@ -221,19 +292,58 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
     }
 
+    /**
+     * Contains coverage data for a single source file.
+     */
     static class SourceFileCoverageData {
+        /**
+         * Name of the source file
+         */
         String fileName;
+        /**
+         * Coverage metrics for the file
+         */
         CoverageMetrics metrics;
 
+        /**
+         * Creates coverage data for a source file.
+         *
+         * @param fileName Name of the source file
+         * @param metrics  Coverage metrics for the file
+         */
         SourceFileCoverageData(String fileName, CoverageMetrics metrics) {
             this.fileName = fileName;
             this.metrics = metrics;
         }
     }
 
+    /**
+     * Holds various coverage metrics for a source file or directory.
+     */
     static class CoverageMetrics {
-        int totalClasses, coveredClasses, totalMethods, coveredMethods, totalLines, coveredLines, totalBranches, coveredBranches;
+        /**
+         * Total number of classes and number of classes with coverage
+         */
+        int totalClasses, coveredClasses;
+        /**
+         * Total number of methods and number of methods with coverage
+         */
+        int totalMethods, coveredMethods;
+        /**
+         * Total number of lines and number of lines with coverage
+         */
+        int totalLines, coveredLines;
+        /**
+         * Total number of branches and number of branches with coverage
+         */
+        int totalBranches, coveredBranches;
 
+        /**
+         * Adds another set of metrics to this one.
+         * Used for aggregating metrics across multiple files or directories.
+         *
+         * @param other The metrics to add to this one
+         */
         void add(@NotNull CoverageMetrics other) {
             totalClasses += other.totalClasses;
             coveredClasses += other.coveredClasses;
