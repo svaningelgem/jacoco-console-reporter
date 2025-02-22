@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v?[0-9]+.[0-9]+.[0-9]'
@@ -18,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for getting tag information
+          fetch-depth: 0
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -26,7 +27,7 @@ jobs:
           java-version: '8'
           distribution: 'temurin'
           cache: 'maven'
-          server-id: ossrh
+          server-id: central
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -35,23 +36,35 @@ jobs:
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
           echo "Setting version to $VERSION"
-          mvn versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
+          mvn -B versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false | awk '/svaningelgem/ || !/Downloading|Downloaded|Progress/'
 
-      - name: Build and Deploy to OSSRH
+      - name: Building
         run: |
-          mvn -B clean deploy -pl jacoco-console-reporter -am -P release
+          set -o pipefail
+          mvn -B clean install | awk '/svaningelgem/ || !/Downloading|Downloaded|Progress/'
+
+      - name: Flatten pom.xml file
+        run: |
+          set -o pipefail
+          mvn -B flatten:flatten | awk '/svaningelgem/ || !/Downloading|Downloaded|Progress/'
+
+      - name: Deploying to Central
+        run: |
+          set -o pipefail
+          mvn -B deploy -pl jacoco-console-reporter -am -P release -DskipTests | awk '/svaningelgem/ || !/Downloading|Downloaded|Progress/'
         env:
-          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+          MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             jacoco-console-reporter/target/*.jar
-            !jacoco-console-reporter/target/*-sources.jar
-            !jacoco-console-reporter/target/*-javadoc.jar
           generate_release_notes: true
-          tag_name: ${{ github.ref_name }}  # Use the tag name for the release
+          make_latest: true
+          fail_on_unmatched_files: false
+          tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

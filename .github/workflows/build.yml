@@ -1,11 +1,17 @@
 name: Build & Test
 
 on:
-  push:
-    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write    # Required for uploading test results
+  pull-requests: write   # Required for PR comments
+  security-events: write # Required for CodeQL
+  actions: read    # Required for checking workflow runs
+  statuses: write  # Required for Codecov status updates
 
 jobs:
   build:
