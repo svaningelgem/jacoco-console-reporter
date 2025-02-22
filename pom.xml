@@ -171,6 +171,17 @@
                     <version>${maven-compiler-plugin.version}</version>
                     <configuration>
                         <release>${maven.compiler.release}</release>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                        <compilerArgs>
+                            <arg>-Xlint:-options</arg>
+                            <arg>-proc:full</arg>
+                        </compilerArgs>
                     </configuration>
                 </plugin>
 
@@ -237,11 +248,16 @@
                     </executions>
                 </plugin>
 
+                <!-- JavaDoc Configuration -->
                 <!-- https://mvnrepository.com/artifact/org.apache.maven.plugins/maven-javadoc-plugin -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <version>${maven-javadoc-plugin.version}</version>
+                    <configuration>
+                        <failOnWarnings>false</failOnWarnings>
+                        <doclint>none</doclint>
+                    </configuration>
                     <executions>
                         <execution>
                             <id>attach-javadocs</id>
