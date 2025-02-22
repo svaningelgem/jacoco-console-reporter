@@ -91,53 +91,102 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
                 metrics.totalBranches = sourceFileCoverage.getBranchCounter().getTotalCount();
                 metrics.coveredBranches = sourceFileCoverage.getBranchCounter().getCoveredCount();
 
-                current.localMetrics.add(metrics);
-                SourceFileCoverageData sourceFileData = new SourceFileCoverageData(sourceFileName, metrics);
-                current.sourceFiles.add(sourceFileData);
+                current.sourceFiles.add(new SourceFileCoverageData(sourceFileName, metrics));
             }
         }
         return root;
     }
 
     private void printCoverageReport(DirectoryNode root) {
+        // Define column widths
+        int packageWidth = 40;
+        int metricsWidth = 25;
+
+        // Create format strings
+        String headerFormat = "%-" + packageWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s%n";
+        String lineFormat = "%-" + packageWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s%n";
+
+        // Print header
         getLog().info("Overall Coverage Summary");
-        getLog().info("Package | Class, % | Method, % | Branch, % | Line, %");
-        printDirectory(root, "");
-        getLog().info("all classes | " + formatCoverage(root.aggregateMetrics().coveredClasses, root.aggregateMetrics().totalClasses) + " | " +
-                formatCoverage(root.aggregateMetrics().coveredMethods, root.aggregateMetrics().totalMethods) + " | " +
-                formatCoverage(root.aggregateMetrics().coveredBranches, root.aggregateMetrics().totalBranches) + " | " +
-                formatCoverage(root.aggregateMetrics().coveredLines, root.aggregateMetrics().totalLines));
+        getLog().info(String.format(headerFormat, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
+
+        // Print divider line
+        StringBuilder divider = new StringBuilder();
+        for (int i = 0; i < packageWidth; i++) divider.append("-");
+        divider.append("-|-");
+        for (int i = 0; i < metricsWidth; i++) divider.append("-");
+        divider.append("-|-");
+        for (int i = 0; i < metricsWidth; i++) divider.append("-");
+        divider.append("-|-");
+        for (int i = 0; i < metricsWidth; i++) divider.append("-");
+        divider.append("-|-");
+        for (int i = 0; i < metricsWidth; i++) divider.append("-");
+        getLog().info(divider.toString());
+
+        // Print directory contents with tree structure
+        printDirectoryTree(root, "", "", lineFormat);
+
+        // Print total metrics
+        getLog().info(divider.toString());
+        CoverageMetrics total = root.aggregateMetrics();
+        getLog().info(String.format(lineFormat,
+                "all classes",
+                formatCoverage(total.coveredClasses, total.totalClasses),
+                formatCoverage(total.coveredMethods, total.totalMethods),
+                formatCoverage(total.coveredBranches, total.totalBranches),
+                formatCoverage(total.coveredLines, total.totalLines)));
     }
 
-    private void printDirectory(DirectoryNode node, String packageName) {
+    private void printDirectoryTree(DirectoryNode node, String indent, String packageName, String format) {
         String currentPackage = packageName.isEmpty() ? node.name : packageName + "." + node.name;
+        if (currentPackage.isEmpty()) currentPackage = "(default package)";
+
+        // Print package metrics
         CoverageMetrics aggregated = node.aggregateMetrics();
-        getLog().info(currentPackage + " | " + formatCoverage(aggregated.coveredClasses, aggregated.totalClasses) + " | " +
-                formatCoverage(aggregated.coveredMethods, aggregated.totalMethods) + " | " +
-                formatCoverage(aggregated.coveredBranches, aggregated.totalBranches) + " | " +
-                formatCoverage(aggregated.coveredLines, aggregated.totalLines));
-        for (SourceFileCoverageData file : node.sourceFiles) {
-            getLog().info("File: " + file.fileName + " | " + formatCoverage(file.metrics.coveredClasses, file.metrics.totalClasses) + " | " +
-                    formatCoverage(file.metrics.coveredMethods, file.metrics.totalMethods) + " | " +
-                    formatCoverage(file.metrics.coveredBranches, file.metrics.totalBranches) + " | " +
-                    formatCoverage(file.metrics.coveredLines, file.metrics.totalLines));
+        getLog().info(String.format(format,
+                indent + currentPackage,
+                formatCoverage(aggregated.coveredClasses, aggregated.totalClasses),
+                formatCoverage(aggregated.coveredMethods, aggregated.totalMethods),
+                formatCoverage(aggregated.coveredBranches, aggregated.totalBranches),
+                formatCoverage(aggregated.coveredLines, aggregated.totalLines)));
+
+        String childIndent = indent + "  ";
+
+        // Print files
+        int fileCount = node.sourceFiles.size();
+        for (int i = 0; i < fileCount; i++) {
+            SourceFileCoverageData file = node.sourceFiles.get(i);
+            boolean isLastFile = i == fileCount - 1 && node.subdirectories.isEmpty();
+            String prefix = isLastFile ? "└─ " : "├─ ";
+
+            getLog().info(String.format(format,
+                    childIndent + prefix + file.fileName,
+                    formatCoverage(file.metrics.coveredClasses, file.metrics.totalClasses),
+                    formatCoverage(file.metrics.coveredMethods, file.metrics.totalMethods),
+                    formatCoverage(file.metrics.coveredBranches, file.metrics.totalBranches),
+                    formatCoverage(file.metrics.coveredLines, file.metrics.totalLines)));
         }
-        for (DirectoryNode subdir : node.subdirectories.values()) {
-            printDirectory(subdir, currentPackage);
+
+        // Print subdirectories
+        List<DirectoryNode> subdirs = new ArrayList<>(node.subdirectories.values());
+        for (int i = 0; i < subdirs.size(); i++) {
+            DirectoryNode subdir = subdirs.get(i);
+            boolean isLastDir = i == subdirs.size() - 1;
+            String nextIndent = childIndent + (isLastDir ? "  " : "│ ");
+            printDirectoryTree(subdir, nextIndent, currentPackage, format);
         }
     }
 
     private String formatCoverage(int covered, int total) {
         if (total == 0) return "100.00% (0/0)";
         double percentage = (double) covered / total * 100;
-        return String.format("%.2f%% (%d/%d)", percentage, covered, total);
+        return String.format("%6.2f%% (%d/%d)", percentage, covered, total);
     }
 
     static class DirectoryNode {
         String name;
         Map<String, DirectoryNode> subdirectories = new TreeMap<>();
         List<SourceFileCoverageData> sourceFiles = new ArrayList<>();
-        CoverageMetrics localMetrics = new CoverageMetrics();
 
         DirectoryNode(String name) {
             this.name = name;
@@ -145,7 +194,9 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
         CoverageMetrics aggregateMetrics() {
             CoverageMetrics aggregated = new CoverageMetrics();
-            aggregated.add(localMetrics);
+            for (SourceFileCoverageData file : sourceFiles) {
+                aggregated.add(file.metrics);
+            }
             for (DirectoryNode subdir : subdirectories.values()) {
                 aggregated.add(subdir.aggregateMetrics());
             }
