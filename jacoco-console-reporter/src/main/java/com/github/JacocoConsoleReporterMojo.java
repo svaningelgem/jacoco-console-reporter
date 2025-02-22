@@ -1,4 +1,4 @@
-package com.example;
+package com.github;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;

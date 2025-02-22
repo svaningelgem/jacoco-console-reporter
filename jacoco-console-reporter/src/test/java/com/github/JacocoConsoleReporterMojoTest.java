@@ -1,4 +1,4 @@
-package com.github.jacoco-console-reporter;
+package com.github;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.testing.AbstractMojoTestCase;
