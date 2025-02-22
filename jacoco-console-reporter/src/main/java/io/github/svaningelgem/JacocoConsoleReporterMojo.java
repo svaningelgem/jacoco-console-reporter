@@ -228,7 +228,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             for (int i = 0; i < node.sourceFiles.size(); i++) {
                 SourceFileCoverageData file = node.sourceFiles.get(i);
                 boolean isLastFile = i == node.sourceFiles.size() - 1 && node.subdirectories.isEmpty();
-                String prefix = isLastFile ? "'- " : "|- ";
+                String prefix = isLastFile ? "└─ " : "├─ ";
 
                 getLog().info(String.format(format,
                         childIndent + prefix + file.fileName,
