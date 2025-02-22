@@ -37,6 +37,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     static final int PACKAGE_WIDTH = 40;
     static final int METRICS_WIDTH = 25;
 
+    // Define tree characters based on terminal capabilities
+    private static final String LASTDIR_SPACE = "  ";
+    private static final String VERTICAL_LINE = "| ";
+    private static final String TEE = "+- ";
+    private static final String CORNER = "`- ";
+
     static final String DIVIDER = getDivider();
     static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s";
     static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s";
@@ -77,7 +83,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @return Populated execution data store with coverage information
      * @throws IOException if there are issues reading the JaCoCo execution file
      */
-    private ExecutionDataStore loadExecutionData() throws IOException {
+    private @NotNull ExecutionDataStore loadExecutionData() throws IOException {
         ExecutionDataStore executionDataStore = new ExecutionDataStore();
         SessionInfoStore sessionInfoStore = new SessionInfoStore();
 
@@ -228,7 +234,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             for (int i = 0; i < node.sourceFiles.size(); i++) {
                 SourceFileCoverageData file = node.sourceFiles.get(i);
                 boolean isLastFile = i == node.sourceFiles.size() - 1 && node.subdirectories.isEmpty();
-                String prefix = isLastFile ? "└─ " : "├─ ";
+                String prefix = isLastFile ? CORNER : TEE;
 
                 getLog().info(String.format(format,
                         childIndent + prefix + file.fileName,
@@ -247,7 +253,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         for (int i = 0; i < subdirs.size(); i++) {
             DirectoryNode subdir = subdirs.get(i);
             boolean isLastDir = i == subdirs.size() - 1;
-            String nextIndent = indent + (isLastDir ? "  " : "│ ");
+            String nextIndent = indent + (isLastDir ? LASTDIR_SPACE : VERTICAL_LINE);
 
             // If this is the only subdirectory, and we have no files, pass through the current package name
             if (subdirs.size() == 1 && node.sourceFiles.isEmpty() && !shouldPrintCurrentNode) {
