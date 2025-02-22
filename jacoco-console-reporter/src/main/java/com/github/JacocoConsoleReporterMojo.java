@@ -9,17 +9,22 @@ import org.jacoco.core.data.ExecutionDataReader;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.data.SessionInfoStore;
 
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 @Mojo(name = "report")
 public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "${project.build.directory}/jacoco.exec", property = "jacocoExecFile", required = true)
-    private File jacocoExecFile;
+    File jacocoExecFile;
 
     @Parameter(defaultValue = "${project.build.outputDirectory}", property = "classesDirectory", required = true)
-    private File classesDirectory;
+    File classesDirectory;
 
     public void execute() throws MojoExecutionException {
         if (!jacocoExecFile.exists()) {

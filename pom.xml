@@ -18,6 +18,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.11.4</junit.version>
+        <junit4.version>4.13.2</junit4.version>
         <maven.plugin.api.version>3.9.9</maven.plugin.api.version>
         <maven.plugin.annotations.version>3.15.1</maven.plugin.annotations.version>
         <jacoco.version>0.8.12</jacoco.version>
@@ -61,6 +62,14 @@
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-api</artifactId>
                 <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- https://mvnrepository.com/artifact/junit/junit -->
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit4.version}</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>
