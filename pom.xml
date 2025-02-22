@@ -3,7 +3,7 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>io.github</groupId>
+    <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter-parent</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
@@ -22,6 +22,11 @@
         <maven.plugin.annotations.version>3.15.1</maven.plugin.annotations.version>
         <jacoco.version>0.8.12</jacoco.version>
         <maven.plugin.testing.version>3.3.0</maven.plugin.testing.version>
+        <jetbrains-annotations.version>26.0.2</jetbrains-annotations.version>
+        <slf4j-simple.version>2.0.12</slf4j-simple.version>
+        <maven-plugin-plugin.version>3.15.1</maven-plugin-plugin.version>
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+        <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -54,7 +59,7 @@
             <dependency>
                 <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
-                <version>26.0.2</version>
+                <version>${jetbrains-annotations.version}</version>
                 <scope>compile</scope>
             </dependency>
 
@@ -63,7 +68,7 @@
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-simple</artifactId>
-                <version>2.0.12</version>
+                <version>${slf4j-simple.version}</version>
                 <scope>test</scope>
             </dependency>
 
@@ -119,7 +124,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.13.0</version>
+                    <version>${maven-compiler-plugin.version}</version>
                     <configuration>
                         <release>${maven.compiler.release}</release>
                     </configuration>
@@ -129,7 +134,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-plugin-plugin</artifactId>
-                    <version>3.15.1</version>
+                    <version>${maven-plugin-plugin.version}</version>
                     <configuration>
                         <goalPrefix>jacoco-console-reporter</goalPrefix>
                     </configuration>
@@ -147,7 +152,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.2</version>
+                    <version>${maven-surefire-plugin.version}</version>
                 </plugin>
 
                 <!-- https://mvnrepository.com/artifact/org.jacoco/jacoco-maven-plugin -->
