@@ -1,29 +1,24 @@
 package com.example;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class AdvancedCalculatorTest {
+class AdvancedCalculatorTest {
     @Test
-    public void testMultiply() {
+    void testMultiply() {
         AdvancedCalculator advCalc = new AdvancedCalculator();
         assertEquals(6, advCalc.multiply(2, 3));
     }
 
     @Test
-    public void testDivide() {
+    void testDivide() {
         AdvancedCalculator advCalc = new AdvancedCalculator();
         assertEquals(2, advCalc.divide(4, 2));
-        try {
-            advCalc.divide(1, 0);
-            fail("Expected IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // Expected
-        }
+        assertThrows(IllegalArgumentException.class, () -> advCalc.divide(1, 0));
     }
 
     @Test
-    public void testCategorizeNumber() {
+    void testCategorizeNumber() {
         AdvancedCalculator advCalc = new AdvancedCalculator();
         assertEquals("Positive", advCalc.categorizeNumber(5));
         assertEquals("Negative", advCalc.categorizeNumber(-3));
