@@ -26,13 +26,38 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Maven Plugin Dependencies -->
             <!-- https://mvnrepository.com/artifact/org.apache.maven/maven-plugin-api -->
             <dependency>
                 <groupId>org.apache.maven</groupId>
                 <artifactId>maven-plugin-api</artifactId>
                 <version>${maven.plugin.api.version}</version>
             </dependency>
+            <!-- https://mvnrepository.com/artifact/org.apache.maven/maven-core -->
+            <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-core</artifactId>
+                <version>${maven.plugin.api.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- https://mvnrepository.com/artifact/org.apache.maven/maven-compat -->
+            <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-compat</artifactId>
+                <version>${maven.plugin.api.version}</version>
+                <scope>test</scope>
+            </dependency>
 
+            <!-- Logging -->
+            <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-simple -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-simple</artifactId>
+                <version>2.0.12</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Plugin Development -->
             <!-- https://mvnrepository.com/artifact/org.apache.maven.plugin-tools/maven-plugin-annotations -->
             <dependency>
                 <groupId>org.apache.maven.plugin-tools</groupId>
@@ -41,6 +66,7 @@
                 <scope>provided</scope>
             </dependency>
 
+            <!-- JaCoCo -->
             <!-- https://mvnrepository.com/artifact/org.jacoco/org.jacoco.core -->
             <dependency>
                 <groupId>org.jacoco</groupId>
@@ -48,6 +74,7 @@
                 <version>${jacoco.version}</version>
             </dependency>
 
+            <!-- Testing Dependencies -->
             <!-- https://mvnrepository.com/artifact/org.apache.maven.plugin-testing/maven-plugin-testing-harness -->
             <dependency>
                 <groupId>org.apache.maven.plugin-testing</groupId>
@@ -55,20 +82,18 @@
                 <version>${maven.plugin.testing.version}</version>
                 <scope>test</scope>
             </dependency>
-
-            <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
-            <dependency>
-                <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter-api</artifactId>
-                <version>${junit.version}</version>
-                <scope>test</scope>
-            </dependency>
-
             <!-- https://mvnrepository.com/artifact/junit/junit -->
             <dependency>
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
                 <version>${junit4.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>${junit.version}</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>
