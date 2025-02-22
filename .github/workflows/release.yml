@@ -4,7 +4,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - '[0-9]+.[0-9]+.[0-9]+'  # Matches semantic versions like 1.0.0
 
 jobs:
   release:
@@ -15,6 +15,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for getting tag information
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -22,18 +24,32 @@ jobs:
           java-version: '8'
           distribution: 'temurin'
           cache: 'maven'
-          server-id: github
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
 
-      - name: Build with Maven
-        run: mvn -B package
+      - name: Set version from tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "Setting version to $VERSION"
+          mvn versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
 
-      - name: Create Release
+      - name: Build and Deploy to OSSRH
+        run: |
+          mvn -B clean deploy -pl jacoco-console-reporter -am -P release
+        env:
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            **/target/*.jar
-            !**/target/*-sources.jar
-            !**/target/*-javadoc.jar
+            jacoco-console-reporter/target/*.jar
+            !jacoco-console-reporter/target/*-sources.jar
+            !jacoco-console-reporter/target/*-javadoc.jar
           generate_release_notes: true
+          tag_name: ${{ github.ref_name }}  # Use the tag name for the release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

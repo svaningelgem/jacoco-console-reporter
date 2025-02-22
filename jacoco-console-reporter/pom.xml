@@ -34,7 +34,7 @@
     <scm>
         <connection>scm:git:git://github.com/svaningelgem/jacoco-console-reporter.git</connection>
         <developerConnection>scm:git:ssh://github.com:svaningelgem/jacoco-console-reporter.git</developerConnection>
-        <url>http://github.com/svaningelgem/jacoco-console-reporter/tree/master</url>
+        <url>https://github.com/svaningelgem/jacoco-console-reporter/tree/master</url>
     </scm>
 
     <dependencies>
@@ -91,6 +91,32 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
