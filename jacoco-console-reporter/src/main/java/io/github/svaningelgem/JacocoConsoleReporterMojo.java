@@ -1,7 +1,10 @@
 package io.github.svaningelgem;
 
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.jacoco.core.analysis.*;
@@ -20,36 +23,36 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * Maven plugin for generating a console-based coverage report from JaCoCo execution data.
- * This plugin reads JaCoCo execution data and class files to create a hierarchical
- * coverage report directly in the console, making it easy to view coverage metrics
+ * Generates a console-based coverage report from JaCoCo execution data.
+ * This plugin provides a simple way to view coverage metrics directly in the console
  * without needing to generate HTML or XML reports.
- *
- * @goal report
- * @phase verify
  */
-@Mojo(name = "report")
+@Mojo(
+        name = "report",
+        defaultPhase = LifecyclePhase.VERIFY,
+        threadSafe = true
+)
 public class JacocoConsoleReporterMojo extends AbstractMojo {
+    // Define column widths
+    static final int PACKAGE_WIDTH = 40;
+    static final int METRICS_WIDTH = 25;
+
+    static final String DIVIDER = getDivider();
+    static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s";
+    static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s";
 
     /**
-     * Location of the JaCoCo execution data file (jacoco.exec).
+     * Location of the JaCoCo execution data file.
      */
     @Parameter(defaultValue = "${project.build.directory}/jacoco.exec", property = "jacocoExecFile", required = true)
-    File jacocoExecFile;
+    private File jacocoExecFile;
 
     /**
      * Directory containing the compiled Java classes.
      */
     @Parameter(defaultValue = "${project.build.outputDirectory}", property = "classesDirectory", required = true)
-    File classesDirectory;
+    private File classesDirectory;
 
-    /**
-     * Executes the plugin, generating a console-based coverage report.
-     * The report includes coverage metrics for classes, methods, branches, and lines,
-     * organized in a tree structure by package.
-     *
-     * @throws MojoExecutionException if there's an error processing the JaCoCo data or class files
-     */
     public void execute() throws MojoExecutionException {
         if (!jacocoExecFile.exists()) {
             getLog().warn("No coverage data found at " + jacocoExecFile.getAbsolutePath() + "; ensure JaCoCo plugin ran with tests.");
@@ -57,29 +60,51 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
 
         try {
-            // Load execution data
-            ExecutionDataStore executionDataStore = new ExecutionDataStore();
-            SessionInfoStore sessionInfoStore = new SessionInfoStore();
-            try (FileInputStream in = new FileInputStream(jacocoExecFile)) {
-                ExecutionDataReader reader = new ExecutionDataReader(in);
-                reader.setExecutionDataVisitor(executionDataStore);
-                reader.setSessionInfoVisitor(sessionInfoStore);
-                reader.read();
-            }
-
-            // Analyze class files
-            CoverageBuilder coverageBuilder = new CoverageBuilder();
-            Analyzer analyzer = new Analyzer(executionDataStore, coverageBuilder);
-            analyzer.analyzeAll(classesDirectory);
-
-            IBundleCoverage bundle = coverageBuilder.getBundle("Project");
-
-            // Build directory tree and print report
+            ExecutionDataStore executionDataStore = loadExecutionData();
+            IBundleCoverage bundle = analyzeCoverage(executionDataStore);
             DirectoryNode root = buildDirectoryTree(bundle);
             printCoverageReport(root);
         } catch (IOException e) {
             throw new MojoExecutionException("Failed to process JaCoCo data", e);
         }
+    }
+
+    /**
+     * Loads JaCoCo execution data from the specified file.
+     * Creates both execution data and session info stores to capture
+     * all coverage information from the JaCoCo output file.
+     *
+     * @return Populated execution data store with coverage information
+     * @throws IOException if there are issues reading the JaCoCo execution file
+     */
+    private ExecutionDataStore loadExecutionData() throws IOException {
+        ExecutionDataStore executionDataStore = new ExecutionDataStore();
+        SessionInfoStore sessionInfoStore = new SessionInfoStore();
+
+        try (FileInputStream in = new FileInputStream(jacocoExecFile)) {
+            ExecutionDataReader reader = new ExecutionDataReader(in);
+            reader.setExecutionDataVisitor(executionDataStore);
+            reader.setSessionInfoVisitor(sessionInfoStore);
+            reader.read();
+        }
+
+        return executionDataStore;
+    }
+
+    /**
+     * Analyzes the compiled classes using the execution data to build coverage information.
+     * Uses JaCoCo's analyzer to process all class files in the specified directory,
+     * building a complete picture of code coverage.
+     *
+     * @param executionDataStore Contains the execution data from JaCoCo
+     * @return A bundle containing all coverage information
+     * @throws IOException if there are issues reading the class files
+     */
+    private IBundleCoverage analyzeCoverage(ExecutionDataStore executionDataStore) throws IOException {
+        CoverageBuilder coverageBuilder = new CoverageBuilder();
+        Analyzer analyzer = new Analyzer(executionDataStore, coverageBuilder);
+        analyzer.analyzeAll(classesDirectory);
+        return coverageBuilder.getBundle("Project");
     }
 
     /**
@@ -134,43 +159,42 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @param root The root node of the directory tree containing coverage information
      */
     private void printCoverageReport(DirectoryNode root) {
-        // Define column widths
-        int packageWidth = 40;
-        int metricsWidth = 25;
-
         // Create format strings
-        String headerFormat = "%-" + packageWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s";
-        String lineFormat = "%-" + packageWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s | %-" + metricsWidth + "s";
 
         // Print header
         getLog().info("Overall Coverage Summary");
-        getLog().info(String.format(headerFormat, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
-
-        // Print divider line
-        StringBuilder divider = new StringBuilder();
-        for (int i = 0; i < packageWidth; i++) divider.append("-");
-        divider.append("-|-");
-        for (int i = 0; i < metricsWidth; i++) divider.append("-");
-        divider.append("-|-");
-        for (int i = 0; i < metricsWidth; i++) divider.append("-");
-        divider.append("-|-");
-        for (int i = 0; i < metricsWidth; i++) divider.append("-");
-        divider.append("-|-");
-        for (int i = 0; i < metricsWidth; i++) divider.append("-");
-        getLog().info(divider.toString());
+        getLog().info(String.format(HEADER_FORMAT, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
+        getLog().info(DIVIDER);
 
         // Print directory contents with tree structure
-        printDirectoryTree(root, "", "", lineFormat);
+        printDirectoryTree(root, "", "", LINE_FORMAT);
 
         // Print total metrics
-        getLog().info(divider.toString());
+        getLog().info(DIVIDER);
         CoverageMetrics total = root.aggregateMetrics();
-        getLog().info(String.format(lineFormat,
+        getLog().info(String.format(LINE_FORMAT,
                 "all classes",
                 formatCoverage(total.coveredClasses, total.totalClasses),
                 formatCoverage(total.coveredMethods, total.totalMethods),
                 formatCoverage(total.coveredBranches, total.totalBranches),
                 formatCoverage(total.coveredLines, total.totalLines)));
+    }
+
+    /**
+     * Build a divider with certain widths
+     */
+    private static @NotNull String getDivider() {
+        StringBuilder divider = new StringBuilder();
+        for (int i = 0; i < PACKAGE_WIDTH; i++) divider.append("-");
+        divider.append("-|-");
+        for (int i = 0; i < METRICS_WIDTH; i++) divider.append("-");
+        divider.append("-|-");
+        for (int i = 0; i < METRICS_WIDTH; i++) divider.append("-");
+        divider.append("-|-");
+        for (int i = 0; i < METRICS_WIDTH; i++) divider.append("-");
+        divider.append("-|-");
+        for (int i = 0; i < METRICS_WIDTH; i++) divider.append("-");
+        return divider.toString();
     }
 
     /**
@@ -187,7 +211,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
         String currentPackage = packageName.isEmpty() ? node.name : packageName + "." + node.name;
 
-        // If this is not root and we should print this node, or if this is a leaf package node
+        // If this is not root, and we should print this node, or if this is a leaf package node
         if (!currentPackage.isEmpty() && (shouldPrintCurrentNode || node.subdirectories.isEmpty())) {
             // Print package metrics
             CoverageMetrics aggregated = node.aggregateMetrics();
@@ -204,7 +228,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             for (int i = 0; i < node.sourceFiles.size(); i++) {
                 SourceFileCoverageData file = node.sourceFiles.get(i);
                 boolean isLastFile = i == node.sourceFiles.size() - 1 && node.subdirectories.isEmpty();
-                String prefix = isLastFile ? "└─ " : "├─ ";
+                String prefix = isLastFile ? "'- " : "|- ";
 
                 getLog().info(String.format(format,
                         childIndent + prefix + file.fileName,
@@ -225,7 +249,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             boolean isLastDir = i == subdirs.size() - 1;
             String nextIndent = indent + (isLastDir ? "  " : "│ ");
 
-            // If this is the only subdirectory and we have no files, pass through the current package name
+            // If this is the only subdirectory, and we have no files, pass through the current package name
             if (subdirs.size() == 1 && node.sourceFiles.isEmpty() && !shouldPrintCurrentNode) {
                 printDirectoryTree(subdir, indent, currentPackage, format);
             } else {
@@ -249,101 +273,90 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     /**
-     * Represents a node in the directory tree structure, containing coverage information
-     * for a package and its source files.
+     * A node in the directory tree structure, representing a package or directory.
+     * Each node contains coverage information and can have subdirectories and source files.
      */
+    @Data
+    @RequiredArgsConstructor
     static class DirectoryNode {
         /**
          * Name of the directory/package component
          */
-        String name;
+        private final String name;
         /**
-         * Map of subdirectories, keyed by name
+         * Map of subdirectories, keyed by name for easy tree construction
          */
-        Map<String, DirectoryNode> subdirectories = new TreeMap<>();
+        private final Map<String, DirectoryNode> subdirectories = new TreeMap<>();
         /**
-         * List of source files in this directory
+         * List of source files in this directory, with their coverage metrics
          */
-        List<SourceFileCoverageData> sourceFiles = new ArrayList<>();
+        private final List<SourceFileCoverageData> sourceFiles = new ArrayList<>();
 
-        /**
-         * Creates a new directory node with the given name.
-         *
-         * @param name The name of the directory/package component
-         */
-        DirectoryNode(String name) {
-            this.name = name;
-        }
-
-        /**
-         * Aggregates coverage metrics for this directory and all its subdirectories.
-         *
-         * @return Combined coverage metrics for the entire subtree
-         */
         CoverageMetrics aggregateMetrics() {
             CoverageMetrics aggregated = new CoverageMetrics();
-            for (SourceFileCoverageData file : sourceFiles) {
-                aggregated.add(file.metrics);
-            }
-            for (DirectoryNode subdir : subdirectories.values()) {
-                aggregated.add(subdir.aggregateMetrics());
-            }
+            sourceFiles.forEach(file -> aggregated.add(file.getMetrics()));
+            subdirectories.values().forEach(subdir -> aggregated.add(subdir.aggregateMetrics()));
             return aggregated;
         }
     }
 
     /**
-     * Contains coverage data for a single source file.
+     * Container for coverage data related to a single source file.
+     * Holds both the file's identity and its associated coverage metrics.
      */
+    @Data
+    @RequiredArgsConstructor
     static class SourceFileCoverageData {
         /**
-         * Name of the source file
+         * Name of the source file being analyzed
          */
-        String fileName;
+        private final String fileName;
         /**
-         * Coverage metrics for the file
+         * Complete set of coverage metrics for this file
          */
-        CoverageMetrics metrics;
-
-        /**
-         * Creates coverage data for a source file.
-         *
-         * @param fileName Name of the source file
-         * @param metrics  Coverage metrics for the file
-         */
-        SourceFileCoverageData(String fileName, CoverageMetrics metrics) {
-            this.fileName = fileName;
-            this.metrics = metrics;
-        }
+        private final CoverageMetrics metrics;
     }
 
     /**
-     * Holds various coverage metrics for a source file or directory.
+     * Comprehensive collection of coverage metrics for a source file or directory.
+     * Tracks coverage at multiple levels: classes, methods, lines, and branches.
+     * All metrics maintain both total count and covered count for percentage calculation.
      */
+    @Data
     static class CoverageMetrics {
         /**
-         * Total number of classes and number of classes with coverage
+         * Total number of classes in the scope
          */
-        int totalClasses, coveredClasses;
+        private int totalClasses;
         /**
-         * Total number of methods and number of methods with coverage
+         * Number of classes that have any coverage
          */
-        int totalMethods, coveredMethods;
+        private int coveredClasses;
         /**
-         * Total number of lines and number of lines with coverage
+         * Total number of methods across all classes
          */
-        int totalLines, coveredLines;
+        private int totalMethods;
         /**
-         * Total number of branches and number of branches with coverage
+         * Number of methods that have been executed
          */
-        int totalBranches, coveredBranches;
+        private int coveredMethods;
+        /**
+         * Total number of lines of code
+         */
+        private int totalLines;
+        /**
+         * Number of lines that have been executed
+         */
+        private int coveredLines;
+        /**
+         * Total number of branches in conditional statements
+         */
+        private int totalBranches;
+        /**
+         * Number of branches that have been executed
+         */
+        private int coveredBranches;
 
-        /**
-         * Adds another set of metrics to this one.
-         * Used for aggregating metrics across multiple files or directories.
-         *
-         * @param other The metrics to add to this one
-         */
         void add(@NotNull CoverageMetrics other) {
             totalClasses += other.totalClasses;
             coveredClasses += other.coveredClasses;
