@@ -1,4 +1,4 @@
-package com.example;
+package com.github.jacoco-console-reporter;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.testing.AbstractMojoTestCase;
@@ -50,5 +50,25 @@ public class JacocoConsoleReporterMojoTest extends AbstractMojoTestCase {
         rule.setVariableValueToObject(mojo, "classesDirectory", new File("nonexistent/classes"));
 
         mojo.execute();
+    }
+
+    @Test
+    public void testExecute() throws Exception {
+        File testProjectDir = new File("../test-project");
+        File pom = new File(testProjectDir, "pom.xml");
+        assertTrue(pom.exists());
+
+        File jacocoExecFile = new File(testProjectDir, "target/jacoco.exec");
+        assertTrue(jacocoExecFile.exists());
+
+        File classesDirectory = new File(testProjectDir, "target/classes");
+        assertTrue(classesDirectory.exists());
+
+        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom, "report");
+        mojo.setJacocoExecFile(jacocoExecFile);
+        mojo.setClassesDirectory(classesDirectory);
+
+        mojo.execute();
+        // Add assertions or log checks if needed
     }
 }

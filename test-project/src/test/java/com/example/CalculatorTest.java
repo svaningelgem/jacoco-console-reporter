@@ -10,5 +10,9 @@ public class CalculatorTest {
         assertEquals(5, calc.add(2, 3));
     }
 
-    // Subtract method is not tested, so coverage will be partial
+    @Test
+    public void testSubtract() {
+        Calculator calc = new Calculator();
+        assertEquals(1, calc.subtract(3, 2));
+    }
 }
