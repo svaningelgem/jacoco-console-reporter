@@ -45,13 +45,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * Location of the JaCoCo execution data file.
      */
     @Parameter(defaultValue = "${project.build.directory}/jacoco.exec", property = "jacocoExecFile", required = true)
-    private File jacocoExecFile;
+    File jacocoExecFile;
 
     /**
      * Directory containing the compiled Java classes.
      */
     @Parameter(defaultValue = "${project.build.outputDirectory}", property = "classesDirectory", required = true)
-    private File classesDirectory;
+    File classesDirectory;
 
     public void execute() throws MojoExecutionException {
         if (!jacocoExecFile.exists()) {

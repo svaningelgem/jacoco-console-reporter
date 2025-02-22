@@ -181,10 +181,11 @@
                     <version>${maven-plugin-plugin.version}</version>
                     <configuration>
                         <goalPrefix>jacoco-console-reporter</goalPrefix>
+                        <skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound>
                     </configuration>
                     <executions>
                         <execution>
-                            <id>default</id>
+                            <id>mojo-descriptor</id>
                             <goals>
                                 <goal>descriptor</goal>
                             </goals>
