@@ -12,7 +12,9 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>io.github.svaningelgem</groupId>
                 <artifactId>jacoco-console-reporter</artifactId>
+                <version>${project.version}</version>
                 <configuration>
                     <jacocoExecFile>${basedir}/src/test/resources/jacoco.exec</jacocoExecFile>
                     <classesDirectory>${basedir}/target/classes</classesDirectory>
