@@ -13,6 +13,29 @@
 
     <name>JaCoCo Console Reporter Maven Plugin</name>
     <description>A custom Maven plugin to report JaCoCo coverage to the console</description>
+    <url>https://github.com/svaningelgem/jacoco-console-reporter</url>
+
+    <licenses>
+        <license>
+            <name>GNU Lesser General Public License v3.0</name>
+            <url>https://raw.githubusercontent.com/svaningelgem/jacoco-console-reporter/refs/heads/master/LICENSE</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Steven Van Ingelgem</name>
+            <email>steven@vaningelgem.be</email>
+            <organization>-</organization>
+            <organizationUrl>https://github.com/svaningelgem</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/svaningelgem/jacoco-console-reporter.git</connection>
+        <developerConnection>scm:git:ssh://github.com:svaningelgem/jacoco-console-reporter.git</developerConnection>
+        <url>http://github.com/svaningelgem/jacoco-console-reporter/tree/master</url>
+    </scm>
 
     <dependencies>
         <!-- Maven Plugin Dependencies -->
