@@ -44,8 +44,8 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     private static final String CORNER = "└─";
 
     static final String DIVIDER = getDivider();
-    static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s";
-    static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s";
+    static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s";
+    static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s";
 
     /**
      * Location of the JaCoCo execution data file.
@@ -80,14 +80,64 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     @Parameter(property = "additionalExecFiles")
     List<File> additionalExecFiles = new ArrayList<>();
 
+    /**
+     * Option to scan for exec files in project modules.
+     * When true, will automatically discover all jacoco.exec files in the project.
+     */
+    @Parameter(defaultValue = "false", property = "scanModules", required = false)
+    boolean scanModules;
+
+    /**
+     * Base directory for module scanning.
+     */
+    @Parameter(defaultValue = "${project.basedir}", property = "baseDir", required = false)
+    File baseDir;
+
+    /**
+     * The Maven project.
+     */
+    @Parameter(defaultValue = "${project}", readonly = true, required = true)
+    org.apache.maven.project.MavenProject project;
+
+    /**
+     * Track which exec files have been processed
+     */
+    private final List<String> processedExecFiles = new ArrayList<>();
+
+    /**
+     * JaCoCo plugin info for dependency discovery
+     */
+    private static final String JACOCO_GROUP_ID = "org.jacoco";
+    private static final String JACOCO_ARTIFACT_ID = "jacoco-maven-plugin";
+    private static final String EXEC_FILE_PATTERN = "jacoco.exec";
+
     public void execute() throws MojoExecutionException {
-        if (deferReporting || additionalExecFiles.isEmpty()) {
+        // Check if JaCoCo plugin is in the project
+        boolean hasJacocoPlugin = checkForJacocoPlugin();
+
+        // Even when deferring, collect the current module's exec file
+        if (jacocoExecFile.exists() && !additionalExecFiles.contains(jacocoExecFile)) {
+            additionalExecFiles.add(jacocoExecFile);
+            getLog().debug("Added exec file from current module: " + jacocoExecFile.getAbsolutePath());
+        }
+
+        // Scan for exec files if requested
+        if (scanModules) {
+            scanForExecFiles();
+        }
+
+        // If we're deferring and this isn't the last module, return
+        if (deferReporting && !isLastModule()) {
             getLog().info("Deferring JaCoCo reporting until the end of the build");
             return;
         }
 
-        if (!jacocoExecFile.exists() || (additionalExecFiles == null || additionalExecFiles.isEmpty())) {
-            getLog().warn("No coverage data found at " + jacocoExecFile.getAbsolutePath() + "; ensure JaCoCo plugin ran with tests.");
+        if (additionalExecFiles.isEmpty()) {
+            if (hasJacocoPlugin) {
+                getLog().warn("No coverage data found; ensure JaCoCo plugin ran with tests.");
+            } else {
+                getLog().warn("No JaCoCo plugin found in project; no coverage data will be available.");
+            }
             return;
         }
 
@@ -102,30 +152,99 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     /**
-     * Loads JaCoCo execution data from the specified file and any additional files.
+     * Check if the JaCoCo plugin is configured in the current project
+     */
+    private boolean checkForJacocoPlugin() {
+        return project.getBuildPlugins().stream()
+                .anyMatch(plugin ->
+                        JACOCO_GROUP_ID.equals(plugin.getGroupId()) &&
+                                JACOCO_ARTIFACT_ID.equals(plugin.getArtifactId()));
+    }
+
+    /**
+     * Determines if this is the last module in a multi-module build
+     */
+    private boolean isLastModule() {
+        if (project.isExecutionRoot()) {
+            // For root projects with modules, consider it the last module
+            return true;
+        }
+
+        // We can't reliably determine the build order, so leave it to configuration
+        return false;
+    }
+
+    /**
+     * Scan for JaCoCo exec files in all modules
+     */
+    private void scanForExecFiles() {
+        getLog().info("Scanning for JaCoCo exec files");
+
+        // Start with the base directory
+        scanDirectoryForExecFiles(baseDir);
+    }
+
+    /**
+     * Recursively scan directories for JaCoCo exec files
+     */
+    private void scanDirectoryForExecFiles(File dir) {
+        if (!dir.exists() || !dir.isDirectory()) {
+            return;
+        }
+
+        // Check for target directory with exec file
+        File targetDir = new File(dir, "target");
+        if (targetDir.exists() && targetDir.isDirectory()) {
+            File[] execFiles = targetDir.listFiles((d, name) -> name.endsWith(EXEC_FILE_PATTERN));
+            if (execFiles != null) {
+                for (File execFile : execFiles) {
+                    if (!additionalExecFiles.contains(execFile)) {
+                        additionalExecFiles.add(execFile);
+                        getLog().debug("Found exec file: " + execFile.getAbsolutePath());
+                    }
+                }
+            }
+        }
+
+        // Recursively check subdirectories, but skip some common directories to avoid deep scanning
+        File[] subdirs = dir.listFiles(file ->
+                file.isDirectory() &&
+                        !file.getName().equals("target") &&
+                        !file.getName().equals("node_modules") &&
+                        !file.getName().startsWith("."));
+
+        if (subdirs != null) {
+            for (File subdir : subdirs) {
+                scanDirectoryForExecFiles(subdir);
+            }
+        }
+    }
+
+    /**
+     * Loads JaCoCo execution data from the specified files.
      * Creates both execution data and session info stores to capture
-     * all coverage information from the JaCoCo output file.
+     * all coverage information from the JaCoCo output files.
      *
      * @return Populated execution data store with coverage information
-     * @throws IOException if there are issues reading the JaCoCo execution file
+     * @throws IOException if there are issues reading the JaCoCo execution files
      */
     private @NotNull ExecutionDataStore loadExecutionData() throws IOException {
         ExecutionDataStore executionDataStore = new ExecutionDataStore();
         SessionInfoStore sessionInfoStore = new SessionInfoStore();
 
-        // Load main exec file if it exists
-        if (jacocoExecFile.exists()) {
-            loadExecFile(jacocoExecFile, executionDataStore, sessionInfoStore);
-        }
-
-        // Load any additional exec files
-        if (additionalExecFiles != null) {
-            for (File execFile : additionalExecFiles) {
-                if (execFile.exists()) {
+        // Load all exec files
+        for (File execFile : additionalExecFiles) {
+            if (execFile.exists()) {
+                String execPath = execFile.getAbsolutePath();
+                if (!processedExecFiles.contains(execPath)) {
                     loadExecFile(execFile, executionDataStore, sessionInfoStore);
+                    processedExecFiles.add(execPath);
+                    getLog().debug("Processed exec file: " + execPath);
                 } else {
-                    getLog().warn("Additional exec file not found: " + execFile.getAbsolutePath());
+                    getLog().debug("Skipping already processed exec file: " + execPath);
                 }
+            } else {
+                getLog().warn("Exec file not found: " + execFile.getAbsolutePath());
             }
         }
 
@@ -253,7 +372,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * Truncates a string in the middle if it exceeds maxLength
      * Example: "com.example.very.long.package.name" -> "com.example...kage.name"
      */
-    private @NotNull String truncateMiddle(@NotNull String input, int maxLength) {
+    private String truncateMiddle(String input, int maxLength) {
         if (input.length() <= maxLength) {
             return input;
         }
