@@ -100,6 +100,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     org.apache.maven.project.MavenProject project;
 
     /**
+     * The Maven session.
+     */
+    @Parameter(defaultValue = "${session}", readonly = true, required = true)
+    org.apache.maven.execution.MavenSession mavenSession;
+
+    /**
      * Track which exec files have been processed
      */
     private final List<String> processedExecFiles = new ArrayList<>();
@@ -127,7 +133,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
 
         // If we're deferring and this isn't the last module, return
-        if (deferReporting && !isLastModule()) {
+        if (deferReporting && !shouldReport()) {
             getLog().info("Deferring JaCoCo reporting until the end of the build");
             return;
         }
@@ -163,15 +169,11 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     /**
      * Determines if this is the last module in a multi-module build
+     * --> If so: start reporting
      */
-    private boolean isLastModule() {
-        if (project.isExecutionRoot()) {
-            // For root projects with modules, consider it the last module
-            return true;
-        }
-
-        // We can't reliably determine the build order, so leave it to configuration
-        return false;
+    private boolean shouldReport() {
+        //Defer execution until the last project.
+        return !deferReporting || project.getId().equals(mavenSession.getProjects().get(mavenSession.getProjects().size() - 1).getId());
     }
 
     /**
