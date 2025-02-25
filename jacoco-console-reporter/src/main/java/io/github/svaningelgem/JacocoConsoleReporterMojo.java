@@ -109,7 +109,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     private static final String JACOCO_GROUP_ID = "org.jacoco";
     private static final String JACOCO_ARTIFACT_ID = "jacoco-maven-plugin";
-    private static final String EXEC_FILE_PATTERN = "jacoco.exec";
+    private static final String DEFAULT_EXEC_FILENAME = "jacoco.exec";
 
     public void execute() throws MojoExecutionException {
         // Check if JaCoCo plugin is in the project
@@ -180,14 +180,53 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     private void scanForExecFiles() {
         getLog().info("Scanning for JaCoCo exec files");
 
+        // Get the configured exec file pattern from JaCoCo plugin if available
+        List<String> execPatterns = getConfiguredExecFilePatterns();
+
         // Start with the base directory
-        scanDirectoryForExecFiles(baseDir);
+        scanDirectoryForExecFiles(baseDir, execPatterns);
+    }
+
+    /**
+     * Get the configured JaCoCo exec file patterns from the project
+     */
+    private List<String> getConfiguredExecFilePatterns() {
+        List<String> patterns = new ArrayList<>();
+        // Add the default pattern
+        patterns.add(DEFAULT_EXEC_FILENAME);
+
+        project.getBuildPlugins().stream()
+                .filter(plugin -> JACOCO_GROUP_ID.equals(plugin.getGroupId())
+                        && JACOCO_ARTIFACT_ID.equals(plugin.getArtifactId()))
+                .forEach(plugin -> {
+                    Object config = plugin.getConfiguration();
+                    if (config != null) {
+                        try {
+                            // This is a very simplified approach - in a real implementation
+                            // you would need more robust XML parsing of the configuration
+                            String configStr = config.toString();
+                            if (configStr.contains("<destFile>")) {
+                                int start = configStr.indexOf("<destFile>") + 10;
+                                int end = configStr.indexOf("</destFile>", start);
+                                if (end > start) {
+                                    String destFile = configStr.substring(start, end).trim();
+                                    // Extract just the filename
+                                    patterns.add(new File(destFile).getName());
+                                }
+                            }
+                        } catch (Exception e) {
+                            getLog().debug("Error parsing JaCoCo configuration: " + e.getMessage());
+                        }
+                    }
+                });
+
+        return patterns;
     }
 
     /**
      * Recursively scan directories for JaCoCo exec files
      */
-    private void scanDirectoryForExecFiles(File dir) {
+    private void scanDirectoryForExecFiles(File dir, List<String> execPatterns) {
         if (!dir.exists() || !dir.isDirectory()) {
             return;
         }
@@ -195,7 +234,9 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         // Check for target directory with exec file
         File targetDir = new File(dir, "target");
         if (targetDir.exists() && targetDir.isDirectory()) {
-            File[] execFiles = targetDir.listFiles((d, name) -> name.endsWith(EXEC_FILE_PATTERN));
+            File[] execFiles = targetDir.listFiles((d, name) ->
+                    execPatterns.stream().anyMatch(pattern -> name.equals(pattern)));
+
             if (execFiles != null) {
                 for (File execFile : execFiles) {
                     if (!additionalExecFiles.contains(execFile)) {
@@ -215,7 +256,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
         if (subdirs != null) {
             for (File subdir : subdirs) {
-                scanDirectoryForExecFiles(subdir);
+                scanDirectoryForExecFiles(subdir, execPatterns);
             }
         }
     }
