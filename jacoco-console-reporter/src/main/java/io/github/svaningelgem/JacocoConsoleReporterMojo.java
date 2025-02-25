@@ -34,18 +34,18 @@ import java.util.TreeMap;
 )
 public class JacocoConsoleReporterMojo extends AbstractMojo {
     // Define column widths
-    static final int PACKAGE_WIDTH = 40;
-    static final int METRICS_WIDTH = 25;
+    static final int PACKAGE_WIDTH = 100;
+    static final int METRICS_WIDTH = 20;
 
     // Define tree characters based on terminal capabilities
-    private static final String LASTDIR_SPACE = "  ";
-    private static final String VERTICAL_LINE = "| ";
-    private static final String TEE = "+- ";
-    private static final String CORNER = "`- ";
+    private static final String LASTDIR_SPACE = " ";
+    private static final String VERTICAL_LINE = "│";
+    private static final String TEE = "├─";
+    private static final String CORNER = "└─";
 
     static final String DIVIDER = getDivider();
-    static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s";
-    static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s";
+    static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s";
+    static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s";
 
     /**
      * Location of the JaCoCo execution data file.
@@ -59,8 +59,34 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.outputDirectory}", property = "classesDirectory", required = true)
     File classesDirectory;
 
+    /**
+     * Option to defer reporting until the end (for multi-module projects).
+     * When true, the plugin will not report during module execution.
+     */
+    @Parameter(defaultValue = "false", property = "deferReporting", required = false)
+    boolean deferReporting;
+
+    /**
+     * Option to show individual files in the report.
+     * When false, only packages will be displayed.
+     */
+    @Parameter(defaultValue = "true", property = "showFiles", required = false)
+    boolean showFiles;
+
+    /**
+     * Additional exec files to include in the report.
+     * Useful for aggregating multiple module reports.
+     */
+    @Parameter(property = "additionalExecFiles")
+    List<File> additionalExecFiles = new ArrayList<>();
+
     public void execute() throws MojoExecutionException {
-        if (!jacocoExecFile.exists()) {
+        if (deferReporting || additionalExecFiles.isEmpty()) {
+            getLog().info("Deferring JaCoCo reporting until the end of the build");
+            return;
+        }
+
+        if (!jacocoExecFile.exists() || (additionalExecFiles == null || additionalExecFiles.isEmpty())) {
             getLog().warn("No coverage data found at " + jacocoExecFile.getAbsolutePath() + "; ensure JaCoCo plugin ran with tests.");
             return;
         }
@@ -76,7 +102,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     /**
-     * Loads JaCoCo execution data from the specified file.
+     * Loads JaCoCo execution data from the specified file and any additional files.
      * Creates both execution data and session info stores to capture
      * all coverage information from the JaCoCo output file.
      *
@@ -87,14 +113,35 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         ExecutionDataStore executionDataStore = new ExecutionDataStore();
         SessionInfoStore sessionInfoStore = new SessionInfoStore();
 
-        try (FileInputStream in = new FileInputStream(jacocoExecFile)) {
+        // Load main exec file if it exists
+        if (jacocoExecFile.exists()) {
+            loadExecFile(jacocoExecFile, executionDataStore, sessionInfoStore);
+        }
+
+        // Load any additional exec files
+        if (additionalExecFiles != null) {
+            for (File execFile : additionalExecFiles) {
+                if (execFile.exists()) {
+                    loadExecFile(execFile, executionDataStore, sessionInfoStore);
+                } else {
+                    getLog().warn("Additional exec file not found: " + execFile.getAbsolutePath());
+                }
+            }
+        }
+
+        return executionDataStore;
+    }
+
+    /**
+     * Loads an individual JaCoCo execution data file
+     */
+    private void loadExecFile(File execFile, ExecutionDataStore executionDataStore, SessionInfoStore sessionInfoStore) throws IOException {
+        try (FileInputStream in = new FileInputStream(execFile)) {
             ExecutionDataReader reader = new ExecutionDataReader(in);
             reader.setExecutionDataVisitor(executionDataStore);
             reader.setSessionInfoVisitor(sessionInfoStore);
             reader.read();
         }
-
-        return executionDataStore;
     }
 
     /**
@@ -166,7 +213,6 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     private void printCoverageReport(DirectoryNode root) {
         // Create format strings
-
         // Print header
         getLog().info("Overall Coverage Summary");
         getLog().info(String.format(HEADER_FORMAT, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
@@ -204,6 +250,22 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     /**
+     * Truncates a string in the middle if it exceeds maxLength
+     * Example: "com.example.very.long.package.name" -> "com.example...kage.name"
+     */
+    private @NotNull String truncateMiddle(@NotNull String input, int maxLength) {
+        if (input.length() <= maxLength) {
+            return input;
+        }
+
+        int prefixLength = (maxLength - 3) / 2;
+        int suffixLength = maxLength - 3 - prefixLength;
+
+        return input.substring(0, prefixLength) + "..." +
+                input.substring(input.length() - suffixLength);
+    }
+
+    /**
      * Recursively prints the directory tree with coverage metrics.
      *
      * @param node        The current directory node
@@ -222,26 +284,28 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             // Print package metrics
             CoverageMetrics aggregated = node.aggregateMetrics();
             getLog().info(String.format(format,
-                    indent + currentPackage,
+                    truncateMiddle(indent + currentPackage, PACKAGE_WIDTH),
                     formatCoverage(aggregated.coveredClasses, aggregated.totalClasses),
                     formatCoverage(aggregated.coveredMethods, aggregated.totalMethods),
                     formatCoverage(aggregated.coveredBranches, aggregated.totalBranches),
                     formatCoverage(aggregated.coveredLines, aggregated.totalLines)));
 
-            String childIndent = indent + "  ";
+            String childIndent = indent + " ";
 
-            // Print files
-            for (int i = 0; i < node.sourceFiles.size(); i++) {
-                SourceFileCoverageData file = node.sourceFiles.get(i);
-                boolean isLastFile = i == node.sourceFiles.size() - 1 && node.subdirectories.isEmpty();
-                String prefix = isLastFile ? CORNER : TEE;
+            // Print files if showFiles is enabled
+            if (showFiles) {
+                for (int i = 0; i < node.sourceFiles.size(); i++) {
+                    SourceFileCoverageData file = node.sourceFiles.get(i);
+                    boolean isLastFile = i == node.sourceFiles.size() - 1 && node.subdirectories.isEmpty();
+                    String prefix = isLastFile ? CORNER : TEE;
 
-                getLog().info(String.format(format,
-                        childIndent + prefix + file.fileName,
-                        formatCoverage(file.metrics.coveredClasses, file.metrics.totalClasses),
-                        formatCoverage(file.metrics.coveredMethods, file.metrics.totalMethods),
-                        formatCoverage(file.metrics.coveredBranches, file.metrics.totalBranches),
-                        formatCoverage(file.metrics.coveredLines, file.metrics.totalLines)));
+                    getLog().info(String.format(format,
+                            truncateMiddle(childIndent + prefix + file.fileName, PACKAGE_WIDTH),
+                            formatCoverage(file.metrics.coveredClasses, file.metrics.totalClasses),
+                            formatCoverage(file.metrics.coveredMethods, file.metrics.totalMethods),
+                            formatCoverage(file.metrics.coveredBranches, file.metrics.totalBranches),
+                            formatCoverage(file.metrics.coveredLines, file.metrics.totalLines)));
+                }
             }
 
             // For subdirectories, use the current indent
@@ -275,7 +339,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     private @NotNull String formatCoverage(int covered, int total) {
         if (total == 0) return "100.00% (0/0)";
         double percentage = (double) covered / total * 100;
-        return String.format("%6.2f%% (%d/%d)", percentage, covered, total);
+        return String.format("%5.2f%% (%d/%d)", percentage, covered, total);
     }
 
     /**
