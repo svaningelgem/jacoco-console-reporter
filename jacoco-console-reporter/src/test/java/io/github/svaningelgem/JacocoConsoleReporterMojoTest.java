@@ -462,4 +462,172 @@ public class JacocoConsoleReporterMojoTest {
     private String getBasedir() {
         return System.getProperty("basedir", new File("").getAbsolutePath());
     }
+
+    @Test
+    public void testPrintDirectoryTreeWithShowFilesEnabled() throws Exception {
+        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
+        assertNotNull("Mojo not found", mojo);
+
+        // Create a sample directory structure with files
+        JacocoConsoleReporterMojo.DirectoryNode root = new JacocoConsoleReporterMojo.DirectoryNode("");
+        JacocoConsoleReporterMojo.DirectoryNode pkg = new JacocoConsoleReporterMojo.DirectoryNode("pkg");
+
+        // Add a source file to the package
+        JacocoConsoleReporterMojo.CoverageMetrics metrics = new JacocoConsoleReporterMojo.CoverageMetrics();
+        metrics.setTotalClasses(2);
+        metrics.setCoveredClasses(1);
+        metrics.setTotalMethods(5);
+        metrics.setCoveredMethods(3);
+        metrics.setTotalLines(20);
+        metrics.setCoveredLines(15);
+        metrics.setTotalBranches(4);
+        metrics.setCoveredBranches(2);
+
+        pkg.getSourceFiles().add(new JacocoConsoleReporterMojo.SourceFileCoverageData("Test.java", metrics));
+        root.getSubdirectories().put("pkg", pkg);
+
+        // Set showFiles to true
+        mojo.showFiles = true;
+
+        // Use reflection to call the private method
+        java.lang.reflect.Method printMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod(
+                "printDirectoryTree",
+                JacocoConsoleReporterMojo.DirectoryNode.class,
+                String.class,
+                String.class,
+                String.class
+        );
+        printMethod.setAccessible(true);
+
+        // This will exercise the showFiles=true branch
+        printMethod.invoke(mojo, root, "", "", JacocoConsoleReporterMojo.LINE_FORMAT);
+    }
+
+    @Test
+    public void testMultipleSubdirectoriesCase() throws Exception {
+        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
+        assertNotNull("Mojo not found", mojo);
+
+        // Create a sample directory structure with multiple subdirectories
+        JacocoConsoleReporterMojo.DirectoryNode root = new JacocoConsoleReporterMojo.DirectoryNode("");
+
+        // Add multiple subdirectories to test the shouldPrintCurrentNode branch
+        JacocoConsoleReporterMojo.DirectoryNode pkg1 = new JacocoConsoleReporterMojo.DirectoryNode("pkg1");
+        JacocoConsoleReporterMojo.DirectoryNode pkg2 = new JacocoConsoleReporterMojo.DirectoryNode("pkg2");
+
+        // Add them to root
+        root.getSubdirectories().put("pkg1", pkg1);
+        root.getSubdirectories().put("pkg2", pkg2);
+
+        // This will make shouldPrintCurrentNode = true due to subdirectories.size() > 1
+
+        // Use reflection to call the private method
+        java.lang.reflect.Method printMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod(
+                "printDirectoryTree",
+                JacocoConsoleReporterMojo.DirectoryNode.class,
+                String.class,
+                String.class,
+                String.class
+        );
+        printMethod.setAccessible(true);
+
+        printMethod.invoke(mojo, root, "", "", JacocoConsoleReporterMojo.LINE_FORMAT);
+    }
+
+    @Test
+    public void testPrintDirectoryTreeWithNonEmptySubdirectory() throws Exception {
+        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
+        assertNotNull("Mojo not found", mojo);
+
+        // Create a complex directory structure
+        // root -> com -> example -> (file1.java, file2.java)
+        JacocoConsoleReporterMojo.DirectoryNode root = new JacocoConsoleReporterMojo.DirectoryNode("");
+        JacocoConsoleReporterMojo.DirectoryNode com = new JacocoConsoleReporterMojo.DirectoryNode("com");
+        JacocoConsoleReporterMojo.DirectoryNode example = new JacocoConsoleReporterMojo.DirectoryNode("example");
+
+        // Add source files to example package
+        JacocoConsoleReporterMojo.CoverageMetrics metrics = new JacocoConsoleReporterMojo.CoverageMetrics();
+        metrics.setTotalClasses(1);
+        metrics.setCoveredClasses(1);
+        metrics.setTotalMethods(3);
+        metrics.setCoveredMethods(2);
+        metrics.setTotalLines(10);
+        metrics.setCoveredLines(8);
+        metrics.setTotalBranches(2);
+        metrics.setCoveredBranches(1);
+
+        example.getSourceFiles().add(new JacocoConsoleReporterMojo.SourceFileCoverageData("File1.java", metrics));
+        example.getSourceFiles().add(new JacocoConsoleReporterMojo.SourceFileCoverageData("File2.java", metrics));
+
+        // Connect the tree
+        com.getSubdirectories().put("example", example);
+        root.getSubdirectories().put("com", com);
+
+        // This will exercise the single-subdirectory case but with sourceFiles
+
+        // Use reflection to call the private method
+        java.lang.reflect.Method printMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod(
+                "printDirectoryTree",
+                JacocoConsoleReporterMojo.DirectoryNode.class,
+                String.class,
+                String.class,
+                String.class
+        );
+        printMethod.setAccessible(true);
+
+        printMethod.invoke(mojo, root, "", "", JacocoConsoleReporterMojo.LINE_FORMAT);
+    }
+
+    @Test
+    public void testPrintDirectoryTreeWithSourceFilesAndMultipleSubdirs() throws Exception {
+        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
+        assertNotNull("Mojo not found", mojo);
+
+        // Create a complex case with both source files and multiple subdirectories
+        JacocoConsoleReporterMojo.DirectoryNode root = new JacocoConsoleReporterMojo.DirectoryNode("");
+        JacocoConsoleReporterMojo.DirectoryNode com = new JacocoConsoleReporterMojo.DirectoryNode("com");
+        JacocoConsoleReporterMojo.DirectoryNode example = new JacocoConsoleReporterMojo.DirectoryNode("example");
+        JacocoConsoleReporterMojo.DirectoryNode util = new JacocoConsoleReporterMojo.DirectoryNode("util");
+        JacocoConsoleReporterMojo.DirectoryNode model = new JacocoConsoleReporterMojo.DirectoryNode("model");
+
+        // Add source files
+        JacocoConsoleReporterMojo.CoverageMetrics metrics = new JacocoConsoleReporterMojo.CoverageMetrics();
+        metrics.setTotalClasses(1);
+        metrics.setCoveredClasses(1);
+        metrics.setTotalMethods(2);
+        metrics.setCoveredMethods(2);
+        metrics.setTotalLines(8);
+        metrics.setCoveredLines(7);
+        metrics.setTotalBranches(2);
+        metrics.setCoveredBranches(1);
+
+        example.getSourceFiles().add(new JacocoConsoleReporterMojo.SourceFileCoverageData("Example.java", metrics));
+        util.getSourceFiles().add(new JacocoConsoleReporterMojo.SourceFileCoverageData("Util.java", metrics));
+        model.getSourceFiles().add(new JacocoConsoleReporterMojo.SourceFileCoverageData("Model.java", metrics));
+
+        // Add multiple subdirectories to example
+        example.getSubdirectories().put("util", util);
+        example.getSubdirectories().put("model", model);
+
+        // Connect the tree
+        com.getSubdirectories().put("example", example);
+        root.getSubdirectories().put("com", com);
+
+        // This exercises the case with source files and multiple subdirectories
+
+        // Enable showing files
+        mojo.showFiles = true;
+
+        // Use reflection to call the private method
+        java.lang.reflect.Method printMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod(
+                "printDirectoryTree",
+                JacocoConsoleReporterMojo.DirectoryNode.class,
+                String.class,
+                String.class,
+                String.class
+        );
+        printMethod.setAccessible(true);
+
+        printMethod.invoke(mojo, root, "", "", JacocoConsoleReporterMojo.LINE_FORMAT);
+    }
 }

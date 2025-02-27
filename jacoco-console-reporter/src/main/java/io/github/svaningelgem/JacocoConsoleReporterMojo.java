@@ -228,7 +228,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Recursively scan directories for JaCoCo exec files
      */
-    private void scanDirectoryForExecFiles(File dir, List<String> execPatterns) {
+    private void scanDirectoryForExecFiles(@NotNull File dir, List<String> execPatterns) {
         if (!dir.exists() || !dir.isDirectory()) {
             return;
         }
