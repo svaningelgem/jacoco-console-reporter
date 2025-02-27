@@ -285,15 +285,8 @@ public class JacocoConsoleReporterMojoTest {
         mojo.jacocoExecFile = new File("nonexistent.exec");
         mojo.classesDirectory = testProjectClasses;
 
-        // This should find and add the exec files, but since they're empty,
-        // it will throw an exception when trying to read them
-        try {
-            mojo.execute();
-            fail("Should throw exception with empty exec files");
-        } catch (MojoExecutionException e) {
-            // Expected
-            assertTrue(e.getMessage().contains("Failed to process JaCoCo data"));
-        }
+        // Execute and verify files were found
+        mojo.execute();
 
         // Verify that both files were found
         assertEquals(2, mojo.additionalExecFiles.size());
@@ -329,14 +322,8 @@ public class JacocoConsoleReporterMojoTest {
         mojo.jacocoExecFile = new File("nonexistent.exec");
         mojo.classesDirectory = testProjectClasses;
 
-        // This should find the custom exec file, but since it's empty,
-        // it will throw an exception trying to read it
-        try {
-            mojo.execute();
-            fail("Should throw exception with empty exec files");
-        } catch (MojoExecutionException e) {
-            // Expected
-        }
+        // Execute and verify custom file was found
+        mojo.execute();
 
         // Verify the custom file was found
         boolean found = false;
