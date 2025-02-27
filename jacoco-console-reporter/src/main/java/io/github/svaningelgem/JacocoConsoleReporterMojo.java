@@ -44,8 +44,8 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     private static final String CORNER = "└─";
 
     static final String DIVIDER = getDivider();
-    static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s";
-    static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s | %-" + METRICS_WIDTH + "s";
+    static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s";
+    static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s";
 
     /**
      * Location of the JaCoCo execution data file.
@@ -63,14 +63,14 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * Option to defer reporting until the end (for multi-module projects).
      * When true, the plugin will not report during module execution.
      */
-    @Parameter(defaultValue = "false", property = "deferReporting", required = false)
+    @Parameter(defaultValue = "false", property = "deferReporting")
     boolean deferReporting;
 
     /**
      * Option to show individual files in the report.
      * When false, only packages will be displayed.
      */
-    @Parameter(defaultValue = "true", property = "showFiles", required = false)
+    @Parameter(defaultValue = "true", property = "showFiles")
     boolean showFiles;
 
     /**
@@ -84,13 +84,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * Option to scan for exec files in project modules.
      * When true, will automatically discover all jacoco.exec files in the project.
      */
-    @Parameter(defaultValue = "false", property = "scanModules", required = false)
+    @Parameter(defaultValue = "false", property = "scanModules")
     boolean scanModules;
 
     /**
      * Base directory for module scanning.
      */
-    @Parameter(defaultValue = "${project.basedir}", property = "baseDir", required = false)
+    @Parameter(defaultValue = "${project.basedir}", property = "baseDir")
     File baseDir;
 
     /**
@@ -192,7 +192,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Get the configured JaCoCo exec file patterns from the project
      */
-    private List<String> getConfiguredExecFilePatterns() {
+    private @NotNull List<String> getConfiguredExecFilePatterns() {
         List<String> patterns = new ArrayList<>();
         // Add the default pattern
         patterns.add(DEFAULT_EXEC_FILENAME);
@@ -237,7 +237,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         File targetDir = new File(dir, "target");
         if (targetDir.exists() && targetDir.isDirectory()) {
             File[] execFiles = targetDir.listFiles((d, name) ->
-                    execPatterns.stream().anyMatch(pattern -> name.equals(pattern)));
+                    execPatterns.stream().anyMatch(name::equals));
 
             if (execFiles != null) {
                 for (File execFile : execFiles) {
@@ -415,15 +415,15 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * Truncates a string in the middle if it exceeds maxLength
      * Example: "com.example.very.long.package.name" -> "com.example...kage.name"
      */
-    private String truncateMiddle(String input, int maxLength) {
-        if (input.length() <= maxLength) {
+    private @NotNull String truncateMiddle(@NotNull String input) {
+        if (input.length() <= PACKAGE_WIDTH) {
             return input;
         }
 
-        int prefixLength = (maxLength - 3) / 2;
-        int suffixLength = maxLength - 3 - prefixLength;
+        int prefixLength = (PACKAGE_WIDTH - 2) / 2;
+        int suffixLength = PACKAGE_WIDTH - 2 - prefixLength;
 
-        return input.substring(0, prefixLength) + "..." +
+        return input.substring(0, prefixLength) + ".." +
                 input.substring(input.length() - suffixLength);
     }
 
@@ -446,7 +446,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             // Print package metrics
             CoverageMetrics aggregated = node.aggregateMetrics();
             getLog().info(String.format(format,
-                    truncateMiddle(indent + currentPackage, PACKAGE_WIDTH),
+                    truncateMiddle(indent + currentPackage),
                     formatCoverage(aggregated.coveredClasses, aggregated.totalClasses),
                     formatCoverage(aggregated.coveredMethods, aggregated.totalMethods),
                     formatCoverage(aggregated.coveredBranches, aggregated.totalBranches),
@@ -462,7 +462,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
                     String prefix = isLastFile ? CORNER : TEE;
 
                     getLog().info(String.format(format,
-                            truncateMiddle(childIndent + prefix + file.fileName, PACKAGE_WIDTH),
+                            truncateMiddle(childIndent + prefix + file.fileName),
                             formatCoverage(file.metrics.coveredClasses, file.metrics.totalClasses),
                             formatCoverage(file.metrics.coveredMethods, file.metrics.totalMethods),
                             formatCoverage(file.metrics.coveredBranches, file.metrics.totalBranches),
