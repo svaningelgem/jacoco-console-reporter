@@ -8,16 +8,16 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -40,7 +40,8 @@ public class JacocoConsoleReporterMojoTest {
     /**
      * Creates a real MavenProject with JaCoCo plugin configuration
      */
-    private MavenProject createProjectWithJacocoPlugin(String destFile) {
+    @Contract("_ -> new")
+    private @NotNull MavenProject createProjectWithJacocoPlugin(String destFile) {
         Model model = new Model();
         model.setGroupId("test.group");
         model.setArtifactId("test-artifact");
@@ -70,7 +71,7 @@ public class JacocoConsoleReporterMojoTest {
     /**
      * Creates a mock MavenSession with multiple projects
      */
-    private MavenSession createMavenSession(MavenProject currentProject, boolean isLast) {
+    private @NotNull MavenSession createMavenSession(MavenProject currentProject, boolean isLast) {
         List<MavenProject> projects = new ArrayList<>();
 
         // Create first project
