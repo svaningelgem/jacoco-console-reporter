@@ -1,5 +1,8 @@
 package io.github.svaningelgem;
 
+import org.apache.maven.execution.DefaultMavenExecutionRequest;
+import org.apache.maven.execution.DefaultMavenExecutionResult;
+import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
@@ -7,6 +10,7 @@ import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -21,8 +25,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class JacocoConsoleReporterMojoTest {
 
@@ -69,32 +71,17 @@ public class JacocoConsoleReporterMojoTest {
     }
 
     /**
-     * Creates a mock MavenSession with multiple projects
+     * Creates a real MavenSession with multiple projects
      */
-    private @NotNull MavenSession createMavenSession(MavenProject currentProject, boolean isLast) {
-        List<MavenProject> projects = new ArrayList<>();
-
-        // Create first project
-        MavenProject project1 = createProjectWithJacocoPlugin(null);
-        project1.setGroupId("test.group");
-        project1.setArtifactId("module1");
-        project1.setVersion("1.0.0");
-        projects.add(project1);
-
-        // If we need more than one project
-        if (!isLast || currentProject != project1) {
-            MavenProject project2 = createProjectWithJacocoPlugin(null);
-            project2.setGroupId("test.group");
-            project2.setArtifactId("module2");
-            project2.setVersion("1.0.0");
-            projects.add(project2);
-        }
-
-        // Mock the MavenSession
-        MavenSession session = mock(MavenSession.class);
-        when(session.getProjects()).thenReturn(projects);
-
-        return session;
+    private @NotNull MavenSession createRealMavenSession(List<MavenProject> projects) throws Exception {
+        PlexusContainer container = rule.getContainer();
+        MavenExecutionRequest request = new DefaultMavenExecutionRequest();
+        return new MavenSession(
+                container,
+                request,
+                new DefaultMavenExecutionResult(),
+                projects
+        );
     }
 
     @Test
@@ -113,8 +100,10 @@ public class JacocoConsoleReporterMojoTest {
         MavenProject project = new MavenProject(model);
         mojo.project = project;
 
-        // Create a session with this as the only project
-        mojo.mavenSession = createMavenSession(project, true);
+        // Create a real MavenSession with this as the only project
+        List<MavenProject> projects = new ArrayList<>();
+        projects.add(project);
+        mojo.mavenSession = createRealMavenSession(projects);
 
         // Set a non-existent jacoco.exec file
         File execFile = new File("target/nonexistent.exec");
@@ -137,8 +126,10 @@ public class JacocoConsoleReporterMojoTest {
         MavenProject project = createProjectWithJacocoPlugin(null);
         mojo.project = project;
 
-        // Create a session with this as the only project
-        mojo.mavenSession = createMavenSession(project, true);
+        // Create a real MavenSession with this as the only project
+        List<MavenProject> projects = new ArrayList<>();
+        projects.add(project);
+        mojo.mavenSession = createRealMavenSession(projects);
 
         // Set a non-existent file
         mojo.jacocoExecFile = new File("target/nonexistent.exec");
@@ -158,16 +149,24 @@ public class JacocoConsoleReporterMojoTest {
         JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
         assertNotNull("Mojo not found", mojo);
 
-        // Create a real project
-        Model model = new Model();
-        model.setGroupId("test.group");
-        model.setArtifactId("module1");
-        model.setVersion("1.0.0");
-        MavenProject project = new MavenProject(model);
-        mojo.project = project;
+        // Create the first project
+        MavenProject project1 = createProjectWithJacocoPlugin(null);
+        project1.setGroupId("test.group");
+        project1.setArtifactId("module1");
+        project1.setVersion("1.0.0");
 
-        // Create a session with this as the first project in a multi-module build
-        mojo.mavenSession = createMavenSession(project, false);
+        // Create the second project
+        MavenProject project2 = createProjectWithJacocoPlugin(null);
+        project2.setGroupId("test.group");
+        project2.setArtifactId("module2");
+        project2.setVersion("1.0.0");
+
+        // Set current project to the first one
+        mojo.project = project1;
+
+        // Create a real MavenSession with multiple projects
+        List<MavenProject> projects = Arrays.asList(project1, project2);
+        mojo.mavenSession = createRealMavenSession(projects);
 
         // Set deferred reporting
         mojo.deferReporting = true;
@@ -189,25 +188,21 @@ public class JacocoConsoleReporterMojoTest {
         assertNotNull("Mojo not found", mojo);
 
         // Create the first project
-        Model model1 = new Model();
-        model1.setGroupId("test.group");
-        model1.setArtifactId("module1");
-        model1.setVersion("1.0.0");
-        MavenProject project1 = new MavenProject(model1);
+        MavenProject project1 = createProjectWithJacocoPlugin(null);
+        project1.setGroupId("test.group");
+        project1.setArtifactId("module1");
+        project1.setVersion("1.0.0");
 
         // Create the last project (our current one)
-        Model model2 = new Model();
-        model2.setGroupId("test.group");
-        model2.setArtifactId("module2");
-        model2.setVersion("1.0.0");
-        MavenProject project2 = new MavenProject(model2);
+        MavenProject project2 = createProjectWithJacocoPlugin(null);
+        project2.setGroupId("test.group");
+        project2.setArtifactId("module2");
+        project2.setVersion("1.0.0");
         mojo.project = project2;
 
-        // Create a maven session with multiple projects
-        MavenSession session = mock(MavenSession.class);
+        // Create a real MavenSession with multiple projects
         List<MavenProject> projects = Arrays.asList(project1, project2);
-        when(session.getProjects()).thenReturn(projects);
-        mojo.mavenSession = session;
+        mojo.mavenSession = createRealMavenSession(projects);
 
         // Set deferred reporting
         mojo.deferReporting = true;
@@ -237,8 +232,10 @@ public class JacocoConsoleReporterMojoTest {
         MavenProject project = createProjectWithJacocoPlugin(null);
         mojo.project = project;
 
-        // Create a session with this as the only project
-        mojo.mavenSession = createMavenSession(project, true);
+        // Create a real MavenSession with this as the only project
+        List<MavenProject> projects = new ArrayList<>();
+        projects.add(project);
+        mojo.mavenSession = createRealMavenSession(projects);
 
         // Set showFiles to false
         mojo.showFiles = false;
@@ -277,8 +274,10 @@ public class JacocoConsoleReporterMojoTest {
         MavenProject project = createProjectWithJacocoPlugin(null);
         mojo.project = project;
 
-        // Create a session with this as the only project
-        mojo.mavenSession = createMavenSession(project, true);
+        // Create a real MavenSession with this as the only project
+        List<MavenProject> projects = new ArrayList<>();
+        projects.add(project);
+        mojo.mavenSession = createRealMavenSession(projects);
 
         // Configure mojo
         mojo.baseDir = baseDir;
@@ -319,8 +318,10 @@ public class JacocoConsoleReporterMojoTest {
         MavenProject project = createProjectWithJacocoPlugin("${project.build.directory}/custom-coverage.exec");
         mojo.project = project;
 
-        // Create a session with this as the only project
-        mojo.mavenSession = createMavenSession(project, true);
+        // Create a real MavenSession with this as the only project
+        List<MavenProject> projects = new ArrayList<>();
+        projects.add(project);
+        mojo.mavenSession = createRealMavenSession(projects);
 
         // Configure the mojo
         mojo.baseDir = baseDir;
@@ -360,8 +361,10 @@ public class JacocoConsoleReporterMojoTest {
         MavenProject project = createProjectWithJacocoPlugin(null);
         mojo.project = project;
 
-        // Create a session with this as the only project
-        mojo.mavenSession = createMavenSession(project, true);
+        // Create a real MavenSession with this as the only project
+        List<MavenProject> projects = new ArrayList<>();
+        projects.add(project);
+        mojo.mavenSession = createRealMavenSession(projects);
 
         // Create a temporary exec file
         File tempExecFile = temporaryFolder.newFile("temp.exec");
@@ -393,8 +396,10 @@ public class JacocoConsoleReporterMojoTest {
         MavenProject project = createProjectWithJacocoPlugin(null);
         mojo.project = project;
 
-        // Create a session with this as the only project
-        mojo.mavenSession = createMavenSession(project, true);
+        // Create a real MavenSession with this as the only project
+        List<MavenProject> projects = new ArrayList<>();
+        projects.add(project);
+        mojo.mavenSession = createRealMavenSession(projects);
 
         mojo.jacocoExecFile = testProjectJacocoExec;
         mojo.classesDirectory = testProjectClasses;
@@ -409,17 +414,17 @@ public class JacocoConsoleReporterMojoTest {
         assertNotNull("Mojo not found", mojo);
 
         // Use reflection to access the private method
-        java.lang.reflect.Method truncateMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod("truncateMiddle", String.class, int.class);
+        java.lang.reflect.Method truncateMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod("truncateMiddle", String.class);
         truncateMethod.setAccessible(true);
 
         // Test normal case
-        String longString = "com.example.very.long.package.name";
-        String truncated = (String) truncateMethod.invoke(mojo, longString, 20);
-        assertEquals("com.exam...age.name", truncated);
+        String longString = "com.example.very.very.very.very.very.very.very.very.long.package.name";
+        String truncated = (String) truncateMethod.invoke(mojo, longString);
+        assertEquals("com.example.very.very.ve..y.very.long.package.name", truncated);
 
         // Test string already shorter than max
         String shortString = "com.example";
-        String notTruncated = (String) truncateMethod.invoke(mojo, shortString, 20);
+        String notTruncated = (String) truncateMethod.invoke(mojo, shortString);
         assertEquals(shortString, notTruncated);
     }
 
@@ -439,10 +444,9 @@ public class JacocoConsoleReporterMojoTest {
         project2.setArtifactId("module2");
         project2.setVersion("1.0.0");
 
-        // Create a maven session with both projects
-        MavenSession session = mock(MavenSession.class);
+        // Create a real MavenSession with both projects
         List<MavenProject> projects = Arrays.asList(project1, project2);
-        when(session.getProjects()).thenReturn(projects);
+        MavenSession session = createRealMavenSession(projects);
 
         // Test with first project
         mojo.project = project1;

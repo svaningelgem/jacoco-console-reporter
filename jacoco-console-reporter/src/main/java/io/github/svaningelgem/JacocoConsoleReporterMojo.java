@@ -34,7 +34,7 @@ import java.util.TreeMap;
 )
 public class JacocoConsoleReporterMojo extends AbstractMojo {
     // Define column widths
-    static final int PACKAGE_WIDTH = 100;
+    static final int PACKAGE_WIDTH = 50;
     static final int METRICS_WIDTH = 20;
 
     // Define tree characters based on terminal capabilities
