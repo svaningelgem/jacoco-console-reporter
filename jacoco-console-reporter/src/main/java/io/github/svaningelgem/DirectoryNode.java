@@ -69,102 +69,77 @@ class DirectoryNode implements FileSystemNode {
 
         // Skip printing the empty root node
         boolean isRoot = name.isEmpty();
-        String displayName = isRoot ? "" : prefix + name;
-        String currentPath = isRoot ? packagePath : (packagePath.isEmpty() ? name : packagePath + "." + name);
+        String currentPath = isRoot ? packagePath :
+                (packagePath.isEmpty() ? name : packagePath + "." + name);
 
         if (!isRoot) {
             log.info(String.format(format,
-                    Defaults.truncateMiddle(displayName),
+                    Defaults.truncateMiddle(prefix + name),
                     Defaults.formatCoverage(getMetrics().getCoveredClasses(), getMetrics().getTotalClasses()),
                     Defaults.formatCoverage(getMetrics().getCoveredMethods(), getMetrics().getTotalMethods()),
                     Defaults.formatCoverage(getMetrics().getCoveredBranches(), getMetrics().getTotalBranches()),
                     Defaults.formatCoverage(getMetrics().getCoveredLines(), getMetrics().getTotalLines())));
         }
 
-        // Find nodes to be printed (skip empty directories)
-        List<FileSystemNode> items = new ArrayList<>();
+        // Collect nodes that should be printed
+        List<FileSystemNode> nodes = new ArrayList<>();
 
-        // Add non-empty subdirectories
+        // Add subdirectories
         for (DirectoryNode subdir : subdirectories.values()) {
             if (subdir.shouldInclude(showFiles)) {
-                items.add(subdir);
+                nodes.add(subdir);
             }
         }
 
-        // Add files if showing files is enabled
+        // Add source files if needed
         if (showFiles) {
-            items.addAll(sourceFiles);
+            nodes.addAll(sourceFiles);
         }
 
-        // Sort items (using the default compareTo method)
-        Collections.sort(items);
+        // Sort nodes
+        Collections.sort(nodes);
 
-        // Calculate base prefix for children
-        String basePrefix = isRoot ? "" : prefix + " ";
-
-        // Process each item
-        for (int i = 0; i < items.size(); i++) {
-            FileSystemNode item = items.get(i);
-            boolean isLast = i == items.size() - 1;
-
-            // Choose the appropriate tree connector
-            String connector = isLast ? Defaults.CORNER : Defaults.TEE;
-            String childIndent = isLast ? Defaults.LASTDIR_SPACE : Defaults.VERTICAL_LINE;
+        // Print child nodes
+        String childPrefix = prefix;
+        for (int i = 0; i < nodes.size(); i++) {
+            boolean isLast = (i == nodes.size() - 1);
+            FileSystemNode node = nodes.get(i);
 
             if (isRoot) {
-                // Special case for root's direct children
-                if (item instanceof DirectoryNode) {
-                    DirectoryNode dir = (DirectoryNode) item;
-
-                    // Check if we should collapse this directory path
-                    if (shouldCollapseDirectory(dir, showFiles)) {
-                        // Collapse the directory path
-                        printCollapsedDirectoryPath(log, dir, basePrefix, connector, format,
-                                currentPath, showFiles);
-                    } else {
-                        // Print normally
-                        String rootItemPrefix = connector; // For root's direct children
-                        item.printTree(log, rootItemPrefix, format,
-                                currentPath.isEmpty() ? item.getName() :
-                                        currentPath + "." + item.getName(),
-                                showFiles);
-                    }
+                // Handle collapsible directories at root level
+                if (node instanceof DirectoryNode && shouldCollapseDirectory((DirectoryNode) node, showFiles)) {
+                    printCollapsedPath(log, (DirectoryNode) node, "", isLast, format, currentPath, showFiles);
                 } else {
-                    // Root's direct file child - should not normally happen
-                    item.printTree(log, "", format, currentPath, showFiles);
+                    // Normal node at root level
+                    String connector = isLast ? Defaults.CORNER : Defaults.TEE;
+                    node.printTree(log, connector, format, currentPath, showFiles);
                 }
             } else {
-                String itemPrefix = basePrefix + connector;
+                // Non-root nodes
+                String connector = isLast ? Defaults.CORNER : Defaults.TEE;
+                String nextPrefix = childPrefix;
 
-                if (item instanceof DirectoryNode) {
-                    // Determine if this directory should be collapsed (single path to display)
-                    DirectoryNode dir = (DirectoryNode) item;
-
-                    // Check if we should collapse this directory
-                    if (shouldCollapseDirectory(dir, showFiles)) {
-                        // Collapse the directory path
-                        printCollapsedDirectoryPath(log, dir, basePrefix, connector, format,
-                                currentPath, showFiles);
-                    } else {
-                        // Print normally
-                        item.printTree(log, itemPrefix, format,
-                                currentPath.isEmpty() ? item.getName() :
-                                        currentPath + "." + item.getName(),
-                                showFiles);
-                    }
+                // Handle collapsible directories
+                if (node instanceof DirectoryNode && shouldCollapseDirectory((DirectoryNode) node, showFiles)) {
+                    printCollapsedPath(log, (DirectoryNode) node, childPrefix, isLast, format, currentPath, showFiles);
                 } else {
-                    // File node - print normally
-                    item.printTree(log, itemPrefix, format, currentPath, showFiles);
+                    // Print the node normally
+                    node.printTree(log, nextPrefix + connector, format, currentPath, showFiles);
                 }
+            }
+
+            // Update the child prefix for subsequent siblings
+            if (!isRoot) {
+                childPrefix = prefix;
             }
         }
     }
 
     /**
-     * Determine if a directory path should be collapsed (single path with no files)
+     * Determines if a directory should be collapsed with its children
+     * (i.e., it has exactly one subdirectory and no files)
      */
     private boolean shouldCollapseDirectory(DirectoryNode dir, boolean showFiles) {
-        // Only collapse if it has exactly one subdirectory and no files
         if (showFiles && !dir.getSourceFiles().isEmpty()) {
             return false;
         }
@@ -173,77 +148,73 @@ class DirectoryNode implements FileSystemNode {
             return false;
         }
 
-        // Get the single subdirectory
         DirectoryNode subdir = dir.getSubdirectories().values().iterator().next();
-
-        // Check if that subdirectory should be included
         return subdir.shouldInclude(showFiles);
     }
 
     /**
-     * Print a collapsed directory path (e.g., "com.example.util" instead of separate nodes)
+     * Print a collapsed directory path (e.g., "com.example" instead of "com" -> "example")
      */
-    private void printCollapsedDirectoryPath(org.apache.maven.plugin.logging.Log log,
-                                             DirectoryNode dir, String prefix, String connector,
-                                             String format, String packagePath, boolean showFiles) {
-        // Build the collapsed path
-        StringBuilder collapsedPath = new StringBuilder(dir.getName());
+    private void printCollapsedPath(org.apache.maven.plugin.logging.Log log, DirectoryNode dir,
+                                    String prefix, boolean isLast, String format,
+                                    String packagePath, boolean showFiles) {
+        // Build the collapsed path string
+        StringBuilder path = new StringBuilder(dir.getName());
         DirectoryNode current = dir;
 
+        // Follow the chain of single subdirectories
         while (shouldCollapseDirectory(current, showFiles)) {
             DirectoryNode subdir = current.getSubdirectories().values().iterator().next();
-            collapsedPath.append(".").append(subdir.getName());
+            path.append(".").append(subdir.getName());
             current = subdir;
         }
 
-        // Print the collapsed path
-        CoverageMetrics metrics = dir.getMetrics();
-        String fullPath = packagePath.isEmpty() ? collapsedPath.toString() :
-                packagePath + "." + collapsedPath.toString();
+        // Use the appropriate connector based on whether this is the last item
+        String connector = isLast ? Defaults.CORNER : Defaults.TEE;
+        String displayPath = prefix + connector + path.toString();
 
+        // Print the collapsed path as a node
+        CoverageMetrics metrics = dir.getMetrics();
         log.info(String.format(format,
-                Defaults.truncateMiddle(prefix + connector + collapsedPath),
+                Defaults.truncateMiddle(displayPath),
                 Defaults.formatCoverage(metrics.getCoveredClasses(), metrics.getTotalClasses()),
                 Defaults.formatCoverage(metrics.getCoveredMethods(), metrics.getTotalMethods()),
                 Defaults.formatCoverage(metrics.getCoveredBranches(), metrics.getTotalBranches()),
                 Defaults.formatCoverage(metrics.getCoveredLines(), metrics.getTotalLines())));
 
-        // Get the last directory in the chain
-        DirectoryNode lastDir = current;
+        // Calculate the full package path for children
+        String fullPath = packagePath.isEmpty() ? path.toString() :
+                packagePath + "." + path.toString();
 
-        // Process the children of the last directory in the chain
-        String childPrefix = prefix + (connector.equals(Defaults.CORNER) ? " " : Defaults.VERTICAL_LINE);
+        // Get the contents of the last directory in the chain
+        List<FileSystemNode> childNodes = new ArrayList<>();
 
-        // Find nodes to be printed in the last directory
-        List<FileSystemNode> items = new ArrayList<>();
+        if (showFiles) {
+            childNodes.addAll(current.getSourceFiles());
+        }
 
-        // Add non-empty subdirectories
-        for (DirectoryNode subdir : lastDir.getSubdirectories().values()) {
+        for (DirectoryNode subdir : current.getSubdirectories().values()) {
             if (subdir.shouldInclude(showFiles)) {
-                items.add(subdir);
+                childNodes.add(subdir);
             }
         }
 
-        // Add files if showing files is enabled
-        if (showFiles) {
-            items.addAll(lastDir.getSourceFiles());
-        }
+        // Sort the child nodes
+        Collections.sort(childNodes);
 
-        // Sort items
-        Collections.sort(items);
+        // Calculate the prefix for children
+        String childPrefix = prefix + (isLast ? Defaults.LASTDIR_SPACE : Defaults.VERTICAL_LINE) + " ";
 
-        // Process each item in the last directory
-        for (int i = 0; i < items.size(); i++) {
-            FileSystemNode item = items.get(i);
-            boolean isLast = i == items.size() - 1;
+        // Print each child
+        for (int i = 0; i < childNodes.size(); i++) {
+            boolean isLastChild = (i == childNodes.size() - 1);
+            FileSystemNode node = childNodes.get(i);
+            String childConnector = isLastChild ? Defaults.CORNER : Defaults.TEE;
 
-            String itemConnector = isLast ? Defaults.CORNER : Defaults.TEE;
-
-            if (item instanceof DirectoryNode) {
-                item.printTree(log, childPrefix + itemConnector, format, fullPath, showFiles);
+            if (node instanceof DirectoryNode && shouldCollapseDirectory((DirectoryNode) node, showFiles)) {
+                printCollapsedPath(log, (DirectoryNode) node, childPrefix, isLastChild, format, fullPath, showFiles);
             } else {
-                // File node
-                item.printTree(log, childPrefix + itemConnector, format, fullPath, showFiles);
+                node.printTree(log, childPrefix + childConnector, format, fullPath, showFiles);
             }
         }
     }
