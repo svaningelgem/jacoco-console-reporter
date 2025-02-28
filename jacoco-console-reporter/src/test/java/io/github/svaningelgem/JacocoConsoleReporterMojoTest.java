@@ -8,7 +8,6 @@ import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.PlexusContainer;
@@ -28,16 +27,6 @@ import java.util.List;
 
 import static org.junit.Assert.*;
 
-
-class MyLog extends SystemStreamLog {
-    public List<String> writtenData = new ArrayList<>();
-
-    @Override
-    public void info(CharSequence content) {
-        writtenData.add(content.toString());
-        super.info(content);
-    }
-}
 
 public class JacocoConsoleReporterMojoTest {
 
@@ -665,6 +654,28 @@ public class JacocoConsoleReporterMojoTest {
 
         // Print the tree
         root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+
+        // Verify the correct tree format in the log output
+        String[] expectedOutputLines = {
+                "com.example",
+                "├─Example.java",
+                "├─model",
+                "│ └─Model.java",
+                "└─util",
+                "  └─Util.java"
+        };
+
+        // Check that each line appears in the log in the expected format
+        for (String line : expectedOutputLines) {
+            boolean lineFound = false;
+            for (String logLine : myLog.writtenData) {
+                if (logLine.contains(line)) {
+                    lineFound = true;
+                    break;
+                }
+            }
+            assertTrue("Expected log line not found: " + line, lineFound);
+        }
     }
 
     private void checkLogContains(@NotNull List<String> expected) {

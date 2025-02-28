@@ -70,6 +70,7 @@ class DirectoryNode implements FileSystemNode {
         // Skip printing the empty root node
         boolean isRoot = name.isEmpty();
         String displayName = isRoot ? "" : prefix + name;
+        String currentPath = isRoot ? packagePath : (packagePath.isEmpty() ? name : packagePath + "." + name);
 
         if (!isRoot) {
             log.info(String.format(format,
@@ -112,7 +113,26 @@ class DirectoryNode implements FileSystemNode {
 
             if (isRoot) {
                 // Special case for root's direct children
-                item.printTree(log, "", format, packagePath, showFiles);
+                if (item instanceof DirectoryNode) {
+                    DirectoryNode dir = (DirectoryNode) item;
+
+                    // Check if we should collapse this directory path
+                    if (shouldCollapseDirectory(dir, showFiles)) {
+                        // Collapse the directory path
+                        printCollapsedDirectoryPath(log, dir, basePrefix, connector, format,
+                                currentPath, showFiles);
+                    } else {
+                        // Print normally
+                        String rootItemPrefix = connector; // For root's direct children
+                        item.printTree(log, rootItemPrefix, format,
+                                currentPath.isEmpty() ? item.getName() :
+                                        currentPath + "." + item.getName(),
+                                showFiles);
+                    }
+                } else {
+                    // Root's direct file child - should not normally happen
+                    item.printTree(log, "", format, currentPath, showFiles);
+                }
             } else {
                 String itemPrefix = basePrefix + connector;
 
@@ -124,19 +144,17 @@ class DirectoryNode implements FileSystemNode {
                     if (shouldCollapseDirectory(dir, showFiles)) {
                         // Collapse the directory path
                         printCollapsedDirectoryPath(log, dir, basePrefix, connector, format,
-                                packagePath.isEmpty() ? dir.getName() :
-                                        packagePath + "." + dir.getName(),
-                                showFiles);
+                                currentPath, showFiles);
                     } else {
                         // Print normally
                         item.printTree(log, itemPrefix, format,
-                                packagePath.isEmpty() ? item.getName() :
-                                        packagePath + "." + item.getName(),
+                                currentPath.isEmpty() ? item.getName() :
+                                        currentPath + "." + item.getName(),
                                 showFiles);
                     }
                 } else {
                     // File node - print normally
-                    item.printTree(log, itemPrefix, format, packagePath, showFiles);
+                    item.printTree(log, itemPrefix, format, currentPath, showFiles);
                 }
             }
         }
@@ -180,6 +198,9 @@ class DirectoryNode implements FileSystemNode {
 
         // Print the collapsed path
         CoverageMetrics metrics = dir.getMetrics();
+        String fullPath = packagePath.isEmpty() ? collapsedPath.toString() :
+                packagePath + "." + collapsedPath.toString();
+
         log.info(String.format(format,
                 Defaults.truncateMiddle(prefix + connector + collapsedPath),
                 Defaults.formatCoverage(metrics.getCoveredClasses(), metrics.getTotalClasses()),
@@ -191,7 +212,7 @@ class DirectoryNode implements FileSystemNode {
         DirectoryNode lastDir = current;
 
         // Process the children of the last directory in the chain
-        String childPrefix = prefix + (connector.equals(Defaults.CORNER) ? Defaults.LASTDIR_SPACE : Defaults.VERTICAL_LINE);
+        String childPrefix = prefix + (connector.equals(Defaults.CORNER) ? " " : Defaults.VERTICAL_LINE);
 
         // Find nodes to be printed in the last directory
         List<FileSystemNode> items = new ArrayList<>();
@@ -217,10 +238,13 @@ class DirectoryNode implements FileSystemNode {
             boolean isLast = i == items.size() - 1;
 
             String itemConnector = isLast ? Defaults.CORNER : Defaults.TEE;
-            String itemIndent = isLast ? Defaults.LASTDIR_SPACE : Defaults.VERTICAL_LINE;
 
-            item.printTree(log, childPrefix + " " + itemConnector, format,
-                    packagePath + "." + collapsedPath.toString(), showFiles);
+            if (item instanceof DirectoryNode) {
+                item.printTree(log, childPrefix + itemConnector, format, fullPath, showFiles);
+            } else {
+                // File node
+                item.printTree(log, childPrefix + itemConnector, format, fullPath, showFiles);
+            }
         }
     }
 }
