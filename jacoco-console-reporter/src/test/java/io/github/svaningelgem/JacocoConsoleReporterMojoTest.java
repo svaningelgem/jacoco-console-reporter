@@ -8,16 +8,19 @@ import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-
+import io.github.svaningelgem.JacocoConsoleReporterMojo.Node;
+import io.github.svaningelgem.JacocoConsoleReporterMojo.CoverageMetrics;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -26,13 +29,34 @@ import java.util.List;
 
 import static org.junit.Assert.*;
 
+
+class MyLog extends SystemStreamLog {
+    public List<String> writtenData = new ArrayList<>();
+
+    @Override
+    public void info(CharSequence content) {
+        writtenData.add(content.toString());
+        super.info(content);
+    }
+}
+
 public class JacocoConsoleReporterMojoTest {
 
     @Rule
     public final MojoRule rule = new MojoRule();
 
+    private JacocoConsoleReporterMojo mojo;
+    private MyLog log;
+
     @Rule
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+    @Before
+    public void setUp() throws Exception {
+        mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
+        log = new MyLog();
+        mojo.setLog(log);
+    }
 
     private final File testProjectDir = new File("../test-project");
     private final File testProjectJacocoExec = new File(testProjectDir, "target/jacoco.exec");
@@ -629,5 +653,48 @@ public class JacocoConsoleReporterMojoTest {
         printMethod.setAccessible(true);
 
         printMethod.invoke(mojo, root, "", "", JacocoConsoleReporterMojo.LINE_FORMAT);
+
+        checkLogEquals(new String[] {
+                "com.example    ",
+                "├─Example.java ",
+                "├─model        ",
+                "│ └─Model.java ",
+                "└─util         ",
+                "  └─Util.java  "
+        });
+    }
+
+    private void checkLogEquals(@NotNull List<String> expected) {
+        checkLogEquals(expected.toArray(new String[0]));
+    }
+
+    private void failLog(String [] expected, String message) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Expected log:\n");
+        for (String line : expected) {
+            builder.append(line).append("\n");
+        }
+        builder.append("\n");
+        builder.append("Actual log:\n");
+        for (String line : log.writtenData) {
+            builder.append(line).append("\n");
+        }
+        builder.append("\n");
+        fail(builder + message);
+    }
+
+    private void checkLogEquals(@NotNull String @NotNull [] expected) {
+        MyLog myLog = (MyLog)mojo.getLog();
+        if (myLog.writtenData.size() != expected.length) {
+            failLog(expected, "Wrong number of log entries");
+        }
+
+        for (int i = 0; i < expected.length; i++) {
+            String exp = expected[i];
+            String actual = myLog.writtenData.get(i);
+            if (!exp.equals(actual.substring(0, exp.length()))) {
+                failLog(expected, "Wrong entry at index: " + i);
+            }
+        }
     }
 }
