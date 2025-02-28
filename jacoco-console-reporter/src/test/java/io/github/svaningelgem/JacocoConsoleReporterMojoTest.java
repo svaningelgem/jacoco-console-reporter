@@ -655,26 +655,26 @@ public class JacocoConsoleReporterMojoTest {
         // Print the tree
         root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
 
-        // Verify the correct tree format in the log output
-        String[] expectedOutputLines = {
+        // Test output should match the expected format for com.example
+        String[] expectedLines = {
                 "com.example",
-                "├─Example.java",
                 "├─model",
                 "│ └─Model.java",
-                "└─util",
-                "  └─Util.java"
+                "├─util",
+                "│ └─Util.java",
+                "└─Example.java"
         };
 
-        // Check that each line appears in the log in the expected format
-        for (String line : expectedOutputLines) {
-            boolean lineFound = false;
+        // Verify each expected line appears in the output
+        for (String expectedLine : expectedLines) {
+            boolean found = false;
             for (String logLine : myLog.writtenData) {
-                if (logLine.contains(line)) {
-                    lineFound = true;
+                if (logLine.contains(expectedLine)) {
+                    found = true;
                     break;
                 }
             }
-            assertTrue("Expected log line not found: " + line, lineFound);
+            assertTrue("Expected line not found in output: " + expectedLine, found);
         }
     }
 
