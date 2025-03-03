@@ -7,16 +7,9 @@ updates:
       day: "monday"
     open-pull-requests-limit: 10
     groups:
-      maven-plugins:
+      all_together:
         patterns:
-          - "org.apache.maven.plugins:*"
-      test-dependencies:
-        patterns:
-          - "org.junit*"
-          - "junit:junit"
-      jacoco:
-        patterns:
-          - "org.jacoco:*"
+          - "*"
     ignore:
       # Ignore patch updates for Maven plugins to reduce noise
       - dependency-name: "org.apache.maven.plugins:*"
@@ -28,3 +21,7 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 10
+    groups:
+      all_together:
+        patterns:
+          - "*"
