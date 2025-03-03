@@ -46,7 +46,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * Option to defer reporting until the end (for multi-module projects).
      * When true, the plugin will not report during module execution.
      */
-    @Parameter(defaultValue = "false", property = "deferReporting")
+    @Parameter(defaultValue = "true", property = "deferReporting")
     boolean deferReporting;
 
     /**
