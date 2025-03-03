@@ -35,12 +35,6 @@ jobs:
       - name: Build and test
         run: mvn -B verify
 
-      - name: find exec files
-        run: find . |& grep exec
-
-      - name: find jacoco files
-        run: find . |& grep jacoco
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -65,5 +59,4 @@ jobs:
         if: ${{ !cancelled() }}
         uses: codecov/codecov-action@v5
         with:
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
