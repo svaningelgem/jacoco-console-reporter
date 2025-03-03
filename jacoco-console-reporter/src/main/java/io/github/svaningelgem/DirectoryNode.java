@@ -2,6 +2,7 @@ package io.github.svaningelgem;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -137,7 +138,7 @@ class DirectoryNode implements FileSystemNode {
         // Print source files after directories
         if (!fileNodes.isEmpty()) {
             // Calculate the prefix for files
-            String filePrefix = isRoot ? "" : prefix;
+            String filePrefix = isRoot ? "" : prefix.replace(Defaults.TEE, Defaults.VERTICAL_LINE).replace(Defaults.CORNER, Defaults.LASTDIR_SPACE);
 
             for (int i = 0; i < fileNodes.size(); i++) {
                 boolean isLast = (i == fileNodes.size() - 1);
@@ -173,7 +174,7 @@ class DirectoryNode implements FileSystemNode {
     /**
      * Print a collapsed directory path (e.g., "com.example" instead of "com" -> "example")
      */
-    private void printCollapsedPath(org.apache.maven.plugin.logging.Log log, DirectoryNode dir,
+    private void printCollapsedPath(org.apache.maven.plugin.logging.Log log, @NotNull DirectoryNode dir,
                                     String prefix, boolean isLast, String format,
                                     String packagePath, boolean showFiles, boolean useTreeIndicator) {
         // Build the collapsed path string
@@ -229,7 +230,7 @@ class DirectoryNode implements FileSystemNode {
         // Calculate the base prefix for children
         String basePrefixForChildren;
         if (useTreeIndicator) {
-            basePrefixForChildren = isLast ? "  " : "│ ";
+            basePrefixForChildren = isLast ? Defaults.LASTDIR_SPACE : Defaults.VERTICAL_LINE;
         } else {
             basePrefixForChildren = "  "; // No tree indicator at root level
         }

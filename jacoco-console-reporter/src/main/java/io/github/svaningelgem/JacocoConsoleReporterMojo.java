@@ -311,7 +311,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      *
      * @param root The root node of the directory tree containing coverage information
      */
-    private void printCoverageReport(DirectoryNode root) {
+    private void printCoverageReport(@NotNull DirectoryNode root) {
         // Print header
         getLog().info("Overall Coverage Summary");
         getLog().info(String.format(Defaults.HEADER_FORMAT, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));

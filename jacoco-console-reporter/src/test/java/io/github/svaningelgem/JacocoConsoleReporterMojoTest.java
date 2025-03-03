@@ -678,11 +678,74 @@ public class JacocoConsoleReporterMojoTest {
         }
     }
 
-    private void checkLogContains(@NotNull List<String> expected) {
-        checkLogContains(expected.toArray(new String[0]));
+    @Test
+    public void testPrintTreeWithSourceFilesAndMultipleSubdirs2() throws Exception {
+        // Setup the mojo
+        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
+        assertNotNull("Mojo not found", mojo);
+        MyLog myLog = new MyLog();
+        mojo.setLog(myLog);
+
+        // Create a complex case with both source files and multiple subdirectories
+        DirectoryNode root = new DirectoryNode("");
+        DirectoryNode com = new DirectoryNode("com");
+        DirectoryNode example = new DirectoryNode("example");
+        DirectoryNode util = new DirectoryNode("util");
+        DirectoryNode dummy = new DirectoryNode("dummy");
+        DirectoryNode model = new DirectoryNode("model");
+
+        // Add source files
+        CoverageMetrics metrics = new CoverageMetrics();
+        metrics.setTotalClasses(1);
+        metrics.setCoveredClasses(1);
+        metrics.setTotalMethods(2);
+        metrics.setCoveredMethods(2);
+        metrics.setTotalLines(8);
+        metrics.setCoveredLines(7);
+        metrics.setTotalBranches(2);
+        metrics.setCoveredBranches(1);
+
+        util.getSourceFiles().add(new SourceFileNode("Util.java", metrics));
+        model.getSourceFiles().add(new SourceFileNode("Model.java", metrics));
+
+        // Add multiple subdirectories to example
+        example.getSubdirectories().put("util", util);
+        example.getSubdirectories().put("model", model);
+        example.getSubdirectories().put("dummy", dummy);  // Has no coverage information! -- shouldn't be shown
+
+        // Connect the tree
+        com.getSubdirectories().put("example", example);
+        root.getSubdirectories().put("com", com);
+
+        // Enable showing files
+        mojo.showFiles = true;
+
+        // Print the tree
+        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+
+        // Test output should match the expected format for com.example
+        String[] expectedLines = {
+                "com.example",
+                "├─model",
+                "│ └─Model.java",
+                "└─util",
+                "  └─Util.java",
+        };
+
+        // Verify each expected line appears in the output
+        for (String expectedLine : expectedLines) {
+            boolean found = false;
+            for (String logLine : myLog.writtenData) {
+                if (logLine.contains(expectedLine)) {
+                    found = true;
+                    break;
+                }
+            }
+            assertTrue("Expected line not found in output: " + expectedLine, found);
+        }
     }
 
-    private void failLog(String[] expected, String message) {
+    private void failLog(String @NotNull [] expected, String message) {
         StringBuilder builder = new StringBuilder();
         builder.append("Expected log to contain:\n");
         for (String line : expected) {

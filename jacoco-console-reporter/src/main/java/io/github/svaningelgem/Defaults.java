@@ -9,14 +9,14 @@ public class Defaults {
     static final int METRICS_WIDTH = 20;
 
     // Define tree characters based on terminal capabilities
-    public static final String LASTDIR_SPACE = " ";
-    public static final String VERTICAL_LINE = "│";
+    public static final String LASTDIR_SPACE = "  ";
+    public static final String VERTICAL_LINE = "│ ";
     public static final String TEE = "├─";
     public static final String CORNER = "└─";
 
     static final String DIVIDER = getDivider();
-    static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s";
-    static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s │ %-" + METRICS_WIDTH + "s";
+    static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s";
+    static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s";
 
     /**
      * Truncates a string in the middle if it exceeds maxLength
