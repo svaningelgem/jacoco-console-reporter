@@ -43,6 +43,8 @@ public class BaseTestClass {
 
     @Before
     public void setUp() throws Exception {
+        Locale.setDefault(Locale.US);
+
         fileCounter = 0;
 
         mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");

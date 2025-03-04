@@ -46,11 +46,11 @@ public class PrintSummaryTest extends BaseTestClass {
         String[] expected = {
                 "[info] Overall Coverage Summary",
                 "[info] ------------------------",
-                "[info] Class coverage : 87,50% (14/16)",
-                "[info] Method coverage: 83,33% (10/12)",
-                "[info] Branch coverage: 50,00% (2/4)",
-                "[info] Line coverage  : 75,00% (6/8)",
-                "[info] Combined coverage: 80,00% (Class 25%, Method 25%, Branch 25%, Line 25%)",
+                "[info] Class coverage : 87.50% (14/16)",
+                "[info] Method coverage: 83.33% (10/12)",
+                "[info] Branch coverage: 50.00% (2/4)",
+                "[info] Line coverage  : 75.00% (6/8)",
+                "[info] Combined coverage: 80.00% (Class 25%, Method 25%, Branch 25%, Line 25%)",
         };
 
         assertEquals(Arrays.asList(expected), log.writtenData);
@@ -65,11 +65,11 @@ public class PrintSummaryTest extends BaseTestClass {
         String[] expected = {
                 "[info] Overall Coverage Summary",
                 "[info] ------------------------",
-                "[info] Class coverage : 87,50% (14/16)",
-                "[info] Method coverage: 83,33% (10/12)",
-                "[info] Branch coverage: 50,00% (2/4)",
-                "[info] Line coverage  : 75,00% (6/8)",
-                "[info] Combined coverage: 73,68% (Class 10%, Method 10%, Branch 40%, Line 40%)",
+                "[info] Class coverage : 87.50% (14/16)",
+                "[info] Method coverage: 83.33% (10/12)",
+                "[info] Branch coverage: 50.00% (2/4)",
+                "[info] Line coverage  : 75.00% (6/8)",
+                "[info] Combined coverage: 73.68% (Class 10%, Method 10%, Branch 40%, Line 40%)",
         };
 
         assertEquals(Arrays.asList(expected), log.writtenData);
