@@ -26,8 +26,17 @@ interface FileSystemNode extends Comparable<FileSystemNode> {
      * @param packagePath  Current package path
      * @param showFiles    Whether to show files
      */
-    void printTree(org.apache.maven.plugin.logging.Log log, String prefix,
-                   String format, String packagePath, boolean showFiles);
+    default void printTree(@NotNull org.apache.maven.plugin.logging.Log log, String prefix,
+                           String format, String packagePath, boolean showFiles) {
+        CoverageMetrics metrics = getMetrics();
+
+        log.info(String.format(format,
+                Defaults.truncateMiddle(prefix + getName()),
+                Defaults.formatCoverage(metrics.getCoveredClasses(), metrics.getTotalClasses()),
+                Defaults.formatCoverage(metrics.getCoveredMethods(), metrics.getTotalMethods()),
+                Defaults.formatCoverage(metrics.getCoveredBranches(), metrics.getTotalBranches()),
+                Defaults.formatCoverage(metrics.getCoveredLines(), metrics.getTotalLines())));
+    }
 
     /**
      * Default comparison implementation - directories come before files,

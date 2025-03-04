@@ -51,7 +51,7 @@ public class BaseTestClass {
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         JacocoConsoleReporterMojo.collectedClassesPaths.clear();
         JacocoConsoleReporterMojo.collectedExecFilePaths.clear();
     }
@@ -127,7 +127,7 @@ public class BaseTestClass {
      * Create the tree starting from the root, with the names
      * Returns the last created DirectoryNode
      */
-    protected DirectoryNode createTree(DirectoryNode root, int amountOfFiles, @Nullable String @Nullable ... names) {
+    protected void createTree(DirectoryNode root, int amountOfFiles,@Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
         if (names != null) {
             for (String name : names) {
                 if (name == null) {
@@ -144,12 +144,18 @@ public class BaseTestClass {
             fileNames.add("Example" + (fileCounter++) + ".java");
         }
 
-        addFiles(root, fileNames.toArray(new String[0]));
-        // And get back our test object
-        return root;
+        addFiles(root, defaultCoverage, fileNames.toArray(new String[0]));
+    }
+
+    protected void createTree(DirectoryNode root, int amountOfFiles, @Nullable String @Nullable ... names) {
+        createTree(root, amountOfFiles, null, names);
     }
 
     protected void addFiles(DirectoryNode toNode, @Nullable String @Nullable ... names) {
+        addFiles(toNode, null, names);
+    }
+
+    protected void addFiles(DirectoryNode toNode, @Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
         if (names == null) {
             return;
         }
@@ -159,7 +165,7 @@ public class BaseTestClass {
                 continue;
             }
 
-            var file = new SourceFileNode(name, getRandomCoverage());
+            var file = new SourceFileNode(name, defaultCoverage == null ? getRandomCoverage() : defaultCoverage.clone());
             toNode.getSourceFiles().add(file);
         }
     }

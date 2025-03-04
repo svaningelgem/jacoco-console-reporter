@@ -33,16 +33,9 @@ public class DirectoryNode implements FileSystemNode {
 
     @Override
     public CoverageMetrics getMetrics() {
-        return aggregateMetrics();
-    }
-
-    /**
-     * Aggregate metrics from this directory's files and subdirectories
-     */
-    CoverageMetrics aggregateMetrics() {
         CoverageMetrics aggregated = new CoverageMetrics();
         sourceFiles.forEach(file -> aggregated.add(file.getMetrics()));
-        subdirectories.values().forEach(subdir -> aggregated.add(subdir.aggregateMetrics()));
+        subdirectories.values().forEach(subdir -> aggregated.add(subdir.getMetrics()));
         return aggregated;
     }
 
@@ -75,7 +68,7 @@ public class DirectoryNode implements FileSystemNode {
     }
 
     @Override
-    public void printTree(org.apache.maven.plugin.logging.Log log, String prefix,
+    public void printTree(org.apache.maven.plugin.logging.@NotNull Log log, String prefix,
                           String format, String packagePath, boolean showFiles) {
         // Skip empty directories
         if (!shouldInclude()) {

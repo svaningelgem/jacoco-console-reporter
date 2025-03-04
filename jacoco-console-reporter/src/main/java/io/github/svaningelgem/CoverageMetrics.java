@@ -1,11 +1,9 @@
 package io.github.svaningelgem;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.var;
-import org.jetbrains.annotations.Contract;
+import lombok.NoArgsConstructor;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Random;
 
 /**
  * Comprehensive collection of coverage metrics for a source file or directory.
@@ -13,7 +11,9 @@ import java.util.Random;
  * All metrics maintain both total count and covered count for percentage calculation.
  */
 @Data
-public class CoverageMetrics {
+@AllArgsConstructor
+@NoArgsConstructor
+public class CoverageMetrics implements Cloneable {
     /**
      * Total number of classes in the scope
      */
@@ -56,5 +56,10 @@ public class CoverageMetrics {
         coveredLines += other.coveredLines;
         totalBranches += other.totalBranches;
         coveredBranches += other.coveredBranches;
+    }
+
+    @Override
+    public CoverageMetrics clone() {
+        return new CoverageMetrics(totalClasses, coveredClasses, totalMethods, coveredMethods, totalLines, coveredLines, totalBranches, coveredBranches);
     }
 }

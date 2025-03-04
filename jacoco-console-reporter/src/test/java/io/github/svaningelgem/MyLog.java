@@ -1,6 +1,7 @@
 package io.github.svaningelgem;
 
 import org.apache.maven.plugin.logging.SystemStreamLog;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,8 +10,8 @@ public class MyLog extends SystemStreamLog {
     public List<String> writtenData = new ArrayList<>();
 
     @Override
-    public void info(CharSequence content) {
-        writtenData.add(content.toString());
+    public void info(@NotNull CharSequence content) {
+        writtenData.add("[info] " + content);
         super.info(content);
     }
 }

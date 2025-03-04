@@ -328,7 +328,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     private void printSummary(@Nullable DirectoryNode root) {
         if (!showSummary || root == null) return;
 
-        CoverageMetrics total = root.aggregateMetrics();
+        CoverageMetrics total = root.getMetrics();
 
         getLog().info("Overall Coverage Summary");
         getLog().info("------------------------");
@@ -372,7 +372,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
         // Print total metrics
         getLog().info(Defaults.DIVIDER);
-        CoverageMetrics total = root.aggregateMetrics();
+        CoverageMetrics total = root.getMetrics();
         getLog().info(String.format(Defaults.LINE_FORMAT,
                 "all classes",
                 Defaults.formatCoverage(total.getCoveredClasses(), total.getTotalClasses()),
