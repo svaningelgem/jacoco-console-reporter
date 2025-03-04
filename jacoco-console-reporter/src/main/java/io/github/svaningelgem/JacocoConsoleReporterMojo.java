@@ -18,6 +18,11 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
 /**
@@ -129,6 +134,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         additionalExecFiles.stream().map(File::getAbsoluteFile).forEach(collectedExecFilePaths::add);
         collectedExecFilePaths.add(jacocoExecFile.getAbsoluteFile());
         collectedClassesPaths.add(classesDirectory.getAbsoluteFile());
+        getLog().info("Collected Classes: " + collectedClassesPaths);
         if (jacocoExecFile.exists()) {
             getLog().debug("Added exec file from current module: " + jacocoExecFile.getAbsolutePath());
         }
@@ -307,125 +313,136 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         CoverageBuilder coverageBuilder = new CoverageBuilder();
         Analyzer analyzer = new Analyzer(executionDataStore, coverageBuilder);
         for (File classPath : collectedClassesPaths) {
-            if (classPath != null && classPath.exists()) {
-                analyzer.analyzeAll(classPath);
+            if (classPath == null || !classPath.exists()) {
+                continue;
             }
-        }
-        return coverageBuilder.getBundle("Project");
-    }
-
-    /**
-     * Prints the coverage report to the console in a tree-like structure.
-     * The report includes coverage metrics for each package and source file.
-     *
-     * @param root The root node of the directory tree containing coverage information
-     */
-    private void printCoverageReport(@Nullable DirectoryNode root) {
-        printTree(root);
-        printSummary(root);
-    }
-
-    private void printSummary(@Nullable DirectoryNode root) {
-        if (!showSummary || root == null) return;
-
-        CoverageMetrics total = root.getMetrics();
-
-        getLog().info("Overall Coverage Summary");
-        getLog().info("------------------------");
-        getLog().info("Class coverage : " + Defaults.formatCoverage(total.getCoveredClasses(), total.getTotalClasses()));
-        getLog().info("Method coverage: " + Defaults.formatCoverage(total.getCoveredMethods(), total.getTotalMethods()));
-        getLog().info("Branch coverage: " + Defaults.formatCoverage(total.getCoveredBranches(), total.getTotalBranches()));
-        getLog().info("Line coverage  : " + Defaults.formatCoverage(total.getCoveredLines(), total.getTotalLines()));
-
-        double combinedCoverage = 0;
-        double combinedTotalCoverage = 0;
-        combinedCoverage += total.getCoveredClasses() * weightClassCoverage;
-        combinedTotalCoverage += total.getTotalClasses() * weightClassCoverage;
-        combinedCoverage += total.getCoveredMethods() * weightMethodCoverage;
-        combinedTotalCoverage += total.getTotalMethods() * weightMethodCoverage;
-        combinedCoverage += total.getCoveredBranches() * weightBranchCoverage;
-        combinedTotalCoverage += total.getTotalBranches() * weightBranchCoverage;
-        combinedCoverage += total.getCoveredLines() * weightLineCoverage;
-        combinedTotalCoverage += total.getTotalLines() * weightLineCoverage;
-
-        getLog().info(
-                String.format("Combined coverage: %5.2f%% (Class %d%%, Method %d%%, Branch %d%%, Line %d%%)",
-                        combinedTotalCoverage == 0 ? 100. : combinedCoverage * 100.0 / combinedTotalCoverage,
-                        (int) (weightClassCoverage * 100.0),
-                        (int) (weightMethodCoverage * 100.0),
-                        (int) (weightBranchCoverage * 100.0),
-                        (int) (weightLineCoverage * 100.0))
-        );
-
-    }
-
-    private void printTree(@Nullable DirectoryNode root) {
-        if (!showTree || root == null) return;
-
-        // Print header
-        getLog().info("Overall Coverage Summary");
-        getLog().info(String.format(Defaults.LINE_FORMAT, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
-        getLog().info(Defaults.DIVIDER);
-
-        // Print the tree structure - start with an empty prefix for root
-        root.printTree(getLog(), "", Defaults.LINE_FORMAT, "", showFiles);
-
-        // Print total metrics
-        getLog().info(Defaults.DIVIDER);
-        CoverageMetrics total = root.getMetrics();
-        getLog().info(String.format(Defaults.LINE_FORMAT,
-                "all classes",
-                Defaults.formatCoverage(total.getCoveredClasses(), total.getTotalClasses()),
-                Defaults.formatCoverage(total.getCoveredMethods(), total.getTotalMethods()),
-                Defaults.formatCoverage(total.getCoveredBranches(), total.getTotalBranches()),
-                Defaults.formatCoverage(total.getCoveredLines(), total.getTotalLines())));
-    }
-
-    /**
-     * Builds a tree structure representing the package hierarchy and their coverage metrics.
-     * Modified to use SourceFileNode instead of SourceFileCoverageData.
-     *
-     * @param bundle The bundle containing coverage data for all analyzed classes
-     * @return The root node of the directory tree containing coverage information
-     */
-    private @Nullable DirectoryNode buildDirectoryTree(@Nullable IBundleCoverage bundle) {
-        if (bundle == null) return null;
-
-        DirectoryNode root = new DirectoryNode("");
-        for (IPackageCoverage packageCoverage : bundle.getPackages()) {
-            String packageName = packageCoverage.getName().replace('.', '/');
-            String[] pathComponents = packageName.split("/");
-            DirectoryNode current = root;
-            for (String component : pathComponents) {
-                current = current.getSubdirectories().computeIfAbsent(component, DirectoryNode::new);
-            }
-            for (ISourceFileCoverage sourceFileCoverage : packageCoverage.getSourceFiles()) {
-                String sourceFileName = sourceFileCoverage.getName();
-                List<IClassCoverage> classesInFile = new ArrayList<>();
-                for (IClassCoverage classCoverage : packageCoverage.getClasses()) {
-                    if (classCoverage.getSourceFileName().equals(sourceFileName)) {
-                        classesInFile.add(classCoverage);
+            Files.walkFileTree(classPath.toPath(), new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (file.toString().toLowerCase(Locale.ENGLISH).endsWith(".class")) {
+                        analyzer.analyzeClass(file);
                     }
+                    return FileVisitResult.CONTINUE;
                 }
-                CoverageMetrics metrics = new CoverageMetrics();
-                metrics.setTotalClasses(classesInFile.size());
-                metrics.setCoveredClasses((int) classesInFile.stream()
-                        .filter(c -> c.getMethodCounter().getCoveredCount() > 0)
-                        .count());
-                metrics.setTotalMethods(classesInFile.stream()
-                        .mapToInt(c -> c.getMethodCounter().getTotalCount())
-                        .sum());
-                metrics.setCoveredMethods(classesInFile.stream()
-                        .mapToInt(c -> c.getMethodCounter().getCoveredCount())
-                        .sum());
-                metrics.setTotalLines(sourceFileCoverage.getLineCounter().getTotalCount());
-                metrics.setCoveredLines(sourceFileCoverage.getLineCounter().getCoveredCount());
-                metrics.setTotalBranches(sourceFileCoverage.getBranchCounter().getTotalCount());
-                metrics.setCoveredBranches(sourceFileCoverage.getBranchCounter().getCoveredCount());
-
-                current.getSourceFiles().add(new SourceFileNode(sourceFileName, metrics));
-            }
+            });
+//            analyzer.analyzeAll(classPath);
         }
-        return root;
+
+        return coverageBuilder.getBundle("Project");
+}
+
+/**
+ * Prints the coverage report to the console in a tree-like structure.
+ * The report includes coverage metrics for each package and source file.
+ *
+ * @param root The root node of the directory tree containing coverage information
+ */
+private void printCoverageReport(@Nullable DirectoryNode root) {
+    printTree(root);
+    printSummary(root);
+}
+
+private void printSummary(@Nullable DirectoryNode root) {
+    if (!showSummary || root == null) return;
+
+    CoverageMetrics total = root.getMetrics();
+
+    getLog().info("Overall Coverage Summary");
+    getLog().info("------------------------");
+    getLog().info("Class coverage : " + Defaults.formatCoverage(total.getCoveredClasses(), total.getTotalClasses()));
+    getLog().info("Method coverage: " + Defaults.formatCoverage(total.getCoveredMethods(), total.getTotalMethods()));
+    getLog().info("Branch coverage: " + Defaults.formatCoverage(total.getCoveredBranches(), total.getTotalBranches()));
+    getLog().info("Line coverage  : " + Defaults.formatCoverage(total.getCoveredLines(), total.getTotalLines()));
+
+    double combinedCoverage = 0;
+    double combinedTotalCoverage = 0;
+    combinedCoverage += total.getCoveredClasses() * weightClassCoverage;
+    combinedTotalCoverage += total.getTotalClasses() * weightClassCoverage;
+    combinedCoverage += total.getCoveredMethods() * weightMethodCoverage;
+    combinedTotalCoverage += total.getTotalMethods() * weightMethodCoverage;
+    combinedCoverage += total.getCoveredBranches() * weightBranchCoverage;
+    combinedTotalCoverage += total.getTotalBranches() * weightBranchCoverage;
+    combinedCoverage += total.getCoveredLines() * weightLineCoverage;
+    combinedTotalCoverage += total.getTotalLines() * weightLineCoverage;
+
+    getLog().info(
+            String.format("Combined coverage: %5.2f%% (Class %d%%, Method %d%%, Branch %d%%, Line %d%%)",
+                    combinedTotalCoverage == 0 ? 100. : combinedCoverage * 100.0 / combinedTotalCoverage,
+                    (int) (weightClassCoverage * 100.0),
+                    (int) (weightMethodCoverage * 100.0),
+                    (int) (weightBranchCoverage * 100.0),
+                    (int) (weightLineCoverage * 100.0))
+    );
+
+}
+
+private void printTree(@Nullable DirectoryNode root) {
+    if (!showTree || root == null) return;
+
+    // Print header
+    getLog().info("Overall Coverage Summary");
+    getLog().info(String.format(Defaults.LINE_FORMAT, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
+    getLog().info(Defaults.DIVIDER);
+
+    // Print the tree structure - start with an empty prefix for root
+    root.printTree(getLog(), "", Defaults.LINE_FORMAT, "", showFiles);
+
+    // Print total metrics
+    getLog().info(Defaults.DIVIDER);
+    CoverageMetrics total = root.getMetrics();
+    getLog().info(String.format(Defaults.LINE_FORMAT,
+            "all classes",
+            Defaults.formatCoverage(total.getCoveredClasses(), total.getTotalClasses()),
+            Defaults.formatCoverage(total.getCoveredMethods(), total.getTotalMethods()),
+            Defaults.formatCoverage(total.getCoveredBranches(), total.getTotalBranches()),
+            Defaults.formatCoverage(total.getCoveredLines(), total.getTotalLines())));
+}
+
+/**
+ * Builds a tree structure representing the package hierarchy and their coverage metrics.
+ * Modified to use SourceFileNode instead of SourceFileCoverageData.
+ *
+ * @param bundle The bundle containing coverage data for all analyzed classes
+ * @return The root node of the directory tree containing coverage information
+ */
+private @Nullable DirectoryNode buildDirectoryTree(@Nullable IBundleCoverage bundle) {
+    if (bundle == null) return null;
+
+    DirectoryNode root = new DirectoryNode("");
+    for (IPackageCoverage packageCoverage : bundle.getPackages()) {
+        String packageName = packageCoverage.getName().replace('.', '/');
+        String[] pathComponents = packageName.split("/");
+        DirectoryNode current = root;
+        for (String component : pathComponents) {
+            current = current.getSubdirectories().computeIfAbsent(component, DirectoryNode::new);
+        }
+        for (ISourceFileCoverage sourceFileCoverage : packageCoverage.getSourceFiles()) {
+            String sourceFileName = sourceFileCoverage.getName();
+            List<IClassCoverage> classesInFile = new ArrayList<>();
+            for (IClassCoverage classCoverage : packageCoverage.getClasses()) {
+                if (classCoverage.getSourceFileName().equals(sourceFileName)) {
+                    classesInFile.add(classCoverage);
+                }
+            }
+            CoverageMetrics metrics = new CoverageMetrics();
+            metrics.setTotalClasses(classesInFile.size());
+            metrics.setCoveredClasses((int) classesInFile.stream()
+                    .filter(c -> c.getMethodCounter().getCoveredCount() > 0)
+                    .count());
+            metrics.setTotalMethods(classesInFile.stream()
+                    .mapToInt(c -> c.getMethodCounter().getTotalCount())
+                    .sum());
+            metrics.setCoveredMethods(classesInFile.stream()
+                    .mapToInt(c -> c.getMethodCounter().getCoveredCount())
+                    .sum());
+            metrics.setTotalLines(sourceFileCoverage.getLineCounter().getTotalCount());
+            metrics.setCoveredLines(sourceFileCoverage.getLineCounter().getCoveredCount());
+            metrics.setTotalBranches(sourceFileCoverage.getBranchCounter().getTotalCount());
+            metrics.setCoveredBranches(sourceFileCoverage.getBranchCounter().getCoveredCount());
+
+            current.getSourceFiles().add(new SourceFileNode(sourceFileName, metrics));
+        }
     }
+    return root;
+}
 }
