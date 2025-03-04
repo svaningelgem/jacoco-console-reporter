@@ -1,17 +1,21 @@
 package io.github.svaningelgem;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.var;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * A node representing a directory (package) in the coverage tree.
  */
 @Data
 @RequiredArgsConstructor
-class DirectoryNode implements FileSystemNode {
+public class DirectoryNode implements FileSystemNode {
     /**
      * Name of the directory/package component
      */
@@ -42,67 +46,68 @@ class DirectoryNode implements FileSystemNode {
         return aggregated;
     }
 
-    @Override
-    public boolean shouldInclude(boolean showFiles) {
-        // Check if this directory has any files (when showing files)
-        if (showFiles && !sourceFiles.isEmpty()) {
-            return true;
-        }
-
-        // Check if it has any subdirectories that should be included
-        for (DirectoryNode subdir : subdirectories.values()) {
-            if (subdir.shouldInclude(showFiles)) {
-                return true;
-            }
-        }
-
-        // Empty directory - skip it
-        return false;
+    public boolean shouldInclude() {
+        return !sourceFiles.isEmpty() || subdirectories.values().stream().anyMatch(DirectoryNode::shouldInclude);
     }
+/*
+    @Data
+    @AllArgsConstructor
+    private static class Prefix implements Cloneable {
+        String notLast = "";
+        String last = "";
+
+        @Contract(" -> new")
+        @Override
+        public @NotNull Prefix clone() {
+            return new Prefix(notLast, last);
+        }
+    }
+
+ */
 
     @Override
     public void printTree(org.apache.maven.plugin.logging.Log log, String prefix,
                           String format, String packagePath, boolean showFiles) {
         // Skip empty directories
-        if (!shouldInclude(showFiles)) {
+        if (!shouldInclude()) {
             return;
         }
 
-        // Skip printing the empty root node
-        boolean isRoot = name.isEmpty();
-        String currentPath = isRoot ? packagePath :
-                (packagePath.isEmpty() ? name : packagePath + "." + name);
+        packagePath = packagePath.replaceAll("^\\.", "");
 
-        if (!isRoot) {
-            log.info(String.format(format,
-                    Defaults.truncateMiddle(prefix + name),
-                    Defaults.formatCoverage(getMetrics().getCoveredClasses(), getMetrics().getTotalClasses()),
-                    Defaults.formatCoverage(getMetrics().getCoveredMethods(), getMetrics().getTotalMethods()),
-                    Defaults.formatCoverage(getMetrics().getCoveredBranches(), getMetrics().getTotalBranches()),
-                    Defaults.formatCoverage(getMetrics().getCoveredLines(), getMetrics().getTotalLines())));
-        }
+        // Skip printing the empty root node
+        final boolean isRoot = name.isEmpty();
 
         // Collect directory nodes and file nodes separately
-        List<DirectoryNode> dirNodes = new ArrayList<>();
-        List<SourceFileNode> fileNodes = new ArrayList<>();
+        List<DirectoryNode> dirNodes = subdirectories.values().stream().filter(DirectoryNode::shouldInclude).sorted().collect(Collectors.toList());
+        List<SourceFileNode> fileNodes = showFiles ? sourceFiles.stream().sorted().collect(Collectors.toList()) : new ArrayList<>();
 
-        // Add subdirectories
-        for (DirectoryNode subdir : subdirectories.values()) {
-            if (subdir.shouldInclude(showFiles)) {
-                dirNodes.add(subdir);
-            }
+        boolean shouldCollapse = dirNodes.size() == 1 && fileNodes.isEmpty();
+        if (shouldCollapse) {
+            DirectoryNode onlyNode = dirNodes.get(0);
+            onlyNode.printTree(log, prefix, format, packagePath + "." + getName(), showFiles);
+            return;
         }
 
-        // Add source files if needed
-        if (showFiles) {
-            fileNodes.addAll(sourceFiles);
-        }
+        String printableName = isRoot ? "<root>" : prefix + packagePath + (packagePath.isEmpty() ? "" : ".") + name;
+        log.info(String.format(format,
+                Defaults.truncateMiddle(printableName),
+                Defaults.formatCoverage(getMetrics().getCoveredClasses(), getMetrics().getTotalClasses()),
+                Defaults.formatCoverage(getMetrics().getCoveredMethods(), getMetrics().getTotalMethods()),
+                Defaults.formatCoverage(getMetrics().getCoveredBranches(), getMetrics().getTotalBranches()),
+                Defaults.formatCoverage(getMetrics().getCoveredLines(), getMetrics().getTotalLines())));
 
-        // Sort nodes
-        Collections.sort(dirNodes);
-        Collections.sort(fileNodes);
-
+        packagePath = "";  // Reset because we shouldn't collapse now anymore
+/*
         // Determine if we need tree indicators at the first level
+        Prefix current = new Prefix();
+        if ( dirNodes.size() > 1 ) {
+            current.notLast = Defaults.TEE;
+            current.last = Defaults.CORNER;
+        }
+
+ */
+
         boolean useTreeForRoot = dirNodes.size() > 1 || !fileNodes.isEmpty();
 
         // Print directory nodes first
@@ -110,29 +115,15 @@ class DirectoryNode implements FileSystemNode {
             boolean isLast = (i == dirNodes.size() - 1) && fileNodes.isEmpty();
             DirectoryNode node = dirNodes.get(i);
 
-            if (isRoot) {
-                // Handle collapsible directories at root level
-                if (shouldCollapseDirectory(node, showFiles)) {
-                    String displayPrefix = useTreeForRoot ? (isLast ? Defaults.CORNER : Defaults.TEE) : "";
-                    printCollapsedPath(log, node, displayPrefix, isLast, format, currentPath,
-                            showFiles, useTreeForRoot);
-                } else {
-                    // Normal node at root level
-                    String rootPrefix = useTreeForRoot ? (isLast ? Defaults.CORNER : Defaults.TEE) : "";
-                    node.printTree(log, rootPrefix, format, currentPath, showFiles);
-                }
-            } else {
-                // Non-root nodes
-                String connector = isLast ? Defaults.CORNER : Defaults.TEE;
-
-                // Handle collapsible directories
-                if (shouldCollapseDirectory(node, showFiles)) {
-                    printCollapsedPath(log, node, prefix, isLast, format, currentPath, showFiles, true);
-                } else {
-                    // Print the node normally
-                    node.printTree(log, prefix + connector, format, currentPath, showFiles);
-                }
+            String connector = isLast ? Defaults.CORNER : Defaults.TEE;
+            if (prefix.endsWith(Defaults.CORNER)) {
+                prefix = prefix.substring(0, prefix.length() - Defaults.CORNER.length()) + Defaults.LASTDIR_SPACE;
             }
+            else if (prefix.endsWith(Defaults.TEE)) {
+                prefix = prefix.substring(0, prefix.length() - Defaults.TEE.length()) + Defaults.VERTICAL_LINE;
+            }
+
+            node.printTree(log, prefix + connector, format, packagePath, showFiles);
         }
 
         // Print source files after directories
@@ -146,9 +137,9 @@ class DirectoryNode implements FileSystemNode {
 
                 String connector = isLast ? Defaults.CORNER : Defaults.TEE;
                 if (isRoot && useTreeForRoot) {
-                    node.printTree(log, connector, format, currentPath, showFiles);
+                    node.printTree(log, connector, format, packagePath, showFiles);
                 } else {
-                    node.printTree(log, filePrefix + connector, format, currentPath, showFiles);
+                    node.printTree(log, filePrefix + connector, format, packagePath, showFiles);
                 }
             }
         }
@@ -168,7 +159,7 @@ class DirectoryNode implements FileSystemNode {
         }
 
         DirectoryNode subdir = dir.getSubdirectories().values().iterator().next();
-        return subdir.shouldInclude(showFiles);
+        return subdir.shouldInclude();
     }
 
     /**
@@ -214,7 +205,7 @@ class DirectoryNode implements FileSystemNode {
 
         // Get the contents of the last directory in the chain
         for (DirectoryNode subdir : current.getSubdirectories().values()) {
-            if (subdir.shouldInclude(showFiles)) {
+            if (subdir.shouldInclude()) {
                 childDirs.add(subdir);
             }
         }

@@ -5,7 +5,7 @@ import org.apache.maven.plugin.logging.SystemStreamLog;
 import java.util.ArrayList;
 import java.util.List;
 
-class MyLog extends SystemStreamLog {
+public class MyLog extends SystemStreamLog {
     public List<String> writtenData = new ArrayList<>();
 
     @Override

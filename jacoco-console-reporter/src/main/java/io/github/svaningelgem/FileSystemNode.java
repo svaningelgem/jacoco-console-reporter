@@ -33,7 +33,9 @@ interface FileSystemNode extends Comparable<FileSystemNode> {
      * Determine if this node should be included in the output
      * (Skip empty directories)
      */
-    boolean shouldInclude(boolean showFiles);
+    default boolean shouldInclude(boolean showFiles) {
+        return showFiles;
+    }
 
     /**
      * Default comparison implementation - directories come before files,

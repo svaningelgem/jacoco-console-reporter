@@ -43,7 +43,7 @@ public class Defaults {
      */
     @Contract(pure = true)
     public static @NotNull String formatCoverage(int covered, int total) {
-        if (total == 0) return "100.00% (0/0)";
+        if (total == 0) return "*** (0/0)";
         double percentage = (double) covered / total * 100;
         return String.format("%5.2f%% (%d/%d)", percentage, covered, total);
     }

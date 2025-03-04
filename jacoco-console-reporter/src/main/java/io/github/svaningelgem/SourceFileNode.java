@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
  */
 @Data
 @RequiredArgsConstructor
-class SourceFileNode implements FileSystemNode {
+public class SourceFileNode implements FileSystemNode {
     /**
      * Name of the source file
      */
@@ -22,12 +22,6 @@ class SourceFileNode implements FileSystemNode {
     @Override
     public String getName() {
         return fileName;
-    }
-
-    @Override
-    public boolean shouldInclude(boolean showFiles) {
-        // Files are always included if showing files is enabled
-        return showFiles;
     }
 
     @Override

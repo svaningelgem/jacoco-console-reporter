@@ -1,7 +1,11 @@
 package io.github.svaningelgem;
 
 import lombok.Data;
+import lombok.var;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Random;
 
 /**
  * Comprehensive collection of coverage metrics for a source file or directory.
@@ -9,7 +13,7 @@ import org.jetbrains.annotations.NotNull;
  * All metrics maintain both total count and covered count for percentage calculation.
  */
 @Data
-class CoverageMetrics {
+public class CoverageMetrics {
     /**
      * Total number of classes in the scope
      */
