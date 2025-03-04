@@ -79,10 +79,14 @@ public class BaseTestClass {
             line++;
         }
 
+        if (line == log.writtenData.size()) {
+            fail("I couldn't find the initial line even: " + expected[0]);
+        }
+
         final int begin = line;
         assertTrue("We should have at least enough lines left to check the whole expected array", line <= log.writtenData.size() - expected.length);
         for (; line < log.writtenData.size(); line++) {
-            if (!log.writtenData.get(line).contains(expected[line - begin])) {
+            if (!log.writtenData.get(line).startsWith(expected[line - begin])) {
                 failLog(expected);
             }
         }

@@ -30,14 +30,6 @@ interface FileSystemNode extends Comparable<FileSystemNode> {
                    String format, String packagePath, boolean showFiles);
 
     /**
-     * Determine if this node should be included in the output
-     * (Skip empty directories)
-     */
-    default boolean shouldInclude(boolean showFiles) {
-        return showFiles;
-    }
-
-    /**
      * Default comparison implementation - directories come before files,
      * then sort alphabetically within each type
      */

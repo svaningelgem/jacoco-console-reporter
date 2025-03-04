@@ -15,7 +15,6 @@ public class Defaults {
     public static final String CORNER = "└─";
 
     static final String DIVIDER = getDivider();
-    static final String HEADER_FORMAT = "%-" + PACKAGE_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s";
     static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s";
 
     /**
@@ -42,27 +41,17 @@ public class Defaults {
      * @return Formatted string showing percentage and ratio (e.g., "75.00% (3/4)")
      */
     @Contract(pure = true)
-    public static @NotNull String formatCoverage(int covered, int total) {
-        if (total == 0) return "*** (0/0)";
-        double percentage = (double) covered / total * 100;
-        return String.format("%5.2f%% (%d/%d)", percentage, covered, total);
+    public static @NotNull String formatCoverage(double covered, double total) {
+        if (total <= 0) return " ***** (0/0)";
+        double percentage = covered / total * 100;
+        return String.format("%5.2f%% (%d/%d)", percentage, (int)covered, (int)total);
     }
 
     /**
      * Build a divider with certain widths
      */
     private static @NotNull String getDivider() {
-        StringBuilder divider = new StringBuilder();
-        for (int i = 0; i < PACKAGE_WIDTH; i++) divider.append("-");
-        divider.append("-|-");
-        for (int i = 0; i < METRICS_WIDTH; i++) divider.append("-");
-        divider.append("-|-");
-        for (int i = 0; i < METRICS_WIDTH; i++) divider.append("-");
-        divider.append("-|-");
-        for (int i = 0; i < METRICS_WIDTH; i++) divider.append("-");
-        divider.append("-|-");
-        for (int i = 0; i < METRICS_WIDTH; i++) divider.append("-");
-        return divider.toString();
+        return String.format(Defaults.LINE_FORMAT, "", "", "", "", "").replace(' ', '-');
     }
 
 }

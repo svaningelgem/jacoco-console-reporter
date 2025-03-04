@@ -58,6 +58,20 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     boolean showFiles;
 
     /**
+     * Option to show individual files in the report.
+     * When false, only packages will be displayed.
+     */
+    @Parameter(defaultValue = "true", property = "showTree")
+    boolean showTree;
+
+    /**
+     * Option to show the summary in the report.
+     * When false, only packages will be displayed.
+     */
+    @Parameter(defaultValue = "true", property = "showSummary")
+    boolean showSummary;
+
+    /**
      * Additional exec files to include in the report.
      * Useful for aggregating multiple module reports.
      */
@@ -70,6 +84,18 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "false", property = "scanModules")
     boolean scanModules;
+
+    @Parameter(defaultValue = "0.1", property = "weightClassCoverage")
+    double weightClassCoverage;
+
+    @Parameter(defaultValue = "0.1", property = "weightMethodCoverage")
+    double weightMethodCoverage;
+
+    @Parameter(defaultValue = "0.4", property = "weightBranchCoverage")
+    double weightBranchCoverage;
+
+    @Parameter(defaultValue = "0.4", property = "weightLineCoverage")
+    double weightLineCoverage;
 
     /**
      * Base directory for module scanning.
@@ -119,25 +145,17 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
 
         try {
-            getLog().info("Loading execution data");
+            getLog().debug("Loading execution data");
             ExecutionDataStore executionDataStore = loadExecutionData();
-            getLog().info("Loading execution data");
+            getLog().debug("Analyzing coverage");
             IBundleCoverage bundle = analyzeCoverage(executionDataStore);
+            getLog().debug("Building internal tree model");
             DirectoryNode root = buildDirectoryTree(bundle);
+            getLog().debug("Printing reports");
             printCoverageReport(root);
         } catch (IOException e) {
             throw new MojoExecutionException("Failed to process JaCoCo data", e);
         }
-    }
-
-    /**
-     * Check if the JaCoCo plugin is configured in the current project
-     */
-    private boolean checkForJacocoPlugin() {
-        return project.getBuildPlugins().stream()
-                .anyMatch(plugin ->
-                        JACOCO_GROUP_ID.equals(plugin.getGroupId()) &&
-                                JACOCO_ARTIFACT_ID.equals(plugin.getArtifactId()));
     }
 
     /**
@@ -303,11 +321,50 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @param root The root node of the directory tree containing coverage information
      */
     private void printCoverageReport(@Nullable DirectoryNode root) {
-        if (root == null) return;
+        printTree(root);
+        printSummary(root);
+    }
+
+    private void printSummary(@Nullable DirectoryNode root) {
+        if (!showSummary || root == null) return;
+
+        CoverageMetrics total = root.aggregateMetrics();
+
+        getLog().info("Overall Coverage Summary");
+        getLog().info("------------------------");
+        getLog().info("Class coverage : " + Defaults.formatCoverage(total.getCoveredClasses(), total.getTotalClasses()));
+        getLog().info("Method coverage: " + Defaults.formatCoverage(total.getCoveredMethods(), total.getTotalMethods()));
+        getLog().info("Branch coverage: " + Defaults.formatCoverage(total.getCoveredBranches(), total.getTotalBranches()));
+        getLog().info("Line coverage  : " + Defaults.formatCoverage(total.getCoveredLines(), total.getTotalLines()));
+
+        double combinedCoverage = 0;
+        double combinedTotalCoverage = 0;
+        combinedCoverage += total.getCoveredClasses() * weightClassCoverage;
+        combinedTotalCoverage += total.getTotalClasses() * weightClassCoverage;
+        combinedCoverage += total.getCoveredMethods() * weightMethodCoverage;
+        combinedTotalCoverage += total.getTotalMethods() * weightMethodCoverage;
+        combinedCoverage += total.getCoveredBranches() * weightBranchCoverage;
+        combinedTotalCoverage += total.getTotalBranches() * weightBranchCoverage;
+        combinedCoverage += total.getCoveredLines() * weightLineCoverage;
+        combinedTotalCoverage += total.getTotalLines() * weightLineCoverage;
+
+        getLog().info(
+                String.format("Combined coverage: %5.2f%% (Class %d%%, Method %d%%, Branch %d%%, Line %d%%)",
+                        combinedTotalCoverage == 0 ? 100. : combinedCoverage * 100.0 / combinedTotalCoverage,
+                        (int) (weightClassCoverage * 100.0),
+                        (int) (weightMethodCoverage * 100.0),
+                        (int) (weightBranchCoverage * 100.0),
+                        (int) (weightLineCoverage * 100.0))
+        );
+
+    }
+
+    private void printTree(@Nullable DirectoryNode root) {
+        if (!showTree || root == null) return;
 
         // Print header
         getLog().info("Overall Coverage Summary");
-        getLog().info(String.format(Defaults.HEADER_FORMAT, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
+        getLog().info(String.format(Defaults.LINE_FORMAT, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
         getLog().info(Defaults.DIVIDER);
 
         // Print the tree structure - start with an empty prefix for root
