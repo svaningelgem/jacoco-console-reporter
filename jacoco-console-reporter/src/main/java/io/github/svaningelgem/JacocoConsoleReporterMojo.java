@@ -13,6 +13,7 @@ import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.data.SessionInfoStore;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -53,8 +54,22 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * Option to show individual files in the report.
      * When false, only packages will be displayed.
      */
-    @Parameter(defaultValue = "true", property = "showFiles")
+    @Parameter(defaultValue = "false", property = "showFiles")
     boolean showFiles;
+
+    /**
+     * Option to show individual files in the report.
+     * When false, only packages will be displayed.
+     */
+    @Parameter(defaultValue = "true", property = "showTree")
+    boolean showTree;
+
+    /**
+     * Option to show the summary in the report.
+     * When false, only packages will be displayed.
+     */
+    @Parameter(defaultValue = "true", property = "showSummary")
+    boolean showSummary;
 
     /**
      * Additional exec files to include in the report.
@@ -69,6 +84,18 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "false", property = "scanModules")
     boolean scanModules;
+
+    @Parameter(defaultValue = "0.1", property = "weightClassCoverage")
+    double weightClassCoverage;
+
+    @Parameter(defaultValue = "0.1", property = "weightMethodCoverage")
+    double weightMethodCoverage;
+
+    @Parameter(defaultValue = "0.4", property = "weightBranchCoverage")
+    double weightBranchCoverage;
+
+    @Parameter(defaultValue = "0.4", property = "weightLineCoverage")
+    double weightLineCoverage;
 
     /**
      * Base directory for module scanning.
@@ -89,24 +116,20 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     org.apache.maven.execution.MavenSession mavenSession;
 
     /**
-     * Track which exec files have been processed
-     */
-    private final List<String> processedExecFiles = new ArrayList<>();
-
-    /**
      * JaCoCo plugin info for dependency discovery
      */
     private static final String JACOCO_GROUP_ID = "org.jacoco";
     private static final String JACOCO_ARTIFACT_ID = "jacoco-maven-plugin";
     private static final String DEFAULT_EXEC_FILENAME = "jacoco.exec";
 
-    public void execute() throws MojoExecutionException {
-        // Check if JaCoCo plugin is in the project
-        boolean hasJacocoPlugin = checkForJacocoPlugin();
+    static final Set<File> collectedExecFilePaths = new HashSet<>();
+    static final Set<File> collectedClassesPaths = new HashSet<>();
 
-        // Even when deferring, collect the current module's exec file
-        if (jacocoExecFile.exists() && !additionalExecFiles.contains(jacocoExecFile)) {
-            additionalExecFiles.add(jacocoExecFile);
+    public void execute() throws MojoExecutionException {
+        additionalExecFiles.stream().map(File::getAbsoluteFile).forEach(collectedExecFilePaths::add);
+        collectedExecFilePaths.add(jacocoExecFile.getAbsoluteFile());
+        collectedClassesPaths.add(classesDirectory.getAbsoluteFile());
+        if (jacocoExecFile.exists()) {
             getLog().debug("Added exec file from current module: " + jacocoExecFile.getAbsolutePath());
         }
 
@@ -121,33 +144,18 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             return;
         }
 
-        if (additionalExecFiles.isEmpty()) {
-            if (hasJacocoPlugin) {
-                getLog().warn("No coverage data found; ensure JaCoCo plugin ran with tests.");
-            } else {
-                getLog().warn("No JaCoCo plugin found in project; no coverage data will be available.");
-            }
-            return;
-        }
-
         try {
+            getLog().debug("Loading execution data");
             ExecutionDataStore executionDataStore = loadExecutionData();
+            getLog().debug("Analyzing coverage");
             IBundleCoverage bundle = analyzeCoverage(executionDataStore);
+            getLog().debug("Building internal tree model");
             DirectoryNode root = buildDirectoryTree(bundle);
+            getLog().debug("Printing reports");
             printCoverageReport(root);
         } catch (IOException e) {
             throw new MojoExecutionException("Failed to process JaCoCo data", e);
         }
-    }
-
-    /**
-     * Check if the JaCoCo plugin is configured in the current project
-     */
-    private boolean checkForJacocoPlugin() {
-        return project.getBuildPlugins().stream()
-                .anyMatch(plugin ->
-                        JACOCO_GROUP_ID.equals(plugin.getGroupId()) &&
-                                JACOCO_ARTIFACT_ID.equals(plugin.getArtifactId()));
     }
 
     /**
@@ -224,10 +232,8 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
             if (execFiles != null) {
                 for (File execFile : execFiles) {
-                    if (!additionalExecFiles.contains(execFile)) {
-                        additionalExecFiles.add(execFile);
-                        getLog().debug("Found exec file: " + execFile.getAbsolutePath());
-                    }
+                    collectedExecFilePaths.add(execFile);
+                    getLog().debug("Found exec file: " + execFile.getAbsolutePath());
                 }
             }
         }
@@ -254,24 +260,21 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @return Populated execution data store with coverage information
      * @throws IOException if there are issues reading the JaCoCo execution files
      */
-    private @NotNull ExecutionDataStore loadExecutionData() throws IOException {
+    private @Nullable ExecutionDataStore loadExecutionData() throws IOException {
+        collectedExecFilePaths.removeIf(Objects::isNull);
+        collectedExecFilePaths.removeIf(f -> !f.exists());
+        if (collectedExecFilePaths.isEmpty()) {
+            getLog().warn("No coverage data found in this project; ensure JaCoCo plugin ran with tests.");
+            return null;
+        }
+
         ExecutionDataStore executionDataStore = new ExecutionDataStore();
         SessionInfoStore sessionInfoStore = new SessionInfoStore();
 
         // Load all exec files
-        for (File execFile : additionalExecFiles) {
-            if (execFile.exists()) {
-                String execPath = execFile.getAbsolutePath();
-                if (!processedExecFiles.contains(execPath)) {
-                    loadExecFile(execFile, executionDataStore, sessionInfoStore);
-                    processedExecFiles.add(execPath);
-                    getLog().debug("Processed exec file: " + execPath);
-                } else {
-                    getLog().debug("Skipping already processed exec file: " + execPath);
-                }
-            } else {
-                getLog().warn("Exec file not found: " + execFile.getAbsolutePath());
-            }
+        for (File execFile : collectedExecFilePaths) {
+            loadExecFile(execFile, executionDataStore, sessionInfoStore);
+            getLog().debug("Processed exec file: " + execFile);
         }
 
         return executionDataStore;
@@ -298,10 +301,16 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @return A bundle containing all coverage information
      * @throws IOException if there are issues reading the class files
      */
-    private IBundleCoverage analyzeCoverage(ExecutionDataStore executionDataStore) throws IOException {
+    private @Nullable IBundleCoverage analyzeCoverage(ExecutionDataStore executionDataStore) throws IOException {
+        if (executionDataStore == null) return null;
+
         CoverageBuilder coverageBuilder = new CoverageBuilder();
         Analyzer analyzer = new Analyzer(executionDataStore, coverageBuilder);
-        analyzer.analyzeAll(classesDirectory);
+        for (File classPath : collectedClassesPaths) {
+            if (classPath != null && classPath.exists()) {
+                analyzer.analyzeAll(classPath);
+            }
+        }
         return coverageBuilder.getBundle("Project");
     }
 
@@ -311,10 +320,51 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      *
      * @param root The root node of the directory tree containing coverage information
      */
-    private void printCoverageReport(@NotNull DirectoryNode root) {
+    private void printCoverageReport(@Nullable DirectoryNode root) {
+        printTree(root);
+        printSummary(root);
+    }
+
+    private void printSummary(@Nullable DirectoryNode root) {
+        if (!showSummary || root == null) return;
+
+        CoverageMetrics total = root.getMetrics();
+
+        getLog().info("Overall Coverage Summary");
+        getLog().info("------------------------");
+        getLog().info("Class coverage : " + Defaults.formatCoverage(total.getCoveredClasses(), total.getTotalClasses()));
+        getLog().info("Method coverage: " + Defaults.formatCoverage(total.getCoveredMethods(), total.getTotalMethods()));
+        getLog().info("Branch coverage: " + Defaults.formatCoverage(total.getCoveredBranches(), total.getTotalBranches()));
+        getLog().info("Line coverage  : " + Defaults.formatCoverage(total.getCoveredLines(), total.getTotalLines()));
+
+        double combinedCoverage = 0;
+        double combinedTotalCoverage = 0;
+        combinedCoverage += total.getCoveredClasses() * weightClassCoverage;
+        combinedTotalCoverage += total.getTotalClasses() * weightClassCoverage;
+        combinedCoverage += total.getCoveredMethods() * weightMethodCoverage;
+        combinedTotalCoverage += total.getTotalMethods() * weightMethodCoverage;
+        combinedCoverage += total.getCoveredBranches() * weightBranchCoverage;
+        combinedTotalCoverage += total.getTotalBranches() * weightBranchCoverage;
+        combinedCoverage += total.getCoveredLines() * weightLineCoverage;
+        combinedTotalCoverage += total.getTotalLines() * weightLineCoverage;
+
+        getLog().info(
+                String.format("Combined coverage: %5.2f%% (Class %d%%, Method %d%%, Branch %d%%, Line %d%%)",
+                        combinedTotalCoverage == 0 ? 100. : combinedCoverage * 100.0 / combinedTotalCoverage,
+                        (int) (weightClassCoverage * 100.0),
+                        (int) (weightMethodCoverage * 100.0),
+                        (int) (weightBranchCoverage * 100.0),
+                        (int) (weightLineCoverage * 100.0))
+        );
+
+    }
+
+    private void printTree(@Nullable DirectoryNode root) {
+        if (!showTree || root == null) return;
+
         // Print header
         getLog().info("Overall Coverage Summary");
-        getLog().info(String.format(Defaults.HEADER_FORMAT, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
+        getLog().info(String.format(Defaults.LINE_FORMAT, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
         getLog().info(Defaults.DIVIDER);
 
         // Print the tree structure - start with an empty prefix for root
@@ -322,7 +372,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
         // Print total metrics
         getLog().info(Defaults.DIVIDER);
-        CoverageMetrics total = root.aggregateMetrics();
+        CoverageMetrics total = root.getMetrics();
         getLog().info(String.format(Defaults.LINE_FORMAT,
                 "all classes",
                 Defaults.formatCoverage(total.getCoveredClasses(), total.getTotalClasses()),
@@ -338,7 +388,9 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @param bundle The bundle containing coverage data for all analyzed classes
      * @return The root node of the directory tree containing coverage information
      */
-    private @NotNull DirectoryNode buildDirectoryTree(@NotNull IBundleCoverage bundle) {
+    private @Nullable DirectoryNode buildDirectoryTree(@Nullable IBundleCoverage bundle) {
+        if (bundle == null) return null;
+
         DirectoryNode root = new DirectoryNode("");
         for (IPackageCoverage packageCoverage : bundle.getPackages()) {
             String packageName = packageCoverage.getName().replace('.', '/');

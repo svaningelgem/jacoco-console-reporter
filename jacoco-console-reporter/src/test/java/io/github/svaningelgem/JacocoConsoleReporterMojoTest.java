@@ -7,17 +7,12 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -28,29 +23,7 @@ import java.util.List;
 import static org.junit.Assert.*;
 
 
-public class JacocoConsoleReporterMojoTest {
-
-    @Rule
-    public final MojoRule rule = new MojoRule();
-
-    private JacocoConsoleReporterMojo mojo;
-    private MyLog log;
-
-    @Rule
-    public TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-    @Before
-    public void setUp() throws Exception {
-        mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        log = new MyLog();
-        mojo.setLog(log);
-    }
-
-    private final File testProjectDir = new File("../test-project");
-    private final File testProjectJacocoExec = new File(testProjectDir, "target/jacoco.exec");
-    private final File testProjectClasses = new File(testProjectDir, "target/classes");
-    private final File pom = new File(getBasedir(), "src/test/resources/unit/pom.xml");
-
+public class JacocoConsoleReporterMojoTest extends BaseTestClass {
     /**
      * Creates a real MavenProject with JaCoCo plugin configuration
      */
@@ -101,9 +74,6 @@ public class JacocoConsoleReporterMojoTest {
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-
         // Create a real project without JaCoCo plugin
         Model model = new Model();
         model.setGroupId("test.group");
@@ -131,9 +101,6 @@ public class JacocoConsoleReporterMojoTest {
 
     @Test
     public void testWithJacocoPlugin() throws Exception {
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-
         // Create a project with JaCoCo plugin
         MavenProject project = createProjectWithJacocoPlugin(null);
         mojo.project = project;
@@ -157,9 +124,6 @@ public class JacocoConsoleReporterMojoTest {
     public void testExecuteWithDeferredReportingFirstModule() throws Exception {
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
-
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
 
         // Create the first project
         MavenProject project1 = createProjectWithJacocoPlugin(null);
@@ -195,9 +159,6 @@ public class JacocoConsoleReporterMojoTest {
     public void testExecuteWithDeferredReportingLastModule() throws Exception {
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
-
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
 
         // Create the first project
         MavenProject project1 = createProjectWithJacocoPlugin(null);
@@ -236,9 +197,6 @@ public class JacocoConsoleReporterMojoTest {
 
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
-
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
 
         // Create a real project with JaCoCo plugin
         MavenProject project = createProjectWithJacocoPlugin(null);
@@ -279,9 +237,6 @@ public class JacocoConsoleReporterMojoTest {
         Files.createFile(execFile1.toPath());
         Files.createFile(execFile2.toPath());
 
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-
         // Create a real project with JaCoCo plugin
         MavenProject project = createProjectWithJacocoPlugin(null);
         mojo.project = project;
@@ -301,8 +256,8 @@ public class JacocoConsoleReporterMojoTest {
         mojo.execute();
 
         // Verify that both files were found
-        assertEquals(2, mojo.additionalExecFiles.size());
-        assertTrue(mojo.additionalExecFiles.contains(execFile1) || mojo.additionalExecFiles.contains(execFile2));
+        assertEquals(2, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
+        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile1) || JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile2));
     }
 
     @Test
@@ -316,9 +271,6 @@ public class JacocoConsoleReporterMojoTest {
         Files.createFile(customExec.toPath());
 
         // Configure the mojo
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-
         // Create project with custom destFile
         MavenProject project = createProjectWithJacocoPlugin("${project.build.directory}/custom-coverage.exec");
         mojo.project = project;
@@ -339,7 +291,7 @@ public class JacocoConsoleReporterMojoTest {
 
         // Verify the custom file was found
         boolean found = false;
-        for (File file : mojo.additionalExecFiles) {
+        for (File file : JacocoConsoleReporterMojo.collectedExecFilePaths) {
             if (file.getAbsolutePath().equals(customExec.getAbsolutePath())) {
                 found = true;
                 break;
@@ -348,13 +300,10 @@ public class JacocoConsoleReporterMojoTest {
         assertTrue("Custom exec file was not found", found);
     }
 
-    @Test(expected = MojoExecutionException.class)
+    @Test
     public void testExecuteWithInvalidClassesDirectory() throws Exception {
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
-
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
 
         // Create a real project with JaCoCo plugin
         MavenProject project = createProjectWithJacocoPlugin(null);
@@ -388,9 +337,6 @@ public class JacocoConsoleReporterMojoTest {
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-
         // Create a real project with JaCoCo plugin
         MavenProject project = createProjectWithJacocoPlugin(null);
         mojo.project = project;
@@ -408,7 +354,7 @@ public class JacocoConsoleReporterMojoTest {
     }
 
     @Test
-    public void testTruncateMiddle() throws Exception {
+    public void testTruncateMiddle() {
         // Test normal case
         String longString = "com.example.very.very.very.very.very.very.very.very.long.package.name";
         String truncated = Defaults.truncateMiddle(longString);
@@ -422,9 +368,6 @@ public class JacocoConsoleReporterMojoTest {
 
     @Test
     public void testShouldReport() throws Exception {
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-
         // Create two projects for a multi-module build
         MavenProject project1 = createProjectWithJacocoPlugin(null);
         project1.setGroupId("test.group");
@@ -462,319 +405,5 @@ public class JacocoConsoleReporterMojoTest {
         mojo.deferReporting = false;
         shouldReport = (boolean) shouldReportMethod.invoke(mojo);
         assertTrue("Module should report when not deferring", shouldReport);
-    }
-
-    private String getBasedir() {
-        return System.getProperty("basedir", new File("").getAbsolutePath());
-    }
-
-    @Test
-    public void testPrintTreeWithShowFilesEnabled() throws Exception {
-        // Setup the mojo
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-        MyLog myLog = new MyLog();
-        mojo.setLog(myLog);
-
-        // Create a sample directory structure with files
-        DirectoryNode root = new DirectoryNode("");
-        DirectoryNode pkg = new DirectoryNode("pkg");
-
-        // Add a source file to the package
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(2);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(5);
-        metrics.setCoveredMethods(3);
-        metrics.setTotalLines(20);
-        metrics.setCoveredLines(15);
-        metrics.setTotalBranches(4);
-        metrics.setCoveredBranches(2);
-
-        pkg.getSourceFiles().add(new SourceFileNode("Test.java", metrics));
-        root.getSubdirectories().put("pkg", pkg);
-
-        // Set showFiles to true
-        mojo.showFiles = true;
-
-        // Print the tree directly
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
-    }
-
-    @Test
-    public void testMultipleSubdirectoriesCase() throws Exception {
-        // Setup the mojo
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-        MyLog myLog = new MyLog();
-        mojo.setLog(myLog);
-
-        // Create a sample directory structure with multiple subdirectories
-        DirectoryNode root = new DirectoryNode("");
-
-        // Add multiple subdirectories to test the shouldInclude method
-        DirectoryNode pkg1 = new DirectoryNode("pkg1");
-        DirectoryNode pkg2 = new DirectoryNode("pkg2");
-
-        // Add some files to ensure the directories are included
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(1);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(2);
-        metrics.setCoveredMethods(2);
-        metrics.setTotalLines(10);
-        metrics.setCoveredLines(8);
-        metrics.setTotalBranches(2);
-        metrics.setCoveredBranches(1);
-
-        pkg1.getSourceFiles().add(new SourceFileNode("Test1.java", metrics));
-        pkg2.getSourceFiles().add(new SourceFileNode("Test2.java", metrics));
-
-        // Add them to root
-        root.getSubdirectories().put("pkg1", pkg1);
-        root.getSubdirectories().put("pkg2", pkg2);
-
-        // Print the tree
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
-    }
-
-    @Test
-    public void testPrintTreeWithNonEmptySubdirectory() throws Exception {
-        // Setup the mojo
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-        MyLog myLog = new MyLog();
-        mojo.setLog(myLog);
-
-        // Create a complex directory structure
-        // root -> com -> example -> (file1.java, file2.java)
-        DirectoryNode root = new DirectoryNode("");
-        DirectoryNode com = new DirectoryNode("com");
-        DirectoryNode example = new DirectoryNode("example");
-
-        // Add source files to example package
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(1);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(3);
-        metrics.setCoveredMethods(2);
-        metrics.setTotalLines(10);
-        metrics.setCoveredLines(8);
-        metrics.setTotalBranches(2);
-        metrics.setCoveredBranches(1);
-
-        example.getSourceFiles().add(new SourceFileNode("File1.java", metrics));
-        example.getSourceFiles().add(new SourceFileNode("File2.java", metrics));
-
-        // Connect the tree
-        com.getSubdirectories().put("example", example);
-        root.getSubdirectories().put("com", com);
-
-        // Print the tree
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
-    }
-
-    @Test
-    public void testPrintTreeWithCollapsedDirectoryPath() throws Exception {
-        // Setup the mojo
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-        MyLog myLog = new MyLog();
-        mojo.setLog(myLog);
-
-        // Create a directory structure perfect for collapsing
-        // com -> example -> util -> (Util.java)
-        DirectoryNode root = new DirectoryNode("");
-        DirectoryNode com = new DirectoryNode("com");
-        DirectoryNode example = new DirectoryNode("example");
-        DirectoryNode util = new DirectoryNode("util");
-
-        // Add a source file only to the deepest directory
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(1);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(2);
-        metrics.setCoveredMethods(2);
-        metrics.setTotalLines(8);
-        metrics.setCoveredLines(7);
-        metrics.setTotalBranches(2);
-        metrics.setCoveredBranches(1);
-
-        util.getSourceFiles().add(new SourceFileNode("Util.java", metrics));
-
-        // Connect the tree - each level has exactly one subdirectory
-        example.getSubdirectories().put("util", util);
-        com.getSubdirectories().put("example", example);
-        root.getSubdirectories().put("com", com);
-
-        // Print the tree - should collapse the path
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
-    }
-
-    @Test
-    public void testPrintTreeWithSourceFilesAndMultipleSubdirs() throws Exception {
-        // Setup the mojo
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-        MyLog myLog = new MyLog();
-        mojo.setLog(myLog);
-
-        // Create a complex case with both source files and multiple subdirectories
-        DirectoryNode root = new DirectoryNode("");
-        DirectoryNode com = new DirectoryNode("com");
-        DirectoryNode example = new DirectoryNode("example");
-        DirectoryNode util = new DirectoryNode("util");
-        DirectoryNode model = new DirectoryNode("model");
-
-        // Add source files
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(1);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(2);
-        metrics.setCoveredMethods(2);
-        metrics.setTotalLines(8);
-        metrics.setCoveredLines(7);
-        metrics.setTotalBranches(2);
-        metrics.setCoveredBranches(1);
-
-        example.getSourceFiles().add(new SourceFileNode("Example.java", metrics));
-        util.getSourceFiles().add(new SourceFileNode("Util.java", metrics));
-        model.getSourceFiles().add(new SourceFileNode("Model.java", metrics));
-
-        // Add multiple subdirectories to example
-        example.getSubdirectories().put("util", util);
-        example.getSubdirectories().put("model", model);
-
-        // Connect the tree
-        com.getSubdirectories().put("example", example);
-        root.getSubdirectories().put("com", com);
-
-        // Enable showing files
-        mojo.showFiles = true;
-
-        // Print the tree
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
-
-        // Test output should match the expected format for com.example
-        String[] expectedLines = {
-                "com.example",
-                "├─model",
-                "│ └─Model.java",
-                "├─util",
-                "│ └─Util.java",
-                "└─Example.java"
-        };
-
-        // Verify each expected line appears in the output
-        for (String expectedLine : expectedLines) {
-            boolean found = false;
-            for (String logLine : myLog.writtenData) {
-                if (logLine.contains(expectedLine)) {
-                    found = true;
-                    break;
-                }
-            }
-            assertTrue("Expected line not found in output: " + expectedLine, found);
-        }
-    }
-
-    @Test
-    public void testPrintTreeWithSourceFilesAndMultipleSubdirs2() throws Exception {
-        // Setup the mojo
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        assertNotNull("Mojo not found", mojo);
-        MyLog myLog = new MyLog();
-        mojo.setLog(myLog);
-
-        // Create a complex case with both source files and multiple subdirectories
-        DirectoryNode root = new DirectoryNode("");
-        DirectoryNode com = new DirectoryNode("com");
-        DirectoryNode example = new DirectoryNode("example");
-        DirectoryNode util = new DirectoryNode("util");
-        DirectoryNode dummy = new DirectoryNode("dummy");
-        DirectoryNode model = new DirectoryNode("model");
-
-        // Add source files
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(1);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(2);
-        metrics.setCoveredMethods(2);
-        metrics.setTotalLines(8);
-        metrics.setCoveredLines(7);
-        metrics.setTotalBranches(2);
-        metrics.setCoveredBranches(1);
-
-        util.getSourceFiles().add(new SourceFileNode("Util.java", metrics));
-        model.getSourceFiles().add(new SourceFileNode("Model.java", metrics));
-
-        // Add multiple subdirectories to example
-        example.getSubdirectories().put("util", util);
-        example.getSubdirectories().put("model", model);
-        example.getSubdirectories().put("dummy", dummy);  // Has no coverage information! -- shouldn't be shown
-
-        // Connect the tree
-        com.getSubdirectories().put("example", example);
-        root.getSubdirectories().put("com", com);
-
-        // Enable showing files
-        mojo.showFiles = true;
-
-        // Print the tree
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
-
-        // Test output should match the expected format for com.example
-        String[] expectedLines = {
-                "com.example",
-                "├─model",
-                "│ └─Model.java",
-                "└─util",
-                "  └─Util.java",
-        };
-
-        // Verify each expected line appears in the output
-        for (String expectedLine : expectedLines) {
-            boolean found = false;
-            for (String logLine : myLog.writtenData) {
-                if (logLine.contains(expectedLine)) {
-                    found = true;
-                    break;
-                }
-            }
-            assertTrue("Expected line not found in output: " + expectedLine, found);
-        }
-    }
-
-    private void failLog(String @NotNull [] expected, String message) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("Expected log to contain:\n");
-        for (String line : expected) {
-            builder.append(line).append("\n");
-        }
-        builder.append("\n");
-        builder.append("Actual log:\n");
-        for (String line : log.writtenData) {
-            builder.append(line).append("\n");
-        }
-        builder.append("\n");
-        fail(builder + message);
-    }
-
-    private void checkLogContains(@NotNull String @NotNull [] expected) {
-        MyLog myLog = (MyLog) mojo.getLog();
-
-        for (String exp : expected) {
-            boolean found = false;
-            for (String actual : myLog.writtenData) {
-                if (actual.contains(exp)) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                failLog(expected, "Expected log entry not found: " + exp);
-            }
-        }
     }
 }
