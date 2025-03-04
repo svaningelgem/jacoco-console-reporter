@@ -9,10 +9,10 @@ public class Defaults {
     static final int METRICS_WIDTH = 20;
 
     // Define tree characters based on terminal capabilities
-    public static final String LASTDIR_SPACE = "  ";
-    public static final String VERTICAL_LINE = "│ ";
-    public static final String TEE = "├─";
-    public static final String CORNER = "└─";
+    static final String LAST_DIR_SPACE = "  ";
+    static final String VERTICAL_LINE = "│ ";
+    static final String TEE = "├─";
+    static final String CORNER = "└─";
 
     static final String DIVIDER = getDivider();
     static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s";
@@ -21,7 +21,7 @@ public class Defaults {
      * Truncates a string in the middle if it exceeds maxLength
      * Example: "com.example.very.long.package.name" -> "com.example...kage.name"
      */
-    public static @NotNull String truncateMiddle(@NotNull String input) {
+    static @NotNull String truncateMiddle(@NotNull String input) {
         if (input.length() <= PACKAGE_WIDTH) {
             return input;
         }
@@ -41,7 +41,7 @@ public class Defaults {
      * @return Formatted string showing percentage and ratio (e.g., "75.00% (3/4)")
      */
     @Contract(pure = true)
-    public static @NotNull String formatCoverage(double covered, double total) {
+    static @NotNull String formatCoverage(double covered, double total) {
         if (total <= 0) return " ***** (0/0)";
         double percentage = covered / total * 100;
         return String.format("%5.2f%% (%d/%d)", percentage, (int)covered, (int)total);
@@ -54,4 +54,5 @@ public class Defaults {
         return String.format(Defaults.LINE_FORMAT, "", "", "", "", "").replace(' ', '-');
     }
 
+    private Defaults() { }
 }

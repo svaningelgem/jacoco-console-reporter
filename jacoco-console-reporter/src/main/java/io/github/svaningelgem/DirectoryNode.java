@@ -1,10 +1,7 @@
 package io.github.svaningelgem;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import lombok.var;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -57,7 +54,7 @@ public class DirectoryNode implements FileSystemNode {
         String prefix = oldPrefix;
 
         if (prefix.endsWith(Defaults.CORNER)) {
-            prefix = prefix.substring(0, prefix.length() - Defaults.CORNER.length()) + Defaults.LASTDIR_SPACE;
+            prefix = prefix.substring(0, prefix.length() - Defaults.CORNER.length()) + Defaults.LAST_DIR_SPACE;
         }
         else if (prefix.endsWith(Defaults.TEE)) {
             prefix = prefix.substring(0, prefix.length() - Defaults.TEE.length()) + Defaults.VERTICAL_LINE;
