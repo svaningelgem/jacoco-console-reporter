@@ -256,7 +256,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         mojo.execute();
 
         // Verify that both files were found
-        assertEquals(2, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
+        assertEquals(3, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
         assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile1) || JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile2));
     }
 
@@ -411,58 +411,39 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
     public void testPrintTreeWithShowFilesEnabled() {
         // Create a sample directory structure with files
         DirectoryNode root = new DirectoryNode("");
-        DirectoryNode pkg = new DirectoryNode("pkg");
-
-        // Add a source file to the package
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(2);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(5);
-        metrics.setCoveredMethods(3);
-        metrics.setTotalLines(20);
-        metrics.setCoveredLines(15);
-        metrics.setTotalBranches(4);
-        metrics.setCoveredBranches(2);
-
-        pkg.getSourceFiles().add(new SourceFileNode("Test.java", metrics));
-        root.getSubdirectories().put("pkg", pkg);
+        createTree(root, 1, "pkg");
 
         // Set showFiles to true
         mojo.showFiles = true;
 
         // Print the tree directly
         root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+
+        String[] expected = {
+                "pkg            ",
+                "└─Example0.java",
+        };
+        assertLogContains(expected);
     }
 
     @Test
     public void testMultipleSubdirectoriesCase() {
         // Create a sample directory structure with multiple subdirectories
         DirectoryNode root = new DirectoryNode("");
-
-        // Add multiple subdirectories to test the shouldInclude method
-        DirectoryNode pkg1 = new DirectoryNode("pkg1");
-        DirectoryNode pkg2 = new DirectoryNode("pkg2");
-
-        // Add some files to ensure the directories are included
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(1);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(2);
-        metrics.setCoveredMethods(2);
-        metrics.setTotalLines(10);
-        metrics.setCoveredLines(8);
-        metrics.setTotalBranches(2);
-        metrics.setCoveredBranches(1);
-
-        pkg1.getSourceFiles().add(new SourceFileNode("Test1.java", metrics));
-        pkg2.getSourceFiles().add(new SourceFileNode("Test2.java", metrics));
-
-        // Add them to root
-        root.getSubdirectories().put("pkg1", pkg1);
-        root.getSubdirectories().put("pkg2", pkg2);
+        createTree(root, 1, "pkg1");
+        createTree(root, 1, "pkg2");
 
         // Print the tree
         root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+
+        String[] expected = {
+                "<root>           ",
+                "├─pkg1           ",
+                "│ └─Example0.java",
+                "└─pkg2           ",
+                "  └─Example1.java",
+        };
+        assertLogContains(expected);
     }
 
     @Test
@@ -470,29 +451,17 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         // Create a complex directory structure
         // root -> com -> example -> (file1.java, file2.java)
         DirectoryNode root = new DirectoryNode("");
-        DirectoryNode com = new DirectoryNode("com");
-        DirectoryNode example = new DirectoryNode("example");
-
-        // Add source files to example package
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(1);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(3);
-        metrics.setCoveredMethods(2);
-        metrics.setTotalLines(10);
-        metrics.setCoveredLines(8);
-        metrics.setTotalBranches(2);
-        metrics.setCoveredBranches(1);
-
-        example.getSourceFiles().add(new SourceFileNode("File1.java", metrics));
-        example.getSourceFiles().add(new SourceFileNode("File2.java", metrics));
-
-        // Connect the tree
-        com.getSubdirectories().put("example", example);
-        root.getSubdirectories().put("com", com);
+        createTree(root, 2, "com", "example");
 
         // Print the tree
         root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+
+        String[] expected = {
+                "com.example      ",
+                "├─Example0.java  ",
+                "└─Example1.java  "
+        };
+        assertLogContains(expected);
     }
 
     @Test
@@ -500,63 +469,25 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         // Create a directory structure perfect for collapsing
         // com -> example -> util -> (Util.java)
         DirectoryNode root = new DirectoryNode("");
-        DirectoryNode com = new DirectoryNode("com");
-        DirectoryNode example = new DirectoryNode("example");
-        DirectoryNode util = new DirectoryNode("util");
-
-        // Add a source file only to the deepest directory
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(1);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(2);
-        metrics.setCoveredMethods(2);
-        metrics.setTotalLines(8);
-        metrics.setCoveredLines(7);
-        metrics.setTotalBranches(2);
-        metrics.setCoveredBranches(1);
-
-        util.getSourceFiles().add(new SourceFileNode("Util.java", metrics));
-
-        // Connect the tree - each level has exactly one subdirectory
-        example.getSubdirectories().put("util", util);
-        com.getSubdirectories().put("example", example);
-        root.getSubdirectories().put("com", com);
+        createTree(root, 1, "com", "example", "util");
 
         // Print the tree - should collapse the path
         root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
-    }
+
+        String[] expected = {
+                "com.example.util ",
+                "└─Example0.java  "
+        };
+        assertLogContains(expected);    }
 
     @Test
     public void testPrintTreeWithSourceFilesAndMultipleSubdirs() {
         // Create a complex case with both source files and multiple subdirectories
         DirectoryNode root = new DirectoryNode("");
-        DirectoryNode com = new DirectoryNode("com");
-        DirectoryNode example = new DirectoryNode("example");
-        DirectoryNode util = new DirectoryNode("util");
-        DirectoryNode model = new DirectoryNode("model");
 
-        // Add source files
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(1);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(2);
-        metrics.setCoveredMethods(2);
-        metrics.setTotalLines(8);
-        metrics.setCoveredLines(7);
-        metrics.setTotalBranches(2);
-        metrics.setCoveredBranches(1);
-
-        example.getSourceFiles().add(new SourceFileNode("Example.java", metrics));
-        util.getSourceFiles().add(new SourceFileNode("Util.java", metrics));
-        model.getSourceFiles().add(new SourceFileNode("Model.java", metrics));
-
-        // Add multiple subdirectories to example
-        example.getSubdirectories().put("util", util);
-        example.getSubdirectories().put("model", model);
-
-        // Connect the tree
-        com.getSubdirectories().put("example", example);
-        root.getSubdirectories().put("com", com);
+        createTree(root, 1, "com", "example", "model");
+        createTree(root, 1, "com", "example", "util");
+        createTree(root, 1, "com", "example");
 
         // Enable showing files
         mojo.showFiles = true;
@@ -565,60 +496,24 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
 
         // Test output should match the expected format for com.example
-        String[] expectedLines = {
-                "com.example",
-                "├─model",
-                "│ └─Model.java",
-                "├─util",
-                "│ └─Util.java",
-                "└─Example.java"
+        String[] expected = {
+                "com.example       ",
+                "├─model           ",
+                "│ └─Example0.java ",
+                "├─util            ",
+                "│ └─Example1.java ",
+                "└─Example2.java   "
         };
-
-        // Verify each expected line appears in the output
-        for (String expectedLine : expectedLines) {
-            boolean found = false;
-            for (String logLine : log.writtenData) {
-                if (logLine.contains(expectedLine)) {
-                    found = true;
-                    break;
-                }
-            }
-            assertTrue("Expected line not found in output: " + expectedLine, found);
-        }
+        assertLogContains(expected);
     }
 
     @Test
     public void testPrintTreeWithSourceFilesAndMultipleSubdirs2() {
         // Create a complex case with both source files and multiple subdirectories
         DirectoryNode root = new DirectoryNode("");
-        DirectoryNode com = new DirectoryNode("com");
-        DirectoryNode example = new DirectoryNode("example");
-        DirectoryNode util = new DirectoryNode("util");
-        DirectoryNode dummy = new DirectoryNode("dummy");
-        DirectoryNode model = new DirectoryNode("model");
-
-        // Add source files
-        CoverageMetrics metrics = new CoverageMetrics();
-        metrics.setTotalClasses(1);
-        metrics.setCoveredClasses(1);
-        metrics.setTotalMethods(2);
-        metrics.setCoveredMethods(2);
-        metrics.setTotalLines(8);
-        metrics.setCoveredLines(7);
-        metrics.setTotalBranches(2);
-        metrics.setCoveredBranches(1);
-
-        util.getSourceFiles().add(new SourceFileNode("Util.java", metrics));
-        model.getSourceFiles().add(new SourceFileNode("Model.java", metrics));
-
-        // Add multiple subdirectories to example
-        example.getSubdirectories().put("util", util);
-        example.getSubdirectories().put("model", model);
-        example.getSubdirectories().put("dummy", dummy);  // Has no coverage information! -- shouldn't be shown
-
-        // Connect the tree
-        com.getSubdirectories().put("example", example);
-        root.getSubdirectories().put("com", com);
+        createTree(root, 1, "com", "example", "model");
+        createTree(root, 1, "com", "example", "util");
+        createTree(root, 0, "com", "example", "dummy"); // No files --> shouldn't show this!
 
         // Enable showing files
         mojo.showFiles = true;
@@ -626,26 +521,14 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         // Print the tree
         root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
 
-        // Test output should match the expected format for com.example
-        String[] expectedLines = {
-                "com.example",
-                "├─model",
-                "│ └─Model.java",
-                "└─util",
-                "  └─Util.java",
+        String[] expected = {
+                "com.example       ",
+                "├─model           ",
+                "│ └─Example0.java ",
+                "└─util            ",
+                "  └─Example1.java ",
         };
 
-        // Verify each expected line appears in the output
-        assertLogContains(expectedLines);
-        for (String expectedLine : expectedLines) {
-            boolean found = false;
-            for (String logLine : log.writtenData) {
-                if (logLine.contains(expectedLine)) {
-                    found = true;
-                    break;
-                }
-            }
-            assertTrue("Expected line not found in output: " + expectedLine, found);
-        }
+        assertLogContains(expected);
     }
 }
