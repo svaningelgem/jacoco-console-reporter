@@ -256,7 +256,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         mojo.execute();
 
         // Verify that both files were found
-        assertEquals(3, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
+        assertEquals(2, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
         assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile1) || JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile2));
     }
 

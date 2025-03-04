@@ -5,6 +5,7 @@ import org.apache.maven.plugin.testing.MojoRule;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
@@ -47,6 +48,12 @@ public class BaseTestClass {
         mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
         log = new MyLog();
         mojo.setLog(log);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        JacocoConsoleReporterMojo.collectedClassesPaths.clear();
+        JacocoConsoleReporterMojo.collectedExecFilePaths.clear();
     }
 
     private static int nextInt(int bound) {
