@@ -1,59 +1,56 @@
 package io.github.svaningelgem;
 
-import org.apache.maven.plugin.testing.MojoRule;
-import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.FilenameFilter;
-import java.lang.reflect.Method;
-import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-public class Mockito5Test {
-
-    @Rule
-    public final MojoRule rule = new MojoRule();
+public class Mockito5Test extends BaseTestClass {
 
     @Test
     public void testListFilesReturnsNull() throws Exception {
-        File pom = new File(System.getProperty("basedir", new File("").getAbsolutePath()), "src/test/resources/unit/pom.xml");
-        JacocoConsoleReporterMojo mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        Method scanDirectoryForExecFiles = JacocoConsoleReporterMojo.class.getDeclaredMethod("scanDirectoryForExecFiles", File.class, List.class);
-        scanDirectoryForExecFiles.setAccessible(true);
-
-        // Mock directory behavior
-        File dirMock = mock(File.class);
+        // Mock directory behavior - use Real method to avoid recursive calls
+        File dirMock = spy(new File("some-path"));
         doReturn(true).when(dirMock).exists();
         doReturn(true).when(dirMock).isDirectory();
         doReturn(null).when(dirMock).listFiles(any(FilenameFilter.class));
 
-        File targetDirMock = mock(File.class);
+        // Target directory mock
+        File targetDirMock = spy(new File("target-path"));
         doReturn(true).when(targetDirMock).exists();
         doReturn(true).when(targetDirMock).isDirectory();
         doReturn(null).when(targetDirMock).listFiles(any(FilenameFilter.class));
 
-        // Mock new File creation
+        // Mock File constructor for specific case only
+        final AtomicBoolean intercepted = new AtomicBoolean(false);
         try (MockedConstruction<File> mockedFile = Mockito.mockConstruction(
                 File.class,
                 (mock, context) -> {
-                    // If constructor is called with dirMock and "target", return targetDirMock
+                    // Only intercept the specific File(dirMock, "target") call
                     if (context.arguments().size() == 2 &&
-                            context.arguments().get(0) == dirMock &&
-                            context.arguments().get(1).equals("target")) {
-                        when(mock.exists()).thenReturn(true);
-                        when(mock.isDirectory()).thenReturn(true);
-                        when(mock.listFiles(any(FilenameFilter.class))).thenReturn(null);
-                        // Make the mock behave like targetDirMock
-                        lenient().doReturn(targetDirMock).when(mock);
+                            context.arguments().get(0).equals(dirMock) &&
+                            "target".equals(context.arguments().get(1))) {
+                        intercepted.set(true);
+                        // Forward all methods to targetDirMock to avoid recursion
+                        lenient().doAnswer(inv -> inv.getMethod().invoke(targetDirMock, inv.getArguments()))
+                                .when(mock).exists();
+                        lenient().doAnswer(inv -> inv.getMethod().invoke(targetDirMock, inv.getArguments()))
+                                .when(mock).isDirectory();
+                        lenient().doReturn(null).when(mock).listFiles(any(FilenameFilter.class));
                     }
                 })) {
 
             scanDirectoryForExecFiles.invoke(mojo, dirMock, null);
+
+            // Verify the interception happened
+            assertTrue("File constructor wasn't intercepted", intercepted.get());
         }
     }
 }
