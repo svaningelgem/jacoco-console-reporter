@@ -10,7 +10,6 @@ import org.jacoco.core.data.ExecutionDataReader;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.data.SessionInfoStore;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -267,19 +266,16 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @return Populated execution data store with coverage information
      * @throws IOException if there are issues reading the JaCoCo execution files
      */
-    private @Nullable ExecutionDataStore loadExecutionData() throws IOException {
-        collectedExecFilePaths.removeIf(Objects::isNull);
-        collectedExecFilePaths.removeIf(f -> !f.exists());
-        if (collectedExecFilePaths.isEmpty()) {
-            getLog().warn("No coverage data found in this project; ensure JaCoCo plugin ran with tests.");
-            return null;
-        }
-
+    private @NotNull ExecutionDataStore loadExecutionData() throws IOException {
         ExecutionDataStore executionDataStore = new ExecutionDataStore();
         SessionInfoStore sessionInfoStore = new SessionInfoStore();
 
         // Load all exec files
         for (File execFile : collectedExecFilePaths) {
+            if (execFile == null || !execFile.exists()) {
+                continue;
+            }
+
             loadExecFile(execFile, executionDataStore, sessionInfoStore);
             getLog().debug("Processed exec file: " + execFile);
         }
@@ -308,17 +304,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @return A bundle containing all coverage information
      * @throws IOException if there are issues reading the class files
      */
-    private @Nullable IBundleCoverage analyzeCoverage(ExecutionDataStore executionDataStore) throws IOException {
-        if (executionDataStore == null) return null;
-
+    private @NotNull IBundleCoverage analyzeCoverage(@NotNull ExecutionDataStore executionDataStore) throws IOException {
         CoverageBuilder coverageBuilder = new CoverageBuilder();
         Analyzer analyzer = new Analyzer(executionDataStore, coverageBuilder);
         for (File classPath : collectedClassesPaths) {
             if (classPath == null || !classPath.exists()) {
                 continue;
             }
-            analyzer.analyzeAll(classPath);
-            /*
             getLog().debug("Analyzing class files in: " + classPath.getAbsolutePath());
             Files.walkFileTree(classPath.toPath(), new SimpleFileVisitor<Path>() {
                 @Override
@@ -334,8 +326,6 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
                     return FileVisitResult.CONTINUE;
                 }
             });
-
-             */
         }
 
         return coverageBuilder.getBundle("Project");
@@ -347,13 +337,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      *
      * @param root The root node of the directory tree containing coverage information
      */
-    private void printCoverageReport(@Nullable DirectoryNode root) {
+    private void printCoverageReport(@NotNull DirectoryNode root) {
         printTree(root);
         printSummary(root);
     }
 
-    private void printSummary(@Nullable DirectoryNode root) {
-        if (!showSummary || root == null) return;
+    private void printSummary(@NotNull DirectoryNode root) {
+        if (!showSummary) return;
 
         CoverageMetrics total = root.getMetrics();
 
@@ -386,8 +376,8 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     }
 
-    private void printTree(@Nullable DirectoryNode root) {
-        if (!showTree || root == null) return;
+    private void printTree(@NotNull DirectoryNode root) {
+        if (!showTree) return;
 
         // Print header
         getLog().info("Overall Coverage Summary");
@@ -415,9 +405,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @param bundle The bundle containing coverage data for all analyzed classes
      * @return The root node of the directory tree containing coverage information
      */
-    private @Nullable DirectoryNode buildDirectoryTree(@Nullable IBundleCoverage bundle) {
-        if (bundle == null) return null;
-
+    private @NotNull DirectoryNode buildDirectoryTree(@NotNull IBundleCoverage bundle) {
         DirectoryNode root = new DirectoryNode("");
         for (IPackageCoverage packageCoverage : bundle.getPackages()) {
             String packageName = packageCoverage.getName().replace('.', '/');

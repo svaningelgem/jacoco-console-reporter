@@ -1,26 +1,15 @@
 package io.github.svaningelgem;
 
 import lombok.var;
-import org.apache.maven.execution.DefaultMavenExecutionRequest;
-import org.apache.maven.execution.DefaultMavenExecutionResult;
-import org.apache.maven.execution.MavenExecutionRequest;
-import org.apache.maven.execution.MavenSession;
-import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.PlexusContainer;
-import org.jetbrains.annotations.NotNull;
 import org.junit.Test;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 import static io.github.svaningelgem.JacocoConsoleReporterMojo.collectedClassesPaths;
 import static io.github.svaningelgem.JacocoConsoleReporterMojo.collectedExecFilePaths;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class JarFileHandlingTest extends BaseTestClass {
     /**
@@ -59,9 +48,14 @@ public class JarFileHandlingTest extends BaseTestClass {
         generateReport.invoke(mojo);
 
         String[] expected = {
-                "<root>                  ",
-                "└─io.github.svaningelgem",
+                "[info] Overall Coverage Summary",
+                "[info] Package                                            │ Class, %             │ Method, %            │ Branch, %            │ Line, %             ",
+                "[info] ---------------------------------------------------│----------------------│----------------------│----------------------│---------------------",
+                "[info] io.github.svaningelgem                             │  0.00% (0/7)         │  0.00% (0/41)        │  0.00% (0/160)       │  0.00% (0/259)      ",
+                "[info] ---------------------------------------------------│----------------------│----------------------│----------------------│---------------------",
+                "[info] all classes                                        │  0.00% (0/7)         │  0.00% (0/41)        │  0.00% (0/160)       │  0.00% (0/259)      ",
         };
-        assertLogContains(expected);
+
+        assertEquals(Arrays.asList(expected), log.writtenData);
     }
 }
