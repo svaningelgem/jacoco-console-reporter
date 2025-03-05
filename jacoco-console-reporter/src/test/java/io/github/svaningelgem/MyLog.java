@@ -14,4 +14,10 @@ public class MyLog extends SystemStreamLog {
         writtenData.add("[info] " + content);
         super.info(content);
     }
+
+    @Override
+    public void debug(@NotNull CharSequence content) {
+        writtenData.add("[debug] " + content);
+        super.info(content);
+    }
 }
