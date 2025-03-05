@@ -33,7 +33,7 @@ jobs:
           cache: 'maven'
 
       - name: Build and test
-        run: mvn -B verify
+        run: mvn --ntp -B verify
 
       - name: Upload test results
         if: always()

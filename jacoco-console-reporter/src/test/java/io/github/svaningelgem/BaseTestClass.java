@@ -1,7 +1,17 @@
 package io.github.svaningelgem;
 
 import lombok.var;
+import org.apache.maven.execution.DefaultMavenExecutionRequest;
+import org.apache.maven.execution.DefaultMavenExecutionResult;
+import org.apache.maven.execution.MavenExecutionRequest;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.testing.MojoRule;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.PlexusContainer;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,7 +30,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class BaseTestClass {
     protected final static Random RANDOM = new Random();
@@ -64,6 +75,18 @@ public class BaseTestClass {
         mojo.weightMethodCoverage = 0.1;
         mojo.weightBranchCoverage = 0.4;
         mojo.weightLineCoverage = 0.4;
+
+        // Create a real project with JaCoCo plugin
+        MavenProject project = createProjectWithJacocoPlugin(null);
+        mojo.project = project;
+
+        // Create a real MavenSession with this as the only project
+        List<MavenProject> projects = new ArrayList<>();
+        projects.add(project);
+        mojo.mavenSession = createRealMavenSession(projects);
+
+        // Configure mojo
+        mojo.baseDir = temporaryFolder.getRoot();
 
         log = new MyLog();
         mojo.setLog(log);
@@ -224,5 +247,50 @@ public class BaseTestClass {
             }
             Files.copy(is, destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
         }
+    }
+
+    /**
+     * Creates a real MavenProject with JaCoCo plugin configuration
+     */
+    @Contract("_ -> new")
+    protected @NotNull MavenProject createProjectWithJacocoPlugin(String destFile) {
+        Model model = new Model();
+        model.setGroupId("test.group");
+        model.setArtifactId("test-artifact");
+        model.setVersion("1.0.0");
+
+        Build build = new Build();
+        model.setBuild(build);
+
+        Plugin plugin = new Plugin();
+        plugin.setGroupId("org.jacoco");
+        plugin.setArtifactId("jacoco-maven-plugin");
+        plugin.setVersion("0.8.12");
+
+        if (destFile != null) {
+            Xpp3Dom configuration = new Xpp3Dom("configuration");
+            Xpp3Dom destFileNode = new Xpp3Dom("destFile");
+            destFileNode.setValue(destFile);
+            configuration.addChild(destFileNode);
+            plugin.setConfiguration(configuration);
+        }
+
+        build.addPlugin(plugin);
+
+        return new MavenProject(model);
+    }
+
+    /**
+     * Creates a real MavenSession with multiple projects
+     */
+    protected @NotNull MavenSession createRealMavenSession(List<MavenProject> projects) {
+        PlexusContainer container = rule.getContainer();
+        MavenExecutionRequest request = new DefaultMavenExecutionRequest();
+        return new MavenSession(
+                container,
+                request,
+                new DefaultMavenExecutionResult(),
+                projects
+        );
     }
 }
