@@ -1,5 +1,5 @@
 codecov:
-  require_ci_to_pass: yes
+  require_ci_to_pass: true
 
 coverage:
   precision: 2
@@ -8,9 +8,8 @@ coverage:
 
   status:
     project: yes
-    patch: yes
-    changes: no
+    patch: true
+    changes: false
 
 ignore:
-  - "test-project/**/*"
-  - "**/test-project/**/*"
+  - "test-project"
