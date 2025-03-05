@@ -284,22 +284,18 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         mojo.mavenSession = session;
         mojo.deferReporting = true;
 
-        // Access the private method using reflection
-        java.lang.reflect.Method shouldReportMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod("shouldReport");
-        shouldReportMethod.setAccessible(true);
-
-        boolean shouldReport = (boolean) shouldReportMethod.invoke(mojo);
-        assertFalse("First module should not report when deferring", shouldReport);
+        boolean hasReported = (boolean) shouldReport.invoke(mojo);
+        assertFalse("First module should not report when deferring", hasReported);
 
         // Test with last project
         mojo.project = project2;
-        shouldReport = (boolean) shouldReportMethod.invoke(mojo);
-        assertTrue("Last module should report even when deferring", shouldReport);
+        hasReported = (boolean) shouldReport.invoke(mojo);
+        assertTrue("Last module should report even when deferring", hasReported);
 
         // Test without deferring
         mojo.project = project1;
         mojo.deferReporting = false;
-        shouldReport = (boolean) shouldReportMethod.invoke(mojo);
-        assertTrue("Module should report when not deferring", shouldReport);
+        hasReported = (boolean) shouldReport.invoke(mojo);
+        assertTrue("Module should report when not deferring", hasReported);
     }
 }

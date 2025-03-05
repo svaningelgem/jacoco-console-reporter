@@ -20,19 +20,14 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        java: ['8', '11', '17', '21']
-      fail-fast: false
 
-    name: Java ${{ matrix.java }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ matrix.java }}
+          java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
 
@@ -43,14 +38,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-java-${{ matrix.java }}
+          name: test-results-java
           path: '**/target/surefire-reports/'
 
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report-java-${{ matrix.java }}
+          name: coverage-report-java
           path: '**/target/site/jacoco/'
 
       - name: Upload test results to Codecov

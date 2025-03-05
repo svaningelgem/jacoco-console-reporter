@@ -1,14 +1,11 @@
 package io.github.svaningelgem;
 
-import lombok.var;
 import org.junit.Test;
 
 import java.io.File;
-import java.util.Arrays;
 
 import static io.github.svaningelgem.JacocoConsoleReporterMojo.collectedClassesPaths;
 import static io.github.svaningelgem.JacocoConsoleReporterMojo.collectedExecFilePaths;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class JarFileHandlingTest extends BaseTestClass {
@@ -42,8 +39,6 @@ public class JarFileHandlingTest extends BaseTestClass {
         collectedExecFilePaths.add(testProjectJacocoExec);
         collectedClassesPaths.add(testClassesDir);
 
-        var generateReport = JacocoConsoleReporterMojo.class.getDeclaredMethod("generateReport");
-        generateReport.setAccessible(true);
 
         generateReport.invoke(mojo);
 
