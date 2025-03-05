@@ -5,6 +5,7 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.util.Collections;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.when;
 
 public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
@@ -61,7 +63,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     }
 
     @Test
-    public void testAnalyzeCoverageWithInvalidClass() throws Exception {
+    public void testAnalyzeCoverageWithNullAndInvalidClasses() throws Exception {
         // Test the case where a class file is invalid
         File tempDir = temporaryFolder.newFolder("classes");
         File invalidClass = new File(tempDir, "Invalid.class");
@@ -78,7 +80,10 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         // Replace mojo.classesDirectory with our temp directory
         File originalClassesDir = mojo.classesDirectory;
         mojo.classesDirectory = tempDir;
+
+        // Add a null element to the collectedClassesPaths
         JacocoConsoleReporterMojo.collectedClassesPaths.clear();
+        JacocoConsoleReporterMojo.collectedClassesPaths.add(null);
         JacocoConsoleReporterMojo.collectedClassesPaths.add(tempDir);
 
         try {
@@ -93,11 +98,47 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     }
 
     @Test
-    public void testScanDirectoryForExecFilesWithNullListings() throws Exception {
-        // Create real directories rather than mocks to avoid NullPointerException in File constructor
-        File baseDir = temporaryFolder.newFolder("mockBaseDir");
-        File targetDir = new File(baseDir, "target");
-        targetDir.mkdir();
+    public void testScanDirectoryCompleteTest() throws Exception {
+        // Create directory structure to cover all branches
+        File baseDir = temporaryFolder.newFolder("completeTest");
+
+        // Case 1: Target directory is a file
+        File fileTarget = new File(baseDir, "fileTarget");
+        fileTarget.mkdir();
+        File targetFile = new File(fileTarget, "target");
+        Files.write(targetFile.toPath(), "not a directory".getBytes());
+
+        // Case 2: Normal target directory with exec files
+        File normalDir = new File(baseDir, "normalDir");
+        normalDir.mkdir();
+        File normalTarget = new File(normalDir, "target");
+        normalTarget.mkdir();
+        File execFile = new File(normalTarget, "jacoco.exec");
+        execFile.createNewFile();
+
+        // Case 3: Target with null listFiles result
+        File mockDir = new File(baseDir, "mockDir");
+        mockDir.mkdir();
+        File mockTarget = Mockito.spy(new File(mockDir, "target"));
+        mockTarget.mkdir();
+        when(mockTarget.listFiles((FilenameFilter) any())).thenReturn(null);
+
+        // Case 4: Subdirectories with various filters
+        File subdirsDir = new File(baseDir, "subdirsDir");
+        subdirsDir.mkdir();
+        // Create a target directory (should be skipped for recursion)
+        new File(subdirsDir, "target").mkdir();
+        // Create a node_modules directory (should be skipped)
+        new File(subdirsDir, "node_modules").mkdir();
+        // Create a hidden directory (should be skipped)
+        new File(subdirsDir, ".hidden").mkdir();
+        // Create a regular directory (should be recursed into)
+        File regularSubdir = new File(subdirsDir, "regularSubdir");
+        regularSubdir.mkdir();
+        File regularTarget = new File(regularSubdir, "target");
+        regularTarget.mkdir();
+        File regularExec = new File(regularTarget, "jacoco.exec");
+        regularExec.createNewFile();
 
         // Use reflection to get the scanDirectoryForExecFiles method
         Method scanDirectoryForExecFiles = JacocoConsoleReporterMojo.class.getDeclaredMethod("scanDirectoryForExecFiles",
@@ -107,33 +148,35 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         // Create a list of patterns
         java.util.List<String> patterns = Collections.singletonList("jacoco.exec");
 
-        // Call the method with real directories
+        // Save the initial size
+        int initialSize = JacocoConsoleReporterMojo.collectedExecFilePaths.size();
+
+        // Call the method on the base directory
         scanDirectoryForExecFiles.invoke(mojo, baseDir, patterns);
 
-        // Create a test to handle non-existent directories
-        File nonExistentDir = new File(baseDir, "nonexistent");
-        scanDirectoryForExecFiles.invoke(mojo, nonExistentDir, patterns);
-
-        // Create a file masquerading as a directory to test that branch
-        File fileNotDir = new File(baseDir, "file.txt");
-        Files.write(fileNotDir.toPath(), "not a directory".getBytes());
-        scanDirectoryForExecFiles.invoke(mojo, fileNotDir, patterns);
+        // Verify we found the exec files
+        assertEquals(initialSize + 2, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
+        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile));
+        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(regularExec));
     }
 
     @Test
-    public void testGetConfiguredExecFilePatternsBadConfig() throws Exception {
-        // Create a project with a JaCoCo plugin that has malformed configuration
+    public void testGetConfiguredExecFilePatternsThoroughly() throws Exception {
+        // Create a project with JaCoCo plugin that throws exception during configuration parsing
         org.apache.maven.model.Plugin jacocoPlugin = new org.apache.maven.model.Plugin();
         jacocoPlugin.setGroupId("org.jacoco");
         jacocoPlugin.setArtifactId("jacoco-maven-plugin");
         jacocoPlugin.setVersion("0.8.7");
 
-        // Set a malformed configuration
-        org.codehaus.plexus.util.xml.Xpp3Dom config = new org.codehaus.plexus.util.xml.Xpp3Dom("configuration");
-        org.codehaus.plexus.util.xml.Xpp3Dom destFile = new org.codehaus.plexus.util.xml.Xpp3Dom("destFile");
-        // No value set for destFile - malformed
-        config.addChild(destFile);
-        jacocoPlugin.setConfiguration(config);
+        // Create a configuration that will throw an exception when processed
+        class ExceptionThrowingConfiguration {
+            @Override
+            public String toString() {
+                throw new RuntimeException("Test exception");
+            }
+        }
+
+        jacocoPlugin.setConfiguration(new ExceptionThrowingConfiguration());
 
         // Add plugin to project's build
         mojo.project.getBuild().getPlugins().clear();
@@ -143,12 +186,33 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         Method getConfiguredExecFilePatterns = JacocoConsoleReporterMojo.class.getDeclaredMethod("getConfiguredExecFilePatterns");
         getConfiguredExecFilePatterns.setAccessible(true);
 
-        // Call the method - it should handle malformed configuration
+        // Call the method - it should handle the exception
         @SuppressWarnings("unchecked")
         java.util.List<String> patterns = (java.util.List<String>) getConfiguredExecFilePatterns.invoke(mojo);
 
         // Should still include the default pattern
         assertTrue(patterns.contains("jacoco.exec"));
+
+        // Now test with a valid destFile that contains a path
+        jacocoPlugin = new org.apache.maven.model.Plugin();
+        jacocoPlugin.setGroupId("org.jacoco");
+        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
+        jacocoPlugin.setVersion("0.8.7");
+
+        org.codehaus.plexus.util.xml.Xpp3Dom config = new org.codehaus.plexus.util.xml.Xpp3Dom("configuration");
+        org.codehaus.plexus.util.xml.Xpp3Dom destFile = new org.codehaus.plexus.util.xml.Xpp3Dom("destFile");
+        destFile.setValue("/custom/path/custom-jacoco.exec");
+        config.addChild(destFile);
+        jacocoPlugin.setConfiguration(config);
+
+        mojo.project.getBuild().getPlugins().clear();
+        mojo.project.getBuild().addPlugin(jacocoPlugin);
+
+        patterns = (java.util.List<String>) getConfiguredExecFilePatterns.invoke(mojo);
+
+        // Should include both default and custom pattern
+        assertTrue(patterns.contains("jacoco.exec"));
+        assertTrue(patterns.contains("custom-jacoco.exec"));
     }
 
     @Test
@@ -238,22 +302,20 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     }
 
     @Test
-    public void testNonExistentJacocoExecFile() throws Exception {
-        // Set a non-existent exec file
-        File nonExistentFile = new File("target/nonexistent.exec");
-        mojo.jacocoExecFile = nonExistentFile;
-
-        // Clear the collected paths
-        JacocoConsoleReporterMojo.collectedExecFilePaths.clear();
-        JacocoConsoleReporterMojo.collectedExecFilePaths.add(nonExistentFile);
+    public void testLoadExecutionDataWithNullExecFile() throws Exception {
+        // Add a null element to collectedExecFilePaths
+        JacocoConsoleReporterMojo.collectedExecFilePaths.add(null);
 
         // Use reflection to get the loadExecutionData method
         Method loadExecutionData = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecutionData");
         loadExecutionData.setAccessible(true);
 
-        // Call the method - it should handle non-existent files
+        // Call the method - it should handle null exec files
         Object result = loadExecutionData.invoke(mojo);
         assertNotNull(result);
+
+        // Clean up
+        JacocoConsoleReporterMojo.collectedExecFilePaths.remove(null);
     }
 
     @Test
