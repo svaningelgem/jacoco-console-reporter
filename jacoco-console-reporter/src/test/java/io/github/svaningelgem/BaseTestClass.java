@@ -1,6 +1,5 @@
 package io.github.svaningelgem;
 
-import lombok.var;
 import org.apache.maven.execution.DefaultMavenExecutionRequest;
 import org.apache.maven.execution.DefaultMavenExecutionResult;
 import org.apache.maven.execution.MavenExecutionRequest;
@@ -143,7 +142,7 @@ public class BaseTestClass {
 
     @Contract(" -> new")
     protected static @NotNull CoverageMetrics getRandomCoverage() {
-        var cm = new CoverageMetrics();
+        CoverageMetrics cm = new CoverageMetrics();
 
         cm.totalClasses = nextInt(100);
         cm.coveredClasses = nextInt(cm.totalClasses);
@@ -244,7 +243,7 @@ public class BaseTestClass {
                 continue;
             }
 
-            var file = new SourceFileNode(name, defaultCoverage == null ? getRandomCoverage() : defaultCoverage.clone());
+            SourceFileNode file = new SourceFileNode(name, defaultCoverage == null ? getRandomCoverage() : defaultCoverage.clone());
             toNode.getSourceFiles().add(file);
         }
     }
@@ -320,6 +319,7 @@ public class BaseTestClass {
     /**
      * Creates a real MavenSession with multiple projects
      */
+    @SuppressWarnings("deprecation")
     protected @NotNull MavenSession createRealMavenSession(List<MavenProject> projects) {
         PlexusContainer container = rule.getContainer();
         MavenExecutionRequest request = new DefaultMavenExecutionRequest();

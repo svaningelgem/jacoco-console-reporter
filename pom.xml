@@ -37,6 +37,7 @@
         <lombok.version>1.18.36</lombok.version>
         <jline.version>3.29.0</jline.version>
         <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version>
+        <mockito-core.version>5.16.0</mockito-core.version>
     </properties>
 
     <dependencyManagement>
@@ -151,7 +152,15 @@
             <dependency>
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-core</artifactId>
-                <version>4.11.0</version>
+                <version>${mockito-core.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-inline</artifactId>
+                <version>5.2.0</version>
+<!--                <version>${mockito-inline.version}</version>-->
                 <scope>test</scope>
             </dependency>
 

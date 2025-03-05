@@ -325,4 +325,15 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         result = Defaults.formatCoverage(-1, -2);
         assertEquals(" ***** (0/0)", result);
     }
+
+    @Test
+    public void testScanDirectoryForExecFilesWithNotExistingDir() throws Exception {
+        scanDirectoryForExecFiles.invoke(mojo, new File(temporaryFolder.getRoot(), "not_here"), null);
+    }
+
+    @Test
+    public void testScanDirectoryForExecFilesWithFile() throws Exception {
+        File tmp = temporaryFolder.newFile("tmp");
+        scanDirectoryForExecFiles.invoke(mojo, tmp, null);
+    }
 }
