@@ -11,6 +11,10 @@ import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -30,7 +34,9 @@ public class BaseTestClass {
     @Rule
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-    protected final File testProjectDir = new File("../test-project");
+    protected final File mainProjectDir = new File(".").getAbsoluteFile();
+    protected final File mainProjectClasses = new File(mainProjectDir, "target/classes");
+    protected final File testProjectDir = new File("../test-project").getAbsoluteFile();
     protected final File testProjectJacocoExec = new File(testProjectDir, "target/jacoco.exec");
     protected final File testProjectClasses = new File(testProjectDir, "target/classes");
     protected final File pom = new File(getBasedir(), "src/test/resources/unit/pom.xml");
@@ -48,6 +54,17 @@ public class BaseTestClass {
         fileCounter = 0;
 
         mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
+        // Setting the defaults
+        mojo.deferReporting = true;
+        mojo.showFiles = false;
+        mojo.showTree = true;
+        mojo.showSummary = true;
+        mojo.scanModules = false;
+        mojo.weightClassCoverage = 0.1;
+        mojo.weightMethodCoverage = 0.1;
+        mojo.weightBranchCoverage = 0.4;
+        mojo.weightLineCoverage = 0.4;
+
         log = new MyLog();
         mojo.setLog(log);
     }
@@ -169,6 +186,43 @@ public class BaseTestClass {
 
             var file = new SourceFileNode(name, defaultCoverage == null ? getRandomCoverage() : defaultCoverage.clone());
             toNode.getSourceFiles().add(file);
+        }
+    }
+
+    /**
+     * Helper method to copy a directory
+     */
+    protected void copyDirectory(@NotNull File sourceDir, File destDir) throws IOException {
+        if (!sourceDir.exists() || !sourceDir.isDirectory()) {
+            return;
+        }
+
+        if (!destDir.exists()) {
+            destDir.mkdirs();
+        }
+
+        File[] files = sourceDir.listFiles();
+        if (files == null) return;
+
+        for (File file : files) {
+            File destFile = new File(destDir, file.getName());
+            if (file.isDirectory()) {
+                copyDirectory(file, destFile);
+            } else {
+                Files.copy(file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+    }
+
+    /**
+     * Helper method to copy a resource from the classpath to a file
+     */
+    protected void copyResourceToFile(String resourcePath, File destFile) throws IOException {
+        try (InputStream is = getClass().getResourceAsStream(resourcePath)) {
+            if (is == null) {
+                throw new IOException("Resource not found: " + resourcePath);
+            }
+            Files.copy(is, destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
         }
     }
 }
