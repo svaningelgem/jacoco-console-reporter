@@ -9,7 +9,6 @@ import static org.junit.Assert.assertEquals;
 
 public class PrintSummaryTest extends BaseTestClass {
     DirectoryNode root;
-    java.lang.reflect.Method printTree;
 
     @Before
     public void setUp() throws Exception {
@@ -27,9 +26,6 @@ public class PrintSummaryTest extends BaseTestClass {
         createTree(root, 1, metrics, "com", "example", "model");
         createTree(root, 1, metrics, "com", "example", "util");
         createTree(root, 0, metrics, "com", "example", "dummy"); // No files --> shouldn't show this!
-
-        printTree = JacocoConsoleReporterMojo.class.getDeclaredMethod("printSummary", DirectoryNode.class);
-        printTree.setAccessible(true);
     }
 
     @Test
@@ -41,7 +37,7 @@ public class PrintSummaryTest extends BaseTestClass {
         mojo.weightLineCoverage = 0.25;
         mojo.weightBranchCoverage = 0.25;
 
-        printTree.invoke(mojo, root);
+        printSummary.invoke(mojo, root);
 
         String[] expected = {
                 "[info] Overall Coverage Summary",
@@ -60,7 +56,7 @@ public class PrintSummaryTest extends BaseTestClass {
     public void testSummaryOn() throws Exception {
         mojo.showSummary = true;
 
-        printTree.invoke(mojo, root);
+        printSummary.invoke(mojo, root);
 
         String[] expected = {
                 "[info] Overall Coverage Summary",
@@ -77,7 +73,7 @@ public class PrintSummaryTest extends BaseTestClass {
 
     @Test
     public void testSummaryOff() throws Exception {
-        printTree.invoke(mojo, root);
+        printSummary.invoke(mojo, root);
 
         assertEquals(0, log.writtenData.size());
     }

@@ -8,7 +8,6 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.util.Collections;
 
@@ -69,10 +68,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         File invalidClass = new File(tempDir, "Invalid.class");
         Files.write(invalidClass.toPath(), "not a valid class file".getBytes());
 
-        // Use reflection to test the analyzeCoverage method
-        Method analyzeCoverage = JacocoConsoleReporterMojo.class.getDeclaredMethod("analyzeCoverage",
-                org.jacoco.core.data.ExecutionDataStore.class);
-        analyzeCoverage.setAccessible(true);
 
         // Mock the executionDataStore
         org.jacoco.core.data.ExecutionDataStore mockStore = new org.jacoco.core.data.ExecutionDataStore();
@@ -119,9 +114,10 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         // Case 3: Target with null listFiles result
         File mockDir = new File(baseDir, "mockDir");
         mockDir.mkdir();
-        File mockTarget = Mockito.spy(new File(mockDir, "target"));
+        File mockTarget = new File(mockDir, "target");
         mockTarget.mkdir();
-        when(mockTarget.listFiles((FilenameFilter) any())).thenReturn(null);
+        File spyTarget = Mockito.spy(mockTarget);
+        Mockito.doReturn(null).when(spyTarget).listFiles((FilenameFilter) any());
 
         // Case 4: Subdirectories with various filters
         File subdirsDir = new File(baseDir, "subdirsDir");
@@ -140,10 +136,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         File regularExec = new File(regularTarget, "jacoco.exec");
         regularExec.createNewFile();
 
-        // Use reflection to get the scanDirectoryForExecFiles method
-        Method scanDirectoryForExecFiles = JacocoConsoleReporterMojo.class.getDeclaredMethod("scanDirectoryForExecFiles",
-                File.class, java.util.List.class);
-        scanDirectoryForExecFiles.setAccessible(true);
 
         // Create a list of patterns
         java.util.List<String> patterns = Collections.singletonList("jacoco.exec");
@@ -182,9 +174,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         mojo.project.getBuild().getPlugins().clear();
         mojo.project.getBuild().addPlugin(jacocoPlugin);
 
-        // Use reflection to get the getConfiguredExecFilePatterns method
-        Method getConfiguredExecFilePatterns = JacocoConsoleReporterMojo.class.getDeclaredMethod("getConfiguredExecFilePatterns");
-        getConfiguredExecFilePatterns.setAccessible(true);
 
         // Call the method - it should handle the exception
         @SuppressWarnings("unchecked")
@@ -223,11 +212,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         // Mock a FileInputStream that throws IOException
         org.jacoco.core.data.ExecutionDataStore executionDataStore = new org.jacoco.core.data.ExecutionDataStore();
         org.jacoco.core.data.SessionInfoStore sessionInfoStore = new org.jacoco.core.data.SessionInfoStore();
-
-        // Use reflection to access the loadExecFile method
-        Method loadExecFile = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecFile",
-                File.class, org.jacoco.core.data.ExecutionDataStore.class, org.jacoco.core.data.SessionInfoStore.class);
-        loadExecFile.setAccessible(true);
 
         // Delete the file after creation to cause IOException
         mockExecFile.delete();
@@ -283,10 +267,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         CoverageMetrics metrics = new CoverageMetrics(8, 4, 6, 3, 4, 2, 2, 1);
         createTree(root, 1, metrics, "com", "example", "model");
 
-        // Use reflection to get the printSummary method
-        Method printSummary = JacocoConsoleReporterMojo.class.getDeclaredMethod("printSummary", DirectoryNode.class);
-        printSummary.setAccessible(true);
-
         // Should handle zero weights
         mojo.showSummary = true;
         printSummary.invoke(mojo, root);
@@ -306,10 +286,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         // Add a null element to collectedExecFilePaths
         JacocoConsoleReporterMojo.collectedExecFilePaths.add(null);
 
-        // Use reflection to get the loadExecutionData method
-        Method loadExecutionData = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecutionData");
-        loadExecutionData.setAccessible(true);
-
         // Call the method - it should handle null exec files
         Object result = loadExecutionData.invoke(mojo);
         assertNotNull(result);
@@ -320,11 +296,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
 
     @Test
     public void testBuildDirectoryTreeWithEmptyBundle() throws Exception {
-        // Use reflection to get the buildDirectoryTree method
-        Method buildDirectoryTree = JacocoConsoleReporterMojo.class.getDeclaredMethod("buildDirectoryTree",
-                org.jacoco.core.analysis.IBundleCoverage.class);
-        buildDirectoryTree.setAccessible(true);
-
         // Create a mock bundle with no packages
         org.jacoco.core.analysis.IBundleCoverage mockBundle = Mockito.mock(org.jacoco.core.analysis.IBundleCoverage.class);
         when(mockBundle.getPackages()).thenReturn(Collections.emptyList());

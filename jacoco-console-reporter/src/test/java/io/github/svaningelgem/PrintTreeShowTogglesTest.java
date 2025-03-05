@@ -9,7 +9,6 @@ import static org.junit.Assert.assertEquals;
 
 public class PrintTreeShowTogglesTest extends BaseTestClass {
     DirectoryNode root;
-    java.lang.reflect.Method printTree;
 
     @Before
     public void setUp() throws Exception {
@@ -20,9 +19,6 @@ public class PrintTreeShowTogglesTest extends BaseTestClass {
         createTree(root, 1, metrics, "com", "example", "model");
         createTree(root, 1, metrics, "com", "example", "util");
         createTree(root, 0, metrics, "com", "example", "dummy"); // No files --> shouldn't show this!
-
-        printTree = JacocoConsoleReporterMojo.class.getDeclaredMethod("printTree", DirectoryNode.class);
-        printTree.setAccessible(true);
     }
 
     @Test
