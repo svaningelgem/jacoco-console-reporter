@@ -1,17 +1,8 @@
 package io.github.svaningelgem;
 
-import org.apache.maven.execution.DefaultMavenExecutionRequest;
-import org.apache.maven.execution.DefaultMavenExecutionResult;
-import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
-import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
-import org.apache.maven.model.Plugin;
 import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.PlexusContainer;
-import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 import org.junit.Test;
 
 import java.io.File;
@@ -24,51 +15,6 @@ import static org.junit.Assert.*;
 
 
 public class JacocoConsoleReporterMojoTest extends BaseTestClass {
-    /**
-     * Creates a real MavenProject with JaCoCo plugin configuration
-     */
-    @Contract("_ -> new")
-    private @NotNull MavenProject createProjectWithJacocoPlugin(String destFile) {
-        Model model = new Model();
-        model.setGroupId("test.group");
-        model.setArtifactId("test-artifact");
-        model.setVersion("1.0.0");
-
-        Build build = new Build();
-        model.setBuild(build);
-
-        Plugin plugin = new Plugin();
-        plugin.setGroupId("org.jacoco");
-        plugin.setArtifactId("jacoco-maven-plugin");
-        plugin.setVersion("0.8.12");
-
-        if (destFile != null) {
-            Xpp3Dom configuration = new Xpp3Dom("configuration");
-            Xpp3Dom destFileNode = new Xpp3Dom("destFile");
-            destFileNode.setValue(destFile);
-            configuration.addChild(destFileNode);
-            plugin.setConfiguration(configuration);
-        }
-
-        build.addPlugin(plugin);
-
-        return new MavenProject(model);
-    }
-
-    /**
-     * Creates a real MavenSession with multiple projects
-     */
-    private @NotNull MavenSession createRealMavenSession(List<MavenProject> projects) throws Exception {
-        PlexusContainer container = rule.getContainer();
-        MavenExecutionRequest request = new DefaultMavenExecutionRequest();
-        return new MavenSession(
-                container,
-                request,
-                new DefaultMavenExecutionResult(),
-                projects
-        );
-    }
-
     @Test
     public void testExecuteWithNoExecFiles() throws Exception {
         assertNotNull("POM file not found", pom);
@@ -101,15 +47,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
 
     @Test
     public void testWithJacocoPlugin() throws Exception {
-        // Create a project with JaCoCo plugin
-        MavenProject project = createProjectWithJacocoPlugin(null);
-        mojo.project = project;
-
-        // Create a real MavenSession with this as the only project
-        List<MavenProject> projects = new ArrayList<>();
-        projects.add(project);
-        mojo.mavenSession = createRealMavenSession(projects);
-
         // Set a non-existent file
         mojo.jacocoExecFile = new File("target/nonexistent.exec");
         mojo.classesDirectory = new File("target/classes");
@@ -198,15 +135,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
-        // Create a real project with JaCoCo plugin
-        MavenProject project = createProjectWithJacocoPlugin(null);
-        mojo.project = project;
-
-        // Create a real MavenSession with this as the only project
-        List<MavenProject> projects = new ArrayList<>();
-        projects.add(project);
-        mojo.mavenSession = createRealMavenSession(projects);
-
         // Set showFiles to false
         mojo.showFiles = false;
         mojo.jacocoExecFile = testProjectJacocoExec;
@@ -219,45 +147,31 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
     @Test
     public void testScanModules() throws Exception {
         // Create a temporary directory structure with exec files
-        File baseDir = temporaryFolder.newFolder("baseDir");
-        File module1 = new File(baseDir, "module1");
-        File module2 = new File(baseDir, "module2");
-        File target1 = new File(module1, "target");
-        File target2 = new File(module2, "target");
+        File execFile1 = new File(temporaryFolder.getRoot(), "module1/target/jacoco.exec");
+        File execFile2 = new File(temporaryFolder.getRoot(), "module2/target/jacoco.exec");
 
-        module1.mkdirs();
-        module2.mkdirs();
-        target1.mkdirs();
-        target2.mkdirs();
-
-        File execFile1 = new File(target1, "jacoco.exec");
-        File execFile2 = new File(target2, "jacoco.exec");
+        execFile1.getParentFile().mkdirs();
+        execFile2.getParentFile().mkdirs();
 
         // Create empty files
         Files.createFile(execFile1.toPath());
         Files.createFile(execFile2.toPath());
 
-        // Create a real project with JaCoCo plugin
-        MavenProject project = createProjectWithJacocoPlugin(null);
-        mojo.project = project;
-
-        // Create a real MavenSession with this as the only project
-        List<MavenProject> projects = new ArrayList<>();
-        projects.add(project);
-        mojo.mavenSession = createRealMavenSession(projects);
-
         // Configure mojo
-        mojo.baseDir = baseDir;
         mojo.scanModules = true;
         mojo.jacocoExecFile = new File("nonexistent.exec");
         mojo.classesDirectory = testProjectClasses;
+
+        assertEquals(0, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
 
         // Execute and verify files were found
         mojo.execute();
 
         // Verify that both files were found
-        assertEquals(2, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
-        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile1) || JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile2));
+        assertEquals(3, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
+        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile1));
+        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile2));
+        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(mojo.jacocoExecFile.getAbsoluteFile()));
     }
 
     @Test
@@ -305,15 +219,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
-        // Create a real project with JaCoCo plugin
-        MavenProject project = createProjectWithJacocoPlugin(null);
-        mojo.project = project;
-
-        // Create a real MavenSession with this as the only project
-        List<MavenProject> projects = new ArrayList<>();
-        projects.add(project);
-        mojo.mavenSession = createRealMavenSession(projects);
-
         // Create a temporary exec file
         File tempExecFile = temporaryFolder.newFile("temp.exec");
 
@@ -336,15 +241,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
 
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
-
-        // Create a real project with JaCoCo plugin
-        MavenProject project = createProjectWithJacocoPlugin(null);
-        mojo.project = project;
-
-        // Create a real MavenSession with this as the only project
-        List<MavenProject> projects = new ArrayList<>();
-        projects.add(project);
-        mojo.mavenSession = createRealMavenSession(projects);
 
         mojo.jacocoExecFile = testProjectJacocoExec;
         mojo.classesDirectory = testProjectClasses;

@@ -41,12 +41,12 @@ jobs:
       - name: Building
         run: |
           set -o pipefail
-          mvn -B clean install | awk '/svaningelgem/ || !/Downloading|Downloaded|Progress/'
+          mvn --ntp -B clean install | awk '/svaningelgem/ || !/Downloading|Downloaded|Progress/'
 
       - name: Flatten pom.xml file
         run: |
           set -o pipefail
-          mvn -B flatten:flatten | awk '/svaningelgem/ || !/Downloading|Downloaded|Progress/'
+          mvn --ntp -B flatten:flatten | awk '/svaningelgem/ || !/Downloading|Downloaded|Progress/'
 
       - name: Deploying to Central
         run: |

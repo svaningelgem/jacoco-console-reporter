@@ -1,7 +1,17 @@
 package io.github.svaningelgem;
 
 import lombok.var;
+import org.apache.maven.execution.DefaultMavenExecutionRequest;
+import org.apache.maven.execution.DefaultMavenExecutionResult;
+import org.apache.maven.execution.MavenExecutionRequest;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.testing.MojoRule;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.PlexusContainer;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -11,12 +21,17 @@ import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class BaseTestClass {
     protected final static Random RANDOM = new Random();
@@ -30,7 +45,9 @@ public class BaseTestClass {
     @Rule
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-    protected final File testProjectDir = new File("../test-project");
+    protected final File mainProjectDir = new File(".").getAbsoluteFile();
+    protected final File mainProjectClasses = new File(mainProjectDir, "target/classes");
+    protected final File testProjectDir = new File("../test-project").getAbsoluteFile();
     protected final File testProjectJacocoExec = new File(testProjectDir, "target/jacoco.exec");
     protected final File testProjectClasses = new File(testProjectDir, "target/classes");
     protected final File pom = new File(getBasedir(), "src/test/resources/unit/pom.xml");
@@ -48,6 +65,29 @@ public class BaseTestClass {
         fileCounter = 0;
 
         mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
+        // Setting the defaults
+        mojo.deferReporting = true;
+        mojo.showFiles = false;
+        mojo.showTree = true;
+        mojo.showSummary = true;
+        mojo.scanModules = false;
+        mojo.weightClassCoverage = 0.1;
+        mojo.weightMethodCoverage = 0.1;
+        mojo.weightBranchCoverage = 0.4;
+        mojo.weightLineCoverage = 0.4;
+
+        // Create a real project with JaCoCo plugin
+        MavenProject project = createProjectWithJacocoPlugin(null);
+        mojo.project = project;
+
+        // Create a real MavenSession with this as the only project
+        List<MavenProject> projects = new ArrayList<>();
+        projects.add(project);
+        mojo.mavenSession = createRealMavenSession(projects);
+
+        // Configure mojo
+        mojo.baseDir = temporaryFolder.getRoot();
+
         log = new MyLog();
         mojo.setLog(log);
     }
@@ -170,5 +210,87 @@ public class BaseTestClass {
             var file = new SourceFileNode(name, defaultCoverage == null ? getRandomCoverage() : defaultCoverage.clone());
             toNode.getSourceFiles().add(file);
         }
+    }
+
+    /**
+     * Helper method to copy a directory
+     */
+    protected void copyDirectory(@NotNull File sourceDir, File destDir) throws IOException {
+        if (!sourceDir.exists() || !sourceDir.isDirectory()) {
+            return;
+        }
+
+        if (!destDir.exists()) {
+            destDir.mkdirs();
+        }
+
+        File[] files = sourceDir.listFiles();
+        if (files == null) return;
+
+        for (File file : files) {
+            File destFile = new File(destDir, file.getName());
+            if (file.isDirectory()) {
+                copyDirectory(file, destFile);
+            } else {
+                Files.copy(file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+    }
+
+    /**
+     * Helper method to copy a resource from the classpath to a file
+     */
+    protected void copyResourceToFile(String resourcePath, File destFile) throws IOException {
+        try (InputStream is = getClass().getResourceAsStream(resourcePath)) {
+            if (is == null) {
+                throw new IOException("Resource not found: " + resourcePath);
+            }
+            Files.copy(is, destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    /**
+     * Creates a real MavenProject with JaCoCo plugin configuration
+     */
+    @Contract("_ -> new")
+    protected @NotNull MavenProject createProjectWithJacocoPlugin(String destFile) {
+        Model model = new Model();
+        model.setGroupId("test.group");
+        model.setArtifactId("test-artifact");
+        model.setVersion("1.0.0");
+
+        Build build = new Build();
+        model.setBuild(build);
+
+        Plugin plugin = new Plugin();
+        plugin.setGroupId("org.jacoco");
+        plugin.setArtifactId("jacoco-maven-plugin");
+        plugin.setVersion("0.8.12");
+
+        if (destFile != null) {
+            Xpp3Dom configuration = new Xpp3Dom("configuration");
+            Xpp3Dom destFileNode = new Xpp3Dom("destFile");
+            destFileNode.setValue(destFile);
+            configuration.addChild(destFileNode);
+            plugin.setConfiguration(configuration);
+        }
+
+        build.addPlugin(plugin);
+
+        return new MavenProject(model);
+    }
+
+    /**
+     * Creates a real MavenSession with multiple projects
+     */
+    protected @NotNull MavenSession createRealMavenSession(List<MavenProject> projects) {
+        PlexusContainer container = rule.getContainer();
+        MavenExecutionRequest request = new DefaultMavenExecutionRequest();
+        return new MavenSession(
+                container,
+                request,
+                new DefaultMavenExecutionResult(),
+                projects
+        );
     }
 }
