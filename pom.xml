@@ -17,7 +17,7 @@
         <java.version>1.8</java.version>
         <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <junit.version>5.12.0</junit.version>
+        <junit.version>5.12.1</junit.version>
         <junit4.version>4.13.2</junit4.version>
         <maven.plugin.api.version>3.9.9</maven.plugin.api.version>
         <maven.plugin.annotations.version>3.15.1</maven.plugin.annotations.version>
@@ -37,7 +37,7 @@
         <lombok.version>1.18.36</lombok.version>
         <jline.version>3.29.0</jline.version>
         <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version>
-        <mockito-core.version>5.16.0</mockito-core.version>
+        <mockito-core.version>5.16.1</mockito-core.version>
     </properties>
 
     <dependencyManagement>
