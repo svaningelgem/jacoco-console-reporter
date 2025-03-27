@@ -53,4 +53,13 @@ public class JacocoConsoleReporterMojoLoadExecTest extends BaseTestClass {
         // This should not throw an exception
         loadExecFile.invoke(mojo, mockExecFile, dataStore, sessionStore);
     }
+
+    @Test
+    public void testLoadExecFileWithNull() throws Exception {
+        ExecutionDataStore dataStore = new ExecutionDataStore();
+        org.jacoco.core.data.SessionInfoStore sessionStore = new org.jacoco.core.data.SessionInfoStore();
+
+        // This should not throw an exception
+        loadExecFile.invoke(mojo, null, dataStore, sessionStore);
+    }
 }

@@ -63,6 +63,15 @@ public class ExecutionDataMergerTest extends BaseTestClass {
     }
 
     @Test
+    public void testMergeExecutionDataWithNull() {
+        // This should not throw an exception
+        merger.mergeExecData(null);
+
+        // Verify no class was added
+        assertEquals(0, merger.getUniqueClassCount());
+    }
+
+    @Test
     public void testMergeExecutionData() {
         // Create test data
         String className = "com.example.TestClass";

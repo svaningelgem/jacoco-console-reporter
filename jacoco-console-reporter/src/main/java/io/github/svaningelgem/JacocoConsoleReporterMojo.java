@@ -6,7 +6,7 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.jacoco.core.analysis.*;
-import org.jacoco.core.data.ExecutionData;
+import org.jacoco.core.data.ExecutionDataReader;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.data.SessionInfoStore;
 import org.jetbrains.annotations.NotNull;
@@ -292,22 +292,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             return;
         }
 
-        // Create a temporary set with just this file
-        Set<File> singleFileSet = new HashSet<>();
-        singleFileSet.add(execFile);
-
-        // Use the merger to load this file
-        ExecutionDataMerger tempMerger = new ExecutionDataMerger();
-        ExecutionDataStore loadedStore = tempMerger.loadExecutionData(singleFileSet);
-
-        // Copy all execution data to the provided store
-        for (ExecutionData data : loadedStore.getContents()) {
-            executionDataStore.put(data);
+        try (FileInputStream in = new FileInputStream(execFile)) {
+            ExecutionDataReader reader = new ExecutionDataReader(in);
+            reader.setExecutionDataVisitor(executionDataStore);
+            reader.setSessionInfoVisitor(sessionInfoStore);
+            reader.read();
+            getLog().debug("Processed exec file: " + execFile);
         }
-
-        // Note: SessionInfoStore is not directly handled by our merger,
-        // so tests that rely on session info might need additional changes
-        getLog().debug("Processed exec file: " + execFile);
     }
 
     /**
