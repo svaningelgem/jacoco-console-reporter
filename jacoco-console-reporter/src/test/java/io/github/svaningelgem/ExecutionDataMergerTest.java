@@ -7,6 +7,8 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
@@ -28,7 +30,7 @@ public class ExecutionDataMergerTest extends BaseTestClass {
     public void testLoadExecutionDataEmptySet() throws IOException {
         ExecutionDataStore store = merger.loadExecutionData(execFiles);
         assertNotNull("Should return a non-null store even with empty set", store);
-        assertEquals("No classes should be processed", 0, merger.getProcessedClasses().size());
+        assertEquals("No classes should be processed", 0, merger.getUniqueClassCount());
     }
 
     @Test
@@ -36,7 +38,7 @@ public class ExecutionDataMergerTest extends BaseTestClass {
         execFiles.add(null);
         ExecutionDataStore store = merger.loadExecutionData(execFiles);
         assertNotNull("Should handle null files gracefully", store);
-        assertEquals("No classes should be processed", 0, merger.getProcessedClasses().size());
+        assertEquals("No classes should be processed", 0, merger.getUniqueClassCount());
     }
 
     @Test
@@ -44,7 +46,7 @@ public class ExecutionDataMergerTest extends BaseTestClass {
         execFiles.add(new File("nonexistent.exec"));
         ExecutionDataStore store = merger.loadExecutionData(execFiles);
         assertNotNull("Should handle non-existent files gracefully", store);
-        assertEquals("No classes should be processed", 0, merger.getProcessedClasses().size());
+        assertEquals("No classes should be processed", 0, merger.getUniqueClassCount());
     }
 
     @Test
@@ -62,46 +64,134 @@ public class ExecutionDataMergerTest extends BaseTestClass {
     }
 
     @Test
-    public void testMergeExecutionData() throws Exception {
-        // This test is more complex and would require creating actual JaCoCo execution data
-        // We'll use reflection to test the merging logic directly
-
-        // Create a merged store with mocked data
-        java.lang.reflect.Field mergedStoreField = ExecutionDataMerger.class.getDeclaredField("mergedStore");
+    public void testMergeExecutionDataWithEqualProbeLengths() throws Exception {
+        // Get the private mergedStore field for verification
+        Field mergedStoreField = ExecutionDataMerger.class.getDeclaredField("mergedStore");
         mergedStoreField.setAccessible(true);
-        ExecutionDataStore mockStore = (ExecutionDataStore) mergedStoreField.get(merger);
+        ExecutionDataStore store = (ExecutionDataStore) mergedStoreField.get(merger);
 
-        // Create two execution data instances with the same ID but different coverage
+        // Create MergingVisitor instance using reflection
+        Class<?> visitorClass = Class.forName("io.github.svaningelgem.ExecutionDataMerger$MergingVisitor");
+        Object visitor = visitorClass.getDeclaredConstructors()[0].newInstance(merger);
+
+        // Create test execution data
         long classId = 123456789L;
-        ExecutionData data1 = new ExecutionData(classId, "TestClass", new boolean[]{true, false, false});
-        ExecutionData data2 = new ExecutionData(classId, "TestClass", new boolean[]{false, true, false});
+        String className = "com.example.TestClass";
 
-        // Add the first data to the store
-        mockStore.put(data1);
+        // First execution: probes [true, false, false]
+        ExecutionData data1 = new ExecutionData(classId, className, new boolean[] {true, false, false});
 
-        // Create an instance of SmartMergingVisitor and invoke it with the second data
-        Class<?> visitorClass = Class.forName("io.github.svaningelgem.ExecutionDataMerger$SmartMergingVisitor");
-        java.lang.reflect.Constructor<?> constructor = visitorClass.getDeclaredConstructor(ExecutionDataStore.class);
-        constructor.setAccessible(true);
-        Object visitor = constructor.newInstance(mockStore);
+        // Second execution: probes [false, true, false]
+        ExecutionData data2 = new ExecutionData(classId, className, new boolean[] {false, true, false});
 
-        java.lang.reflect.Method visitMethod = visitorClass.getDeclaredMethod("visitClassExecution", ExecutionData.class);
-        visitMethod.setAccessible(true);
+        // Expected merged result: [true, true, false]
 
-        // First visit should add the class to processedClasses
-        visitMethod.invoke(visitor, data1);
-        assertEquals(1, merger.getProcessedClasses().size());
+        // Invoke visitClassExecution method
+        Method visitMethod = visitorClass.getMethod("visitClassExecution", ExecutionData.class);
+        visitMethod.invoke(visitor, data1); // First visit puts data1 in store
+        visitMethod.invoke(visitor, data2); // Second visit should merge data2 with data1
 
-        // Second visit should merge the probes
-        visitMethod.invoke(visitor, data2);
-        assertEquals(1, merger.getProcessedClasses().size());
+        // Verify the merged result
+        ExecutionData mergedData = store.get(classId);
+        assertNotNull("Merged data should exist", mergedData);
+        assertEquals("Class ID should match", classId, mergedData.getId());
+        assertEquals("Class name should match", className, mergedData.getName());
 
-        // Get the merged data and verify the probes were merged correctly
-        ExecutionData mergedData = mockStore.get(classId);
-        boolean[] mergedProbes = mergedData.getProbes();
-        assertEquals(3, mergedProbes.length);
-        assertTrue(mergedProbes[0]);
-        assertTrue(mergedProbes[1]);
-        assertFalse(mergedProbes[2]);
+        boolean[] expectedProbes = new boolean[] {true, true, false};
+        boolean[] actualProbes = mergedData.getProbes();
+
+        assertEquals("Probe array length should match", expectedProbes.length, actualProbes.length);
+        for (int i = 0; i < expectedProbes.length; i++) {
+            assertEquals("Probe at index " + i + " should be merged correctly",
+                    expectedProbes[i], actualProbes[i]);
+        }
+    }
+
+    @Test
+    public void testMergeExecutionDataWithDifferentProbeLengths() throws Exception {
+        // Get the private mergedStore field for verification
+        Field mergedStoreField = ExecutionDataMerger.class.getDeclaredField("mergedStore");
+        mergedStoreField.setAccessible(true);
+        ExecutionDataStore store = (ExecutionDataStore) mergedStoreField.get(merger);
+
+        // Create MergingVisitor instance using reflection
+        Class<?> visitorClass = Class.forName("io.github.svaningelgem.ExecutionDataMerger$MergingVisitor");
+        Object visitor = visitorClass.getDeclaredConstructors()[0].newInstance(merger);
+
+        // Create test execution data
+        long classId = 123456789L;
+        String className = "com.example.TestClass";
+
+        // First execution: probes [true, false]
+        ExecutionData data1 = new ExecutionData(classId, className, new boolean[] {true, false});
+
+        // Second execution: probes [false, true, true]
+        ExecutionData data2 = new ExecutionData(classId, className, new boolean[] {false, true, true});
+
+        // Expected merged result: [true, true, true]
+
+        // Invoke visitClassExecution method
+        Method visitMethod = visitorClass.getMethod("visitClassExecution", ExecutionData.class);
+        visitMethod.invoke(visitor, data1); // First visit puts data1 in store
+        visitMethod.invoke(visitor, data2); // Second visit should merge data2 with data1
+
+        // Verify the merged result
+        ExecutionData mergedData = store.get(classId);
+        assertNotNull("Merged data should exist", mergedData);
+        assertEquals("Class ID should match", classId, mergedData.getId());
+        assertEquals("Class name should match", className, mergedData.getName());
+
+        boolean[] expectedProbes = new boolean[] {true, true, true};
+        boolean[] actualProbes = mergedData.getProbes();
+
+        assertEquals("Probe array length should match largest input", 3, actualProbes.length);
+        for (int i = 0; i < expectedProbes.length; i++) {
+            assertEquals("Probe at index " + i + " should be merged correctly",
+                    expectedProbes[i], actualProbes[i]);
+        }
+    }
+
+    @Test
+    public void testMergeExecutionDataFirstIsLarger() throws Exception {
+        // Get the private mergedStore field for verification
+        Field mergedStoreField = ExecutionDataMerger.class.getDeclaredField("mergedStore");
+        mergedStoreField.setAccessible(true);
+        ExecutionDataStore store = (ExecutionDataStore) mergedStoreField.get(merger);
+
+        // Create MergingVisitor instance using reflection
+        Class<?> visitorClass = Class.forName("io.github.svaningelgem.ExecutionDataMerger$MergingVisitor");
+        Object visitor = visitorClass.getDeclaredConstructors()[0].newInstance(merger);
+
+        // Create test execution data
+        long classId = 123456789L;
+        String className = "com.example.TestClass";
+
+        // First execution: probes [true, false, true]
+        ExecutionData data1 = new ExecutionData(classId, className, new boolean[] {true, false, true});
+
+        // Second execution: probes [false, true]
+        ExecutionData data2 = new ExecutionData(classId, className, new boolean[] {false, true});
+
+        // Expected merged result: [true, true, true]
+
+        // Invoke visitClassExecution method
+        Method visitMethod = visitorClass.getMethod("visitClassExecution", ExecutionData.class);
+        visitMethod.invoke(visitor, data1); // First visit puts data1 in store
+        visitMethod.invoke(visitor, data2); // Second visit should merge data2 with data1
+
+        // Verify the merged result
+        ExecutionData mergedData = store.get(classId);
+        assertNotNull("Merged data should exist", mergedData);
+        assertEquals("Class ID should match", classId, mergedData.getId());
+        assertEquals("Class name should match", className, mergedData.getName());
+
+        boolean[] expectedProbes = new boolean[] {true, true, true};
+        boolean[] actualProbes = mergedData.getProbes();
+
+        assertEquals("Probe array length should match largest input", 3, actualProbes.length);
+        for (int i = 0; i < expectedProbes.length; i++) {
+            assertEquals("Probe at index " + i + " should be merged correctly",
+                    expectedProbes[i], actualProbes[i]);
+        }
     }
 }

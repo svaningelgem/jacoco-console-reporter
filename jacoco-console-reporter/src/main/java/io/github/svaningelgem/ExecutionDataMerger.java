@@ -1,16 +1,11 @@
 package io.github.svaningelgem;
 
-import lombok.Getter;
-import org.jacoco.core.data.ExecutionData;
-import org.jacoco.core.data.ExecutionDataStore;
-import org.jacoco.core.data.SessionInfo;
-import org.jacoco.core.data.SessionInfoStore;
+import org.jacoco.core.data.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -19,9 +14,8 @@ import java.util.Set;
  * Handles merging execution data from multiple sources to prevent duplicated coverage counts
  */
 public class ExecutionDataMerger {
-    // Map to track processed class files by class name to avoid duplicates
-    @Getter
-    private final Map<String, Boolean> processedClasses = new HashMap<>();
+    // Map to track which classes we've processed (by class ID)
+    private final Map<Long, String> processedClasses = new HashMap<>();
 
     // Store to hold merged execution data
     private final ExecutionDataStore mergedStore = new ExecutionDataStore();
@@ -51,71 +45,69 @@ public class ExecutionDataMerger {
      */
     private void loadExecFile(@NotNull File execFile) throws IOException {
         try (FileInputStream in = new FileInputStream(execFile)) {
-            // Use a custom visitor to handle merging of execution data
-            SmartMergingVisitor visitor = new SmartMergingVisitor(mergedStore);
-            org.jacoco.core.data.ExecutionDataReader reader = new org.jacoco.core.data.ExecutionDataReader(in);
-            reader.setExecutionDataVisitor(visitor);
+            ExecutionDataReader reader = new ExecutionDataReader(in);
+            reader.setExecutionDataVisitor(new MergingVisitor());
             reader.setSessionInfoVisitor(sessionInfoStore);
             reader.read();
         }
     }
 
     /**
-     * Custom visitor that intelligently merges execution data
+     * Get the number of unique classes processed
      */
-    private class SmartMergingVisitor implements org.jacoco.core.data.IExecutionDataVisitor {
-        private final ExecutionDataStore store;
+    public int getUniqueClassCount() {
+        return processedClasses.size();
+    }
 
-        SmartMergingVisitor(ExecutionDataStore store) {
-            this.store = store;
-        }
-
+    /**
+     * Custom visitor that intelligently merges execution data at the probe level
+     */
+    private class MergingVisitor implements IExecutionDataVisitor {
         @Override
         public void visitClassExecution(ExecutionData data) {
-            final long classId = data.getId();
-            final String className = getClassNameFromId(classId);
+            final Long classId = data.getId();
+            final String className = data.getName();
 
-            // Only process each class once to avoid double counting
-            if (!processedClasses.containsKey(className)) {
-                processedClasses.put(className, true);
-                store.put(data);
-            } else {
-                // If we've seen this class before, merge the execution data
-                // instead of replacing it
-                ExecutionData existing = store.get(classId);
-                if (existing != null) {
-                    boolean[] existingProbes = existing.getProbes();
-                    boolean[] newProbes = data.getProbes();
+            // Track this class
+            processedClasses.put(classId, className);
 
-                    // Merge probes: mark a probe as executed if it was executed in either execution
-                    for (int i = 0; i < Math.min(existingProbes.length, newProbes.length); i++) {
+            // Check if we already have data for this class
+            ExecutionData existingData = mergedStore.get(classId);
+            if (existingData != null) {
+                // Merge the probe arrays (OR operation)
+                // This is the key step - we combine coverage from different modules
+                boolean[] existingProbes = existingData.getProbes();
+                boolean[] newProbes = data.getProbes();
+
+                if (existingProbes.length != newProbes.length) {
+                    // This shouldn't normally happen, but we'll be defensive
+                    // If lengths differ, create a new array with the max length
+                    int maxLength = Math.max(existingProbes.length, newProbes.length);
+                    boolean[] mergedProbes = new boolean[maxLength];
+
+                    // Copy existing probes
+                    System.arraycopy(existingProbes, 0, mergedProbes, 0, existingProbes.length);
+
+                    // Merge with new probes - OR operation
+                    for (int i = 0; i < newProbes.length; i++) {
+                        if (i < mergedProbes.length) {
+                            mergedProbes[i] |= newProbes[i];
+                        }
+                    }
+
+                    // Create new execution data with merged probes
+                    ExecutionData merged = new ExecutionData(classId, className, mergedProbes);
+                    mergedStore.put(merged);
+                } else {
+                    // If lengths match, we can optimize by directly updating existing probes
+                    for (int i = 0; i < newProbes.length; i++) {
                         existingProbes[i] |= newProbes[i];
                     }
                 }
+            } else {
+                // First time seeing this class - just add it
+                mergedStore.put(data);
             }
         }
-
-        /**
-         * Try to determine class name from its ID.
-         * This is a heuristic - JaCoCo uses CRC64 for IDs so we can't directly reverse it,
-         * but we can use it to track unique classes.
-         */
-        private String getClassNameFromId(long id) {
-            return "class_" + id;
-        }
-    }
-
-    /**
-     * Gets all execution data for analysis
-     */
-    public Collection<ExecutionData> getExecutionData() {
-        return mergedStore.getContents();
-    }
-
-    /**
-     * Gets all session info
-     */
-    public Collection<SessionInfo> getSessionInfos() {
-        return sessionInfoStore.getInfos();
     }
 }

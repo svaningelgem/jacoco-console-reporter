@@ -258,14 +258,14 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     /**
      * Loads JaCoCo execution data from the specified files with proper deduplication.
-     * Uses the ExecutionDataMerger to ensure classes aren't counted multiple times
+     * Uses the ExecutionDataMerger to ensure line and branch coverage isn't duplicated
      * when aggregating coverage from multiple modules that share common code.
      *
      * @return Populated execution data store with deduplicated coverage information
      * @throws IOException if there are issues reading the JaCoCo execution files
      */
     private @NotNull ExecutionDataStore loadExecutionData() throws IOException {
-        getLog().debug("Loading execution data with deduplication");
+        getLog().debug("Loading execution data with line-level deduplication");
         ExecutionDataMerger merger = new ExecutionDataMerger();
 
         // Pass all exec files to the merger
@@ -276,7 +276,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
                 .count();
 
         getLog().debug(String.format("Processed %d exec files containing data for %d unique classes",
-                fileCount, merger.getProcessedClasses().size()));
+                fileCount, merger.getUniqueClassCount()));
 
         return executionDataStore;
     }
