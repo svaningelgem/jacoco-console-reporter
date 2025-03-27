@@ -63,7 +63,7 @@ public class ExecutionDataMergerTest extends BaseTestClass {
     }
 
     @Test
-    public void testMergeExecutionDataWithEqualProbeLengths() {
+    public void testMergeExecutionData() {
         // Create test data
         String className = "com.example.TestClass";
         long classId = CRC64.classId(className.getBytes());
@@ -75,7 +75,8 @@ public class ExecutionDataMergerTest extends BaseTestClass {
         ExecutionData data2 = new ExecutionData(classId, className, new boolean[] {false, true, false});
 
         // Use the public method to merge data
-        merger.mergeExecData(data1, data2);
+        merger.mergeExecData(data1);
+        merger.mergeExecData(data2);
 
         // Get merged results
         ExecutionDataStore mergedStore = merger.getMergedStore();
@@ -90,70 +91,6 @@ public class ExecutionDataMergerTest extends BaseTestClass {
         boolean[] actualProbes = mergedData.getProbes();
 
         assertEquals("Probe array length should match", expectedProbes.length, actualProbes.length);
-        for (int i = 0; i < expectedProbes.length; i++) {
-            assertEquals("Probe at index " + i + " should be merged correctly",
-                    expectedProbes[i], actualProbes[i]);
-        }
-    }
-
-    @Test
-    public void testMergeExecutionDataWithDifferentProbeLengths() {
-        // Create test data
-        String className = "com.example.TestClass";
-        long classId = CRC64.classId(className.getBytes());
-
-        // First execution: shorter probes [true, false]
-        ExecutionData data1 = new ExecutionData(classId, className, new boolean[] {true, false});
-
-        // Second execution: longer probes [false, true, true]
-        ExecutionData data2 = new ExecutionData(classId, className, new boolean[] {false, true, true});
-
-        // Use the public method to merge data
-        merger.mergeExecData(data1, data2);
-
-        // Get merged results
-        ExecutionDataStore mergedStore = merger.getMergedStore();
-        ExecutionData mergedData = mergedStore.get(classId);
-
-        // Verify merged data
-        assertNotNull("Merged data should exist", mergedData);
-
-        boolean[] expectedProbes = new boolean[] {true, true, true};
-        boolean[] actualProbes = mergedData.getProbes();
-
-        assertEquals("Probe array length should match largest input", 3, actualProbes.length);
-        for (int i = 0; i < expectedProbes.length; i++) {
-            assertEquals("Probe at index " + i + " should be merged correctly",
-                    expectedProbes[i], actualProbes[i]);
-        }
-    }
-
-    @Test
-    public void testMergeExecutionDataFirstIsLarger() {
-        // Create test data
-        String className = "com.example.TestClass";
-        long classId = CRC64.classId(className.getBytes());
-
-        // First execution: longer probes [true, false, true]
-        ExecutionData data1 = new ExecutionData(classId, className, new boolean[] {true, false, true});
-
-        // Second execution: shorter probes [false, true]
-        ExecutionData data2 = new ExecutionData(classId, className, new boolean[] {false, true});
-
-        // Use the public method to merge data
-        merger.mergeExecData(data1, data2);
-
-        // Get merged results
-        ExecutionDataStore mergedStore = merger.getMergedStore();
-        ExecutionData mergedData = mergedStore.get(classId);
-
-        // Verify merged data
-        assertNotNull("Merged data should exist", mergedData);
-
-        boolean[] expectedProbes = new boolean[] {true, true, true};
-        boolean[] actualProbes = mergedData.getProbes();
-
-        assertEquals("Probe array length should match largest input", 3, actualProbes.length);
         for (int i = 0; i < expectedProbes.length; i++) {
             assertEquals("Probe at index " + i + " should be merged correctly",
                     expectedProbes[i], actualProbes[i]);

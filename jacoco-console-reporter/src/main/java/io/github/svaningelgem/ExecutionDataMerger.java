@@ -67,19 +67,22 @@ public class ExecutionDataMerger {
     }
 
     /**
-     * Merges two sets of execution data for testing purposes
+     * Merges execution data for testing purposes
      */
-    public void mergeExecData(ExecutionData data1, ExecutionData data2) {
-        // Create a new visitor
-        MergingVisitor visitor = new MergingVisitor();
+    public void mergeExecData(ExecutionData data) {
+        if (data == null) {
+            return;
+        }
 
-        // Visit both execution data points
-        visitor.visitClassExecution(data1);
-        visitor.visitClassExecution(data2);
+        // Track that we've seen this class
+        processedClasses.put(data.getId(), data.getName());
+
+        // Add to store (JaCoCo will handle the merging)
+        mergedStore.put(data);
     }
 
     /**
-     * Custom visitor that intelligently merges execution data at the probe level
+     * Custom visitor that intelligently merges execution data
      */
     private class MergingVisitor implements IExecutionDataVisitor {
         @Override
@@ -90,43 +93,9 @@ public class ExecutionDataMerger {
             // Track this class
             processedClasses.put(classId, className);
 
-            // Check if we already have data for this class
-            ExecutionData existingData = mergedStore.get(classId);
-            if (existingData != null) {
-                // Merge the probe arrays (OR operation)
-                // This is the key step - we combine coverage from different modules
-                boolean[] existingProbes = existingData.getProbes();
-                boolean[] newProbes = data.getProbes();
-
-                if (existingProbes.length != newProbes.length) {
-                    // This shouldn't normally happen, but we'll be defensive
-                    // If lengths differ, create a new array with the max length
-                    int maxLength = Math.max(existingProbes.length, newProbes.length);
-                    boolean[] mergedProbes = new boolean[maxLength];
-
-                    // Copy existing probes
-                    System.arraycopy(existingProbes, 0, mergedProbes, 0, existingProbes.length);
-
-                    // Merge with new probes - OR operation
-                    for (int i = 0; i < newProbes.length; i++) {
-                        if (i < mergedProbes.length) {
-                            mergedProbes[i] |= newProbes[i];
-                        }
-                    }
-
-                    // Create new execution data with merged probes
-                    ExecutionData merged = new ExecutionData(classId, className, mergedProbes);
-                    mergedStore.put(merged);
-                } else {
-                    // If lengths match, we can optimize by directly updating existing probes
-                    for (int i = 0; i < newProbes.length; i++) {
-                        existingProbes[i] |= newProbes[i];
-                    }
-                }
-            } else {
-                // First time seeing this class - just add it
-                mergedStore.put(data);
-            }
+            // JaCoCo's ExecutionDataStore will automatically merge probe arrays
+            // when you put() execution data with the same class ID
+            mergedStore.put(data);
         }
     }
 }
