@@ -60,6 +60,25 @@ public class ExecutionDataMerger {
     }
 
     /**
+     * Get the merged execution data store (for testing)
+     */
+    public ExecutionDataStore getMergedStore() {
+        return mergedStore;
+    }
+
+    /**
+     * Merges two sets of execution data for testing purposes
+     */
+    public void mergeExecData(ExecutionData data1, ExecutionData data2) {
+        // Create a new visitor
+        MergingVisitor visitor = new MergingVisitor();
+
+        // Visit both execution data points
+        visitor.visitClassExecution(data1);
+        visitor.visitClassExecution(data2);
+    }
+
+    /**
      * Custom visitor that intelligently merges execution data at the probe level
      */
     private class MergingVisitor implements IExecutionDataVisitor {

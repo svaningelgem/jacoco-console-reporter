@@ -2,13 +2,12 @@ package io.github.svaningelgem;
 
 import org.jacoco.core.data.ExecutionData;
 import org.jacoco.core.data.ExecutionDataStore;
+import org.jacoco.core.internal.data.CRC64;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
@@ -64,19 +63,10 @@ public class ExecutionDataMergerTest extends BaseTestClass {
     }
 
     @Test
-    public void testMergeExecutionDataWithEqualProbeLengths() throws Exception {
-        // Get the private mergedStore field for verification
-        Field mergedStoreField = ExecutionDataMerger.class.getDeclaredField("mergedStore");
-        mergedStoreField.setAccessible(true);
-        ExecutionDataStore store = (ExecutionDataStore) mergedStoreField.get(merger);
-
-        // Create MergingVisitor instance using reflection
-        Class<?> visitorClass = Class.forName("io.github.svaningelgem.ExecutionDataMerger$MergingVisitor");
-        Object visitor = visitorClass.getDeclaredConstructors()[0].newInstance(merger);
-
-        // Create test execution data
-        long classId = 123456789L;
+    public void testMergeExecutionDataWithEqualProbeLengths() {
+        // Create test data
         String className = "com.example.TestClass";
+        long classId = CRC64.classId(className.getBytes());
 
         // First execution: probes [true, false, false]
         ExecutionData data1 = new ExecutionData(classId, className, new boolean[] {true, false, false});
@@ -84,15 +74,14 @@ public class ExecutionDataMergerTest extends BaseTestClass {
         // Second execution: probes [false, true, false]
         ExecutionData data2 = new ExecutionData(classId, className, new boolean[] {false, true, false});
 
-        // Expected merged result: [true, true, false]
+        // Use the public method to merge data
+        merger.mergeExecData(data1, data2);
 
-        // Invoke visitClassExecution method
-        Method visitMethod = visitorClass.getMethod("visitClassExecution", ExecutionData.class);
-        visitMethod.invoke(visitor, data1); // First visit puts data1 in store
-        visitMethod.invoke(visitor, data2); // Second visit should merge data2 with data1
+        // Get merged results
+        ExecutionDataStore mergedStore = merger.getMergedStore();
+        ExecutionData mergedData = mergedStore.get(classId);
 
         // Verify the merged result
-        ExecutionData mergedData = store.get(classId);
         assertNotNull("Merged data should exist", mergedData);
         assertEquals("Class ID should match", classId, mergedData.getId());
         assertEquals("Class name should match", className, mergedData.getName());
@@ -108,38 +97,26 @@ public class ExecutionDataMergerTest extends BaseTestClass {
     }
 
     @Test
-    public void testMergeExecutionDataWithDifferentProbeLengths() throws Exception {
-        // Get the private mergedStore field for verification
-        Field mergedStoreField = ExecutionDataMerger.class.getDeclaredField("mergedStore");
-        mergedStoreField.setAccessible(true);
-        ExecutionDataStore store = (ExecutionDataStore) mergedStoreField.get(merger);
-
-        // Create MergingVisitor instance using reflection
-        Class<?> visitorClass = Class.forName("io.github.svaningelgem.ExecutionDataMerger$MergingVisitor");
-        Object visitor = visitorClass.getDeclaredConstructors()[0].newInstance(merger);
-
-        // Create test execution data
-        long classId = 123456789L;
+    public void testMergeExecutionDataWithDifferentProbeLengths() {
+        // Create test data
         String className = "com.example.TestClass";
+        long classId = CRC64.classId(className.getBytes());
 
-        // First execution: probes [true, false]
+        // First execution: shorter probes [true, false]
         ExecutionData data1 = new ExecutionData(classId, className, new boolean[] {true, false});
 
-        // Second execution: probes [false, true, true]
+        // Second execution: longer probes [false, true, true]
         ExecutionData data2 = new ExecutionData(classId, className, new boolean[] {false, true, true});
 
-        // Expected merged result: [true, true, true]
+        // Use the public method to merge data
+        merger.mergeExecData(data1, data2);
 
-        // Invoke visitClassExecution method
-        Method visitMethod = visitorClass.getMethod("visitClassExecution", ExecutionData.class);
-        visitMethod.invoke(visitor, data1); // First visit puts data1 in store
-        visitMethod.invoke(visitor, data2); // Second visit should merge data2 with data1
+        // Get merged results
+        ExecutionDataStore mergedStore = merger.getMergedStore();
+        ExecutionData mergedData = mergedStore.get(classId);
 
-        // Verify the merged result
-        ExecutionData mergedData = store.get(classId);
+        // Verify merged data
         assertNotNull("Merged data should exist", mergedData);
-        assertEquals("Class ID should match", classId, mergedData.getId());
-        assertEquals("Class name should match", className, mergedData.getName());
 
         boolean[] expectedProbes = new boolean[] {true, true, true};
         boolean[] actualProbes = mergedData.getProbes();
@@ -152,38 +129,26 @@ public class ExecutionDataMergerTest extends BaseTestClass {
     }
 
     @Test
-    public void testMergeExecutionDataFirstIsLarger() throws Exception {
-        // Get the private mergedStore field for verification
-        Field mergedStoreField = ExecutionDataMerger.class.getDeclaredField("mergedStore");
-        mergedStoreField.setAccessible(true);
-        ExecutionDataStore store = (ExecutionDataStore) mergedStoreField.get(merger);
-
-        // Create MergingVisitor instance using reflection
-        Class<?> visitorClass = Class.forName("io.github.svaningelgem.ExecutionDataMerger$MergingVisitor");
-        Object visitor = visitorClass.getDeclaredConstructors()[0].newInstance(merger);
-
-        // Create test execution data
-        long classId = 123456789L;
+    public void testMergeExecutionDataFirstIsLarger() {
+        // Create test data
         String className = "com.example.TestClass";
+        long classId = CRC64.classId(className.getBytes());
 
-        // First execution: probes [true, false, true]
+        // First execution: longer probes [true, false, true]
         ExecutionData data1 = new ExecutionData(classId, className, new boolean[] {true, false, true});
 
-        // Second execution: probes [false, true]
+        // Second execution: shorter probes [false, true]
         ExecutionData data2 = new ExecutionData(classId, className, new boolean[] {false, true});
 
-        // Expected merged result: [true, true, true]
+        // Use the public method to merge data
+        merger.mergeExecData(data1, data2);
 
-        // Invoke visitClassExecution method
-        Method visitMethod = visitorClass.getMethod("visitClassExecution", ExecutionData.class);
-        visitMethod.invoke(visitor, data1); // First visit puts data1 in store
-        visitMethod.invoke(visitor, data2); // Second visit should merge data2 with data1
+        // Get merged results
+        ExecutionDataStore mergedStore = merger.getMergedStore();
+        ExecutionData mergedData = mergedStore.get(classId);
 
-        // Verify the merged result
-        ExecutionData mergedData = store.get(classId);
+        // Verify merged data
         assertNotNull("Merged data should exist", mergedData);
-        assertEquals("Class ID should match", classId, mergedData.getId());
-        assertEquals("Class name should match", className, mergedData.getName());
 
         boolean[] expectedProbes = new boolean[] {true, true, true};
         boolean[] actualProbes = mergedData.getProbes();

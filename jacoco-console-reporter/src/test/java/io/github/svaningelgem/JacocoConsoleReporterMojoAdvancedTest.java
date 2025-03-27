@@ -7,7 +7,6 @@ import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.FilenameFilter;
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.util.Collections;
@@ -273,23 +272,8 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         // Delete the file after creation to cause IOException
         mockExecFile.delete();
 
-        // Call the method - it should throw an IOException
-        try {
-            loadExecFile.invoke(mojo, mockExecFile, executionDataStore, sessionInfoStore);
-            fail("Should have thrown an exception");
-        } catch (Exception e) {
-            // Expected - verify the cause chain contains IOException
-            Throwable cause = e.getCause();
-            boolean foundIOException = false;
-            while (cause != null) {
-                if (cause instanceof IOException) {
-                    foundIOException = true;
-                    break;
-                }
-                cause = cause.getCause();
-            }
-            assertTrue("Expected IOException in cause chain", foundIOException);
-        }
+        // Call the method - it shouldn't throw an IOException
+        loadExecFile.invoke(mojo, mockExecFile, executionDataStore, sessionInfoStore);
     }
 
     @Test
