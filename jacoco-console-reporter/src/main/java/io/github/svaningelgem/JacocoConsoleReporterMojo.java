@@ -6,9 +6,7 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.jacoco.core.analysis.*;
-import org.jacoco.core.data.ExecutionDataReader;
 import org.jacoco.core.data.ExecutionDataStore;
-import org.jacoco.core.data.SessionInfoStore;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -259,40 +257,28 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     /**
-     * Loads JaCoCo execution data from the specified files.
-     * Creates both execution data and session info stores to capture
-     * all coverage information from the JaCoCo output files.
+     * Loads JaCoCo execution data from the specified files with proper deduplication.
+     * Uses the ExecutionDataMerger to ensure classes aren't counted multiple times
+     * when aggregating coverage from multiple modules that share common code.
      *
-     * @return Populated execution data store with coverage information
+     * @return Populated execution data store with deduplicated coverage information
      * @throws IOException if there are issues reading the JaCoCo execution files
      */
     private @NotNull ExecutionDataStore loadExecutionData() throws IOException {
-        ExecutionDataStore executionDataStore = new ExecutionDataStore();
-        SessionInfoStore sessionInfoStore = new SessionInfoStore();
+        getLog().debug("Loading execution data with deduplication");
+        ExecutionDataMerger merger = new ExecutionDataMerger();
 
-        // Load all exec files
-        for (File execFile : collectedExecFilePaths) {
-            if (execFile == null || !execFile.exists()) {
-                continue;
-            }
+        // Pass all exec files to the merger
+        ExecutionDataStore executionDataStore = merger.loadExecutionData(collectedExecFilePaths);
 
-            loadExecFile(execFile, executionDataStore, sessionInfoStore);
-            getLog().debug("Processed exec file: " + execFile);
-        }
+        int fileCount = (int) collectedExecFilePaths.stream()
+                .filter(file -> file != null && file.exists())
+                .count();
+
+        getLog().debug(String.format("Processed %d exec files containing data for %d unique classes",
+                fileCount, merger.getProcessedClasses().size()));
 
         return executionDataStore;
-    }
-
-    /**
-     * Loads an individual JaCoCo execution data file
-     */
-    private void loadExecFile(File execFile, ExecutionDataStore executionDataStore, SessionInfoStore sessionInfoStore) throws IOException {
-        try (FileInputStream in = new FileInputStream(execFile)) {
-            ExecutionDataReader reader = new ExecutionDataReader(in);
-            reader.setExecutionDataVisitor(executionDataStore);
-            reader.setSessionInfoVisitor(sessionInfoStore);
-            reader.read();
-        }
     }
 
     /**
