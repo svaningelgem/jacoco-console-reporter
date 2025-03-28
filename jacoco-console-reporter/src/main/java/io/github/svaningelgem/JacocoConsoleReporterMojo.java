@@ -129,8 +129,9 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     public void execute() throws MojoExecutionException {
         additionalExecFiles.stream().map(File::getAbsoluteFile).forEach(collectedExecFilePaths::add);
         collectedExecFilePaths.add(jacocoExecFile.getAbsoluteFile());
+        getLog().debug("Collected exec file paths till now: " + collectedExecFilePaths);
         collectedClassesPaths.add(classesDirectory.getAbsoluteFile());
-        getLog().info("Collected Classes: " + collectedClassesPaths);
+        getLog().debug("Collected classes till now: " + collectedClassesPaths);
         if (jacocoExecFile.exists()) {
             getLog().debug("Added exec file from current module: " + jacocoExecFile.getAbsolutePath());
         }
