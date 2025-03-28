@@ -273,7 +273,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         mockExecFile.delete();
 
         // Call the method - it shouldn't throw an IOException
-        loadExecFile.invoke(mojo, mockExecFile, executionDataStore, sessionInfoStore);
+        loadExecFile.invoke(new ExecutionDataMerger(), mockExecFile, executionDataStore, sessionInfoStore);
     }
 
     @Test

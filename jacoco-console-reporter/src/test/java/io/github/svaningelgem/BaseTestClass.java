@@ -118,7 +118,7 @@ public class BaseTestClass {
         getConfiguredExecFilePatterns.setAccessible(true);
         shouldReport = JacocoConsoleReporterMojo.class.getDeclaredMethod("shouldReport");
         shouldReport.setAccessible(true);
-        loadExecFile = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecFile", File.class, org.jacoco.core.data.ExecutionDataStore.class, org.jacoco.core.data.SessionInfoStore.class);
+        loadExecFile = ExecutionDataMerger.class.getDeclaredMethod("loadExecFile", File.class, org.jacoco.core.data.IExecutionDataVisitor.class, org.jacoco.core.data.SessionInfoStore.class);
         loadExecFile.setAccessible(true);
         loadExecutionData = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecutionData");
         loadExecutionData.setAccessible(true);

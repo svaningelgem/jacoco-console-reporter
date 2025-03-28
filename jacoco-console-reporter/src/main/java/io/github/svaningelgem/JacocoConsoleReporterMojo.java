@@ -285,24 +285,6 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     /**
-     * Loads an individual JaCoCo execution data file
-     * This method is maintained for backward compatibility with tests
-     */
-    private void loadExecFile(File execFile, ExecutionDataStore executionDataStore, SessionInfoStore sessionInfoStore) throws IOException {
-        if (execFile == null || !execFile.exists()) {
-            return;
-        }
-
-        try (FileInputStream in = new FileInputStream(execFile)) {
-            ExecutionDataReader reader = new ExecutionDataReader(in);
-            reader.setExecutionDataVisitor(executionDataStore);
-            reader.setSessionInfoVisitor(sessionInfoStore);
-            reader.read();
-            getLog().debug("Processed exec file: " + execFile);
-        }
-    }
-
-    /**
      * Analyzes the compiled classes using the execution data to build coverage information.
      * Uses JaCoCo's analyzer to process all class files in the specified directory,
      * building a complete picture of code coverage.
