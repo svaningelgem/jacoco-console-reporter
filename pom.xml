@@ -83,6 +83,13 @@
                 <scope>compile</scope>
             </dependency>
 
+            <dependency>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>[${jacoco.version},)</version>
+                <scope>provided</scope>
+            </dependency>
+
             <!-- Logging -->
             <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-simple -->
             <dependency>
