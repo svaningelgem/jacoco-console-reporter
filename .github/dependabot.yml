@@ -6,10 +6,6 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 10
-    groups:
-      all_together:
-        patterns:
-          - "*"
     ignore:
       # Ignore patch updates for Maven plugins to reduce noise
       - dependency-name: "org.apache.maven.plugins:*"
@@ -21,7 +17,3 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 10
-    groups:
-      all_together:
-        patterns:
-          - "*"
