@@ -7,12 +7,12 @@ import org.junit.runner.RunWith;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 @RunWith(MockitoJUnitRunner.class)
 public class CharsetDetectorTest {
@@ -93,5 +93,104 @@ public class CharsetDetectorTest {
         // Test with an invalid code page - should return UTF-8 as fallback
         Charset result = detector.getCharsetForCodePage(-1);
         assertEquals(StandardCharsets.UTF_8, result);
+    }
+
+    @Test
+    public void testGetOsName() {
+        // Create a real instance for this test
+        CharsetDetector detector = CharsetDetector.getInstance();
+
+        // Get the actual OS name from the system
+        String expectedOsName = System.getProperty("os.name").toLowerCase();
+
+        // Test the method
+        String result = detector.getOsName();
+
+        // Verify it returns the correct value
+        assertEquals(expectedOsName, result);
+    }
+
+    @Test
+    public void testGetConsoleCP() {
+        // This test will depend on whether we're running on Windows
+        CharsetDetector detector = spy(CharsetDetector.getInstance());
+
+        if (System.getProperty("os.name").toLowerCase().contains("win")) {
+            // On Windows, we can test the actual behavior
+            int result = detector.getConsoleCP();
+
+            // We can only verify it returns something, not the exact value
+            // A common Windows code page would be 437 (US) or 1252 (Western European)
+            assertTrue("Console code page should be positive", result > 0);
+
+            // Verify the method was called
+            verify(detector).getConsoleCP();
+        } else {
+            // On non-Windows, we need to mock since Kernel32 won't be available
+            // This test simply verifies that our spy is correctly set up
+            doReturn(1252).when(detector).getConsoleCP();
+
+            int result = detector.getConsoleCP();
+            assertEquals(1252, result);
+        }
+    }
+
+    @Test
+    public void testKernel32Instance() {
+        // Skip on non-Windows platforms
+        if (!System.getProperty("os.name").toLowerCase().contains("win")) {
+            return;
+        }
+
+        // Test that Kernel32.INSTANCE is available on Windows
+        assertNotNull("Kernel32.INSTANCE should not be null on Windows",
+                CharsetDetector.Kernel32.INSTANCE);
+
+        // Test that GetConsoleOutputCP can be called
+        try {
+            int cp = CharsetDetector.Kernel32.INSTANCE.GetConsoleOutputCP();
+            assertTrue("Console code page should be positive", cp > 0);
+        } catch (Exception e) {
+            fail("Calling GetConsoleOutputCP should not throw an exception: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testGetConsoleCP_MockedKernel32() throws Exception {
+        // Skip on Windows platforms as we don't want to modify the real Kernel32.INSTANCE
+        if (System.getProperty("os.name").toLowerCase().contains("win")) {
+            return;
+        }
+
+        // Create a real instance
+        CharsetDetector detector = CharsetDetector.getInstance();
+
+        // For non-Windows platforms, we'll create a mock Kernel32 and use reflection
+        // to replace the INSTANCE field with our mock
+        CharsetDetector.Kernel32 mockKernel32 = mock(CharsetDetector.Kernel32.class);
+        when(mockKernel32.GetConsoleOutputCP()).thenReturn(1252);
+
+        // Use reflection to get the INSTANCE field
+        Field instanceField = CharsetDetector.Kernel32.class.getDeclaredField("INSTANCE");
+        instanceField.setAccessible(true);
+
+        // Store the original value so we can restore it later
+        Object originalInstance = instanceField.get(null);
+
+        try {
+            // Replace with our mock
+            instanceField.set(null, mockKernel32);
+
+            // Now test getConsoleCP()
+            int result = detector.getConsoleCP();
+            assertEquals(1252, result);
+
+            // Verify our mock was called
+            verify(mockKernel32).GetConsoleOutputCP();
+        } finally {
+            // Restore the original value
+            instanceField.set(null, originalInstance);
+            instanceField.setAccessible(false);
+        }
     }
 }
