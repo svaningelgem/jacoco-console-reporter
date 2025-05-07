@@ -3,6 +3,9 @@ package io.github.svaningelgem;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.runner.RunWith;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -97,9 +100,6 @@ public class CharsetDetectorTest {
 
     @Test
     public void testGetOsName() {
-        // Create a real instance for this test
-        CharsetDetector detector = CharsetDetector.getInstance();
-
         // Get the actual OS name from the system
         String expectedOsName = System.getProperty("os.name").toLowerCase();
 
@@ -111,37 +111,33 @@ public class CharsetDetectorTest {
     }
 
     @Test
-    public void testGetConsoleCP() {
-        // This test will depend on whether we're running on Windows
-        CharsetDetector detector = spy(CharsetDetector.getInstance());
+    @EnabledOnOs(OS.WINDOWS)
+    public void testGetConsoleCP_Windows() {
+        // On Windows, we can test the actual behavior
+        int result = detector.getConsoleCP();
 
-        if (System.getProperty("os.name").toLowerCase().contains("win")) {
-            // On Windows, we can test the actual behavior
-            int result = detector.getConsoleCP();
+        // We can only verify it returns something, not the exact value
+        // A common Windows code page would be 437 (US) or 1252 (Western European)
+        assertTrue("Console code page should be positive", result > 0);
 
-            // We can only verify it returns something, not the exact value
-            // A common Windows code page would be 437 (US) or 1252 (Western European)
-            assertTrue("Console code page should be positive", result > 0);
-
-            // Verify the method was called
-            verify(detector).getConsoleCP();
-        } else {
-            // On non-Windows, we need to mock since Kernel32 won't be available
-            // This test simply verifies that our spy is correctly set up
-            doReturn(1252).when(detector).getConsoleCP();
-
-            int result = detector.getConsoleCP();
-            assertEquals(1252, result);
-        }
+        // Verify the method was called
+        verify(detector).getConsoleCP();
     }
 
     @Test
-    public void testKernel32Instance() {
-        // Skip on non-Windows platforms
-        if (!System.getProperty("os.name").toLowerCase().contains("win")) {
-            return;
-        }
+    @DisabledOnOs(OS.WINDOWS)
+    public void testGetConsoleCP_NotWindows() {
+        // On non-Windows, we need to mock since Kernel32 won't be available
+        // This test simply verifies that our spy is correctly set up
+        doReturn(1252).when(detector).getConsoleCP();
 
+        int result = detector.getConsoleCP();
+        assertEquals(1252, result);
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    public void testKernel32Instance() {
         // Test that Kernel32.INSTANCE is available on Windows
         assertNotNull("Kernel32.INSTANCE should not be null on Windows",
                 CharsetDetector.Kernel32.INSTANCE);
@@ -156,15 +152,8 @@ public class CharsetDetectorTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     public void testGetConsoleCP_MockedKernel32() throws Exception {
-        // Skip on Windows platforms as we don't want to modify the real Kernel32.INSTANCE
-        if (System.getProperty("os.name").toLowerCase().contains("win")) {
-            return;
-        }
-
-        // Create a real instance
-        CharsetDetector detector = CharsetDetector.getInstance();
-
         // For non-Windows platforms, we'll create a mock Kernel32 and use reflection
         // to replace the INSTANCE field with our mock
         CharsetDetector.Kernel32 mockKernel32 = mock(CharsetDetector.Kernel32.class);
