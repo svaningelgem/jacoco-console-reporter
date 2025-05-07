@@ -1,5 +1,6 @@
 package io.github.svaningelgem;
 
+import org.apache.maven.plugin.logging.Log;
 import org.junit.Test;
 
 import java.util.Collections;
@@ -89,7 +90,7 @@ public class DirectoryNodeTest extends BaseTestClass {
         try {
             java.lang.reflect.Method printNodesMethod = DirectoryNode.class.getDeclaredMethod(
                     "printNodes",
-                    org.apache.maven.plugin.logging.Log.class,
+                    Log.class,
                     String.class,
                     String.class,
                     String.class,

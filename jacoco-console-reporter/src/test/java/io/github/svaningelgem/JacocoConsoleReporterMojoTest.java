@@ -235,8 +235,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
     @Test
     public void testExecute() throws Exception {
         if (!testProjectJacocoExec.exists() || !testProjectClasses.exists()) {
-            // Skip test if test project files don't exist
-            return;
+            fail("Jacoco.exec or classes directory does not exist: " + testProjectJacocoExec.getAbsolutePath());
         }
 
         assertNotNull("POM file not found", pom);
