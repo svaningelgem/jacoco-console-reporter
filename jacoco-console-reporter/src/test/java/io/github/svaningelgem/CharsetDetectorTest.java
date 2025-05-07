@@ -136,15 +136,15 @@ public class CharsetDetectorTest {
 
     @Test
     public void testKernel32Instance() {
-        Assume.assumeFalse(System.getProperty("os.name").toLowerCase().contains("win"));
+        Assume.assumeTrue(System.getProperty("os.name").toLowerCase().contains("win"));
 
         // Test that Kernel32.INSTANCE is available on Windows
         assertNotNull("Kernel32.INSTANCE should not be null on Windows",
-                CharsetDetector.Kernel32.INSTANCE);
+                detector.getKernel32Instance());
 
         // Test that GetConsoleOutputCP can be called
         try {
-            int cp = CharsetDetector.Kernel32.INSTANCE.GetConsoleOutputCP();
+            int cp = detector.getKernel32Instance().GetConsoleOutputCP();
             assertTrue("Console code page should be positive", cp > 0);
         } catch (Exception e) {
             fail("Calling GetConsoleOutputCP should not throw an exception: " + e.getMessage());

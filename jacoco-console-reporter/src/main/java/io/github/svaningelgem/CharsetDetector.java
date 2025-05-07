@@ -20,12 +20,15 @@ public class CharsetDetector {
     }
 
     public interface Kernel32 extends Library {
-        Kernel32 INSTANCE = Native.load("kernel32", Kernel32.class);
         int GetConsoleOutputCP();
     }
 
+    static class Kernel32Holder {
+        static final Kernel32 INSTANCE = Native.load("kernel32", Kernel32.class);
+    }
+
     Kernel32 getKernel32Instance() {
-        return Kernel32.INSTANCE;
+        return Kernel32Holder.INSTANCE;
     }
 
     @NotNull String getOsName() {
