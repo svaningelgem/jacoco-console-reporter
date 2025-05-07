@@ -1,26 +1,12 @@
 package io.github.svaningelgem;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 
 import static org.junit.Assert.*;
 
-public class DefaultsTest {
-    @Before
-    public void setUp() {
-        Locale.setDefault(Locale.US);
-        Defaults.instance = null;
-    }
-
-    @After
-    public void tearDown() {
-        Defaults.instance = null;
-    }
-
+public class DefaultsTest extends BaseTestClass {
     @Test
     public void truncateMiddle_shouldNotTruncateShortString() {
         String input = "com.example.short";
@@ -86,14 +72,27 @@ public class DefaultsTest {
     }
 
     @Test
-    public void lineFormat_shouldBeCorrectlyFormatted() {
-        Defaults defaults = new Defaults();
+    public void lineFormat_shouldBeCorrectlyFormatted_Windows() {
+        Defaults defaults = new Defaults(StandardCharsets.ISO_8859_1);
 
         String expected = "%-" + Defaults.PACKAGE_WIDTH + "s " +
                 "| " + "%-" + Defaults.METRICS_WIDTH + "s " +
                 "| " + "%-" + Defaults.METRICS_WIDTH + "s " +
                 "| " + "%-" + Defaults.METRICS_WIDTH + "s " +
                 "| " + "%-" + Defaults.METRICS_WIDTH + "s";
+
+        assertEquals(expected, defaults.lineFormat);
+    }
+
+    @Test
+    public void lineFormat_shouldBeCorrectlyFormatted_Linux() {
+        Defaults defaults = new Defaults(StandardCharsets.UTF_8);
+
+        String expected = "%-" + Defaults.PACKAGE_WIDTH + "s " +
+                "│ " + "%-" + Defaults.METRICS_WIDTH + "s " +
+                "│ " + "%-" + Defaults.METRICS_WIDTH + "s " +
+                "│ " + "%-" + Defaults.METRICS_WIDTH + "s " +
+                "│ " + "%-" + Defaults.METRICS_WIDTH + "s";
 
         assertEquals(expected, defaults.lineFormat);
     }

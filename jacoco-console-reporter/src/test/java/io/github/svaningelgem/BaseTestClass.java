@@ -72,6 +72,7 @@ public class BaseTestClass {
     @Before
     public void setUp() throws Exception {
         Locale.setDefault(Locale.US);
+        Defaults.instance = null;
 
         fileCounter = 0;
 
