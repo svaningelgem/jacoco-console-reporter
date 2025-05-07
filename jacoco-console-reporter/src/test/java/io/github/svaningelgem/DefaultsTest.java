@@ -105,6 +105,6 @@ public class DefaultsTest extends BaseTestClass {
         String filled = String.format(defaults.lineFormat, "X", "X", "X", "X", "X");
 
         assertEquals(filled.length(), defaults.divider.length());
-        assertTrue(defaults.divider.matches("[-|]+"));
+        assertTrue(defaults.divider.matches("[-|│]+"));
     }
 }
