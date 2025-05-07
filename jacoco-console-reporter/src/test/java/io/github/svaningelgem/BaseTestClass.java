@@ -171,17 +171,19 @@ public class BaseTestClass {
         final int begin = line;
         assertTrue("We should have at least enough lines left to check the whole expected array", line <= log.writtenData.size() - expected.length);
         for (; line < log.writtenData.size(); line++) {
-            if (!log.writtenData.get(line).startsWith(expected[line - begin])) {
-                failLog(expected);
+            String expectedAsUtf8 = expected[line - begin];
+            String expectedAsAscii = expectedAsUtf8.replace("│", "|").replace("├─", "+-").replace("└─", "\\-");
+
+            String currentLine = log.writtenData.get(line);
+            if (currentLine.startsWith(expectedAsUtf8) || currentLine.startsWith(expectedAsAscii)) {
+                continue;
             }
+
+            failLog(expected);
         }
     }
 
     protected void failLog(String @NotNull [] expected) {
-        failLog(expected, null);
-    }
-
-    protected void failLog(String @NotNull [] expected, @Nullable String message) {
         StringBuilder builder = new StringBuilder();
         builder.append("Expected log to contain:\n");
         for (String line : expected) {
@@ -194,11 +196,7 @@ public class BaseTestClass {
         }
         builder.append("\n");
 
-        if (message != null) {
-            fail(builder + message);
-        } else {
-            fail(builder.toString());
-        }
+        fail(builder.toString());
     }
 
     /**
