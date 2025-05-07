@@ -4,7 +4,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
@@ -14,22 +13,12 @@ public class DefaultsTest {
     @Before
     public void setUp() {
         Locale.setDefault(Locale.US);
-        resetSingleton();
+        Defaults.instance = null;
     }
 
     @After
     public void tearDown() {
-        resetSingleton();
-    }
-
-    private void resetSingleton() {
-        try {
-            Field instanceField = Defaults.class.getDeclaredField("instance");
-            instanceField.setAccessible(true);
-            instanceField.set(null, null);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to reset singleton", e);
-        }
+        Defaults.instance = null;
     }
 
     @Test
@@ -76,9 +65,6 @@ public class DefaultsTest {
 
     @Test
     public void defaultConstructor_withUtf8Charset() {
-        // Reset the singleton first
-        resetSingleton();
-
         // Create a new Defaults instance with UTF-8
         Defaults defaults = new Defaults(StandardCharsets.UTF_8);
 
@@ -90,9 +76,6 @@ public class DefaultsTest {
 
     @Test
     public void defaultConstructor_withNonUtf8Charset() {
-        // Reset the singleton first
-        resetSingleton();
-
         // Create a new Defaults instance with a non-UTF-8 charset
         Defaults defaults = new Defaults(StandardCharsets.ISO_8859_1);
 

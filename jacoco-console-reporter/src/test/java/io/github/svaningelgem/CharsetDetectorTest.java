@@ -1,71 +1,97 @@
-/*
 package io.github.svaningelgem;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
+import org.mockito.Spy;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 
-@RunWith(PowerMockRunner.class)
-@PrepareForTest({System.class, CharsetDetector.Kernel32.class, Charset.class})
+@RunWith(MockitoJUnitRunner.class)
 public class CharsetDetectorTest {
 
+    @Spy
+    private CharsetDetector detector;
+
+    @Before
+    public void setUp() {
+        CharsetDetector.instance = null;
+        detector = spy(CharsetDetector.getInstance());
+    }
+
+    @After
+    public void tearDown() {
+        CharsetDetector.instance = null;
+    }
+
     @Test
-    public void run_shouldReturnUtf8OnNonWindowsSystem() {
-        PowerMockito.mockStatic(System.class);
-        PowerMockito.when(System.getProperty("os.name")).thenReturn("Linux");
+    public void testGetCharsetOnNonWindows() {
+        // Mock the OS name to be Linux
+        doReturn("linux").when(detector).getOsName();
 
-        Charset result = new CharsetDetector().run();
-
+        // Test
+        Charset result = detector.getCharset();
         assertEquals(StandardCharsets.UTF_8, result);
     }
 
     @Test
-    public void run_shouldReturnUtf8OnWindowsWithUtf8CodePage() {
-        PowerMockito.mockStatic(System.class);
-        PowerMockito.when(System.getProperty("os.name")).thenReturn("Windows 10");
+    public void testGetCharsetOnWindowsWithUtf8CodePage() {
+        // Mock Windows OS and UTF-8 code page
+        doReturn("windows").when(detector).getOsName();
+        doReturn(65001).when(detector).getConsoleCP();
 
-        PowerMockito.mockStatic(CharsetDetector.Kernel32.class);
-        PowerMockito.when(CharsetDetector.Kernel32.INSTANCE.GetConsoleOutputCP()).thenReturn(65001);
-
-        Charset result = new CharsetDetector().run();
-
+        // Test
+        Charset result = detector.getCharset();
         assertEquals(StandardCharsets.UTF_8, result);
     }
 
     @Test
-    public void run_shouldReturnCorrectCharsetOnWindowsWithNonUtf8CodePage() {
-        PowerMockito.mockStatic(System.class);
-        PowerMockito.when(System.getProperty("os.name")).thenReturn("Windows 10");
+    public void testGetCharsetOnWindowsWithValidCodePage() {
+        // Mock Windows OS and a valid code page
+        doReturn("windows").when(detector).getOsName();
+        doReturn(1252).when(detector).getConsoleCP();
 
-        PowerMockito.mockStatic(CharsetDetector.Kernel32.class);
-        PowerMockito.when(CharsetDetector.Kernel32.INSTANCE.GetConsoleOutputCP()).thenReturn(437); // DOS Latin US
+        // Let the real getCharsetForCodePage method run
 
-        Charset result = new CharsetDetector().run();
-
-        assertEquals(Charset.forName("CP437"), result);
+        // Test
+        Charset result = detector.getCharset();
+        assertEquals(Charset.forName("CP1252"), result);
     }
 
     @Test
-    public void run_shouldFallbackToUtf8OnWindowsWithInvalidCodePage() {
-        PowerMockito.mockStatic(System.class);
-        PowerMockito.when(System.getProperty("os.name")).thenReturn("Windows 10");
+    public void testGetCharsetOnWindowsWithInvalidCodePage() {
+        // Mock Windows OS and an invalid code page
+        doReturn("windows").when(detector).getOsName();
+        doReturn(-1).when(detector).getConsoleCP();
 
-        PowerMockito.mockStatic(CharsetDetector.Kernel32.class);
-        PowerMockito.when(CharsetDetector.Kernel32.INSTANCE.GetConsoleOutputCP()).thenReturn(999999); // Invalid code page
+        // Test
+        Charset result = detector.getCharset();
+        assertEquals(StandardCharsets.UTF_8, result);
+    }
 
-        PowerMockito.mockStatic(Charset.class);
-        PowerMockito.when(Charset.forName("CP999999")).thenThrow(new IllegalArgumentException("Unknown charset"));
+    @Test
+    public void testGetCharsetForCodePageValid() {
+        Charset result = detector.getCharsetForCodePage(1252);
+        assertEquals(Charset.forName("CP1252"), result);
+    }
 
-        Charset result = new CharsetDetector().run();
+    @Test
+    public void testGetCharsetForCodePageUtf8() {
+        Charset result = detector.getCharsetForCodePage(65001);
+        assertEquals(StandardCharsets.UTF_8, result);
+    }
 
+    @Test
+    public void testGetCharsetForCodePageInvalid() {
+        // Test with an invalid code page - should return UTF-8 as fallback
+        Charset result = detector.getCharsetForCodePage(-1);
         assertEquals(StandardCharsets.UTF_8, result);
     }
 }
-*/

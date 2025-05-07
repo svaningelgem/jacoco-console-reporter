@@ -22,7 +22,7 @@ public class Defaults {
     final String lineFormat;
     final String divider;
 
-    private static Defaults instance = null;
+    static Defaults instance = null;
     public static Defaults getInstance() {
         if (instance == null) {
             instance = new Defaults();
@@ -31,7 +31,7 @@ public class Defaults {
     }
 
     public Defaults() {
-        this(CharsetDetector.run());
+        this(CharsetDetector.getInstance().getCharset());
     }
 
     public Defaults(Charset currentCharset) {
