@@ -3,6 +3,7 @@ package io.github.svaningelgem;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 public class Defaults {
@@ -30,11 +31,11 @@ public class Defaults {
     }
 
     public Defaults() {
-        this(new CharsetDetector().run() != StandardCharsets.UTF_8);
+        this(CharsetDetector.run());
     }
 
-    public Defaults(boolean useAscii) {
-        this.useAscii = useAscii;
+    public Defaults(Charset currentCharset) {
+        useAscii = currentCharset != StandardCharsets.UTF_8;
 
         verticalLine = this.useAscii ? "| " : "│ ";
         tee = this.useAscii ? "+-" : "├─";
