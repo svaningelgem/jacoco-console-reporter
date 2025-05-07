@@ -1,16 +1,13 @@
 package io.github.svaningelgem;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.EnabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 import org.junit.runner.RunWith;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 
-import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
@@ -111,8 +108,9 @@ public class CharsetDetectorTest {
     }
 
     @Test
-    @EnabledOnOs(OS.WINDOWS)
     public void testGetConsoleCP_Windows() {
+        Assume.assumeTrue(System.getProperty("os.name").toLowerCase().contains("win"));
+
         // On Windows, we can test the actual behavior
         int result = detector.getConsoleCP();
 
@@ -125,8 +123,9 @@ public class CharsetDetectorTest {
     }
 
     @Test
-    @DisabledOnOs(OS.WINDOWS)
     public void testGetConsoleCP_NotWindows() {
+        Assume.assumeFalse(System.getProperty("os.name").toLowerCase().contains("win"));
+
         // On non-Windows, we need to mock since Kernel32 won't be available
         // This test simply verifies that our spy is correctly set up
         doReturn(1252).when(detector).getConsoleCP();
@@ -136,8 +135,9 @@ public class CharsetDetectorTest {
     }
 
     @Test
-    @DisabledOnOs(OS.WINDOWS)
     public void testKernel32Instance() {
+        Assume.assumeFalse(System.getProperty("os.name").toLowerCase().contains("win"));
+
         // Test that Kernel32.INSTANCE is available on Windows
         assertNotNull("Kernel32.INSTANCE should not be null on Windows",
                 CharsetDetector.Kernel32.INSTANCE);
@@ -152,34 +152,25 @@ public class CharsetDetectorTest {
     }
 
     @Test
-    @DisabledOnOs(OS.WINDOWS)
-    public void testGetConsoleCP_MockedKernel32() throws Exception {
-        // For non-Windows platforms, we'll create a mock Kernel32 and use reflection
-        // to replace the INSTANCE field with our mock
+    public void testGetConsoleCP_MockedKernel32() {
+        // Create a mock of Kernel32
         CharsetDetector.Kernel32 mockKernel32 = mock(CharsetDetector.Kernel32.class);
         when(mockKernel32.GetConsoleOutputCP()).thenReturn(1252);
 
-        // Use reflection to get the INSTANCE field
-        Field instanceField = CharsetDetector.Kernel32.class.getDeclaredField("INSTANCE");
-        instanceField.setAccessible(true);
+        // Override the getKernel32Instance method to return our mock
+        doReturn(mockKernel32).when(detector).getKernel32Instance();
 
-        // Store the original value so we can restore it later
-        Object originalInstance = instanceField.get(null);
+        // Now test getConsoleCP()
+        int result = detector.getConsoleCP();
+        assertEquals(1252, result);
 
-        try {
-            // Replace with our mock
-            instanceField.set(null, mockKernel32);
+        // Verify our mock was called
+        verify(mockKernel32).GetConsoleOutputCP();
+    }
 
-            // Now test getConsoleCP()
-            int result = detector.getConsoleCP();
-            assertEquals(1252, result);
-
-            // Verify our mock was called
-            verify(mockKernel32).GetConsoleOutputCP();
-        } finally {
-            // Restore the original value
-            instanceField.set(null, originalInstance);
-            instanceField.setAccessible(false);
-        }
+    @Test
+    public void testGetInstanceGetsTheSameInstance() {
+        CharsetDetector instance = CharsetDetector.getInstance();
+        assertSame(instance, CharsetDetector.getInstance());
     }
 }

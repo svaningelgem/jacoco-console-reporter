@@ -24,12 +24,16 @@ public class CharsetDetector {
         int GetConsoleOutputCP();
     }
 
+    Kernel32 getKernel32Instance() {
+        return Kernel32.INSTANCE;
+    }
+
     @NotNull String getOsName() {
         return System.getProperty("os.name").toLowerCase();
     }
 
     int getConsoleCP() {
-        return Kernel32.INSTANCE.GetConsoleOutputCP();
+        return getKernel32Instance().GetConsoleOutputCP();
     }
 
     Charset getCharsetForCodePage(int cp) {
