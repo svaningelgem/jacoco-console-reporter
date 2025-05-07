@@ -6,37 +6,48 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.charset.StandardCharsets;
 
 public class Defaults {
-    private static final boolean USE_ASCII;
-
     // Define column widths
-    static final int PACKAGE_WIDTH = 50;
-    static final int METRICS_WIDTH = 20;
+    final static int PACKAGE_WIDTH = 50;
+    final static int METRICS_WIDTH = 20;
+
+    private final boolean useAscii;
 
     // Define tree characters based on terminal capabilities
+    final String lastDirSpace = "  ";
+    final String verticalLine;
+    final String tee;
+    final String corner;
 
-    static final String LAST_DIR_SPACE = "  ";
-    static final String VERTICAL_LINE;
-    static final String TEE;
-    static final String CORNER;
+    final String lineFormat;
+    final String divider;
 
-    static final String LINE_FORMAT;
-    static final String DIVIDER;
+    private static Defaults instance = null;
+    public static Defaults getInstance() {
+        if (instance == null) {
+            instance = new Defaults();
+        }
+        return instance;
+    }
 
-    static {
-        USE_ASCII = CharsetDetector.run() != StandardCharsets.UTF_8;
+    public Defaults() {
+        this(new CharsetDetector().run() != StandardCharsets.UTF_8);
+    }
 
-        VERTICAL_LINE = USE_ASCII ? "| " : "│ ";
-        TEE = USE_ASCII ? "+-" : "├─";
-        CORNER = USE_ASCII ? "\\-" : "└─";
-        LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s";
-        DIVIDER = String.format(Defaults.LINE_FORMAT, "", "", "", "", "").replace(' ', '-');
+    public Defaults(boolean useAscii) {
+        this.useAscii = useAscii;
+
+        verticalLine = this.useAscii ? "| " : "│ ";
+        tee = this.useAscii ? "+-" : "├─";
+        corner = this.useAscii ? "\\-" : "└─";
+        lineFormat = "%-" + PACKAGE_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s";
+        divider = String.format(lineFormat, "", "", "", "", "").replace(' ', '-');
     }
 
     /**
      * Truncates a string in the middle if it exceeds maxLength
      * Example: "com.example.very.long.package.name" -> "com.example...kage.name"
      */
-    static @NotNull String truncateMiddle(@NotNull String input) {
+    @NotNull String truncateMiddle(@NotNull String input) {
         if (input.length() <= PACKAGE_WIDTH) {
             return input;
         }
@@ -56,11 +67,9 @@ public class Defaults {
      * @return Formatted string showing percentage and ratio (e.g., "75.00% (3/4)")
      */
     @Contract(pure = true)
-    static @NotNull String formatCoverage(double covered, double total) {
+    @NotNull String formatCoverage(double covered, double total) {
         if (total <= 0) return " ***** (0/0)";
         double percentage = covered / total * 100;
         return String.format("%5.2f%% (%d/%d)", percentage, (int)covered, (int)total);
     }
-
-    private Defaults() { }
 }

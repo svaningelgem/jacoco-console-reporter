@@ -37,7 +37,7 @@ public class DirectoryNodeTest extends BaseTestClass {
         root.getSubdirectories().put("single", singleChild);
 
         // This will test the shouldCollapse condition: dirNodes.size() == 1 && fileNodes.isEmpty()
-        root.printTree(log, "", Defaults.LINE_FORMAT, "", false);
+        root.printTree(log, "", Defaults.getInstance().lineFormat, "", false);
 
         // The log should only contain the collapsed path, not separate entries for root and single
         assertFalse("Log should not contain the root node separately",
@@ -57,7 +57,7 @@ public class DirectoryNodeTest extends BaseTestClass {
                 new SourceFileNode("Test2.java", new CoverageMetrics()));
 
         // This will test the !shouldCollapse condition
-        root.printTree(log, "", Defaults.LINE_FORMAT, "", false);
+        root.printTree(log, "", Defaults.getInstance().lineFormat, "", false);
 
         // The log should contain the root and both directories as separate entries
         assertTrue("Log should contain the root node",
@@ -75,7 +75,7 @@ public class DirectoryNodeTest extends BaseTestClass {
                 new SourceFileNode("Test.java", new CoverageMetrics()));
 
         // This will test the !shouldCollapse condition due to files in root
-        root.printTree(log, "", Defaults.LINE_FORMAT, "", true);
+        root.printTree(log, "", Defaults.getInstance().lineFormat, "", true);
 
         // The log should contain the root and directory as separate entries
         assertTrue("Log should contain the root node",
@@ -123,20 +123,20 @@ public class DirectoryNodeTest extends BaseTestClass {
             determineNewPrefixMethod.setAccessible(true);
 
             // Test with corner prefix
-            String result1 = (String) determineNewPrefixMethod.invoke(node, Defaults.CORNER, true);
+            String result1 = (String) determineNewPrefixMethod.invoke(node, Defaults.getInstance().corner, true);
             assertEquals("Should replace corner with space and add corner",
-                    Defaults.LAST_DIR_SPACE + Defaults.CORNER, result1);
+                    Defaults.getInstance().lastDirSpace + Defaults.getInstance().corner, result1);
 
             // Test with tee prefix
-            String result2 = (String) determineNewPrefixMethod.invoke(node, Defaults.TEE, false);
+            String result2 = (String) determineNewPrefixMethod.invoke(node, Defaults.getInstance().tee, false);
             assertEquals("Should replace tee with vertical line and add tee",
-                    Defaults.VERTICAL_LINE + Defaults.TEE, result2);
+                    Defaults.getInstance().verticalLine + Defaults.getInstance().tee, result2);
 
             // Test with other prefix not ending in corner or tee
             String otherPrefix = "  ";
             String result3 = (String) determineNewPrefixMethod.invoke(node, otherPrefix, true);
             assertEquals("Should add corner to prefix without modification",
-                    otherPrefix + Defaults.CORNER, result3);
+                    otherPrefix + Defaults.getInstance().corner, result3);
 
         } catch (Exception e) {
             fail("Exception should not be thrown: " + e.getMessage());

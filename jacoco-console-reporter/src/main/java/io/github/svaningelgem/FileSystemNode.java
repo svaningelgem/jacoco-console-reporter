@@ -31,11 +31,11 @@ interface FileSystemNode extends Comparable<FileSystemNode> {
         CoverageMetrics metrics = getMetrics();
 
         log.info(String.format(format,
-                Defaults.truncateMiddle(prefix + getName()),
-                Defaults.formatCoverage(metrics.getCoveredClasses(), metrics.getTotalClasses()),
-                Defaults.formatCoverage(metrics.getCoveredMethods(), metrics.getTotalMethods()),
-                Defaults.formatCoverage(metrics.getCoveredBranches(), metrics.getTotalBranches()),
-                Defaults.formatCoverage(metrics.getCoveredLines(), metrics.getTotalLines())));
+                Defaults.getInstance().truncateMiddle(prefix + getName()),
+                Defaults.getInstance().formatCoverage(metrics.getCoveredClasses(), metrics.getTotalClasses()),
+                Defaults.getInstance().formatCoverage(metrics.getCoveredMethods(), metrics.getTotalMethods()),
+                Defaults.getInstance().formatCoverage(metrics.getCoveredBranches(), metrics.getTotalBranches()),
+                Defaults.getInstance().formatCoverage(metrics.getCoveredLines(), metrics.getTotalLines())));
     }
 
     /**

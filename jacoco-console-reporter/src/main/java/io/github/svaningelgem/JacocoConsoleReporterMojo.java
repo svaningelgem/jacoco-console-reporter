@@ -355,10 +355,10 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
         getLog().info("Overall Coverage Summary");
         getLog().info("------------------------");
-        getLog().info("Class coverage : " + Defaults.formatCoverage(total.getCoveredClasses(), total.getTotalClasses()));
-        getLog().info("Method coverage: " + Defaults.formatCoverage(total.getCoveredMethods(), total.getTotalMethods()));
-        getLog().info("Branch coverage: " + Defaults.formatCoverage(total.getCoveredBranches(), total.getTotalBranches()));
-        getLog().info("Line coverage  : " + Defaults.formatCoverage(total.getCoveredLines(), total.getTotalLines()));
+        getLog().info("Class coverage : " + Defaults.getInstance().formatCoverage(total.getCoveredClasses(), total.getTotalClasses()));
+        getLog().info("Method coverage: " + Defaults.getInstance().formatCoverage(total.getCoveredMethods(), total.getTotalMethods()));
+        getLog().info("Branch coverage: " + Defaults.getInstance().formatCoverage(total.getCoveredBranches(), total.getTotalBranches()));
+        getLog().info("Line coverage  : " + Defaults.getInstance().formatCoverage(total.getCoveredLines(), total.getTotalLines()));
 
         double combinedCoverage = 0;
         double combinedTotalCoverage = 0;
@@ -387,21 +387,21 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
         // Print header
         getLog().info("Overall Coverage Summary");
-        getLog().info(String.format(Defaults.LINE_FORMAT, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
-        getLog().info(Defaults.DIVIDER);
+        getLog().info(String.format(Defaults.getInstance().lineFormat, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
+        getLog().info(Defaults.getInstance().divider);
 
         // Print the tree structure - start with an empty prefix for root
-        root.printTree(getLog(), "", Defaults.LINE_FORMAT, "", showFiles);
+        root.printTree(getLog(), "", Defaults.getInstance().lineFormat, "", showFiles);
 
         // Print total metrics
-        getLog().info(Defaults.DIVIDER);
+        getLog().info(Defaults.getInstance().divider);
         CoverageMetrics total = root.getMetrics();
-        getLog().info(String.format(Defaults.LINE_FORMAT,
+        getLog().info(String.format(Defaults.getInstance().lineFormat,
                 "all classes",
-                Defaults.formatCoverage(total.getCoveredClasses(), total.getTotalClasses()),
-                Defaults.formatCoverage(total.getCoveredMethods(), total.getTotalMethods()),
-                Defaults.formatCoverage(total.getCoveredBranches(), total.getTotalBranches()),
-                Defaults.formatCoverage(total.getCoveredLines(), total.getTotalLines())));
+                Defaults.getInstance().formatCoverage(total.getCoveredClasses(), total.getTotalClasses()),
+                Defaults.getInstance().formatCoverage(total.getCoveredMethods(), total.getTotalMethods()),
+                Defaults.getInstance().formatCoverage(total.getCoveredBranches(), total.getTotalBranches()),
+                Defaults.getInstance().formatCoverage(total.getCoveredLines(), total.getTotalLines())));
     }
 
     /**

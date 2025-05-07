@@ -359,11 +359,11 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     @Test
     public void testFormatCoverageEdgeCases() {
         // Test with zero total
-        String result = Defaults.formatCoverage(0, 0);
+        String result = Defaults.getInstance().formatCoverage(0, 0);
         assertEquals(" ***** (0/0)", result);
 
         // Test with negative values (edge case)
-        result = Defaults.formatCoverage(-1, -2);
+        result = Defaults.getInstance().formatCoverage(-1, -2);
         assertEquals(" ***** (0/0)", result);
     }
 

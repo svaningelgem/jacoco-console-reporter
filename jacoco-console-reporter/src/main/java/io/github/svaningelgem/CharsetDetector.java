@@ -14,7 +14,7 @@ public class CharsetDetector {
         int GetConsoleOutputCP();
     }
 
-    public static @NotNull Charset run() {
+    public @NotNull Charset run() {
         String os = System.getProperty("os.name").toLowerCase();
         if (os.contains("win")) {
             // ask the Windows console what code page it’s using

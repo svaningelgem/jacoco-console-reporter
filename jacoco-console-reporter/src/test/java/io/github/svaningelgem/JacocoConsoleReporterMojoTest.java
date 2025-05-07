@@ -252,12 +252,12 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
     public void testTruncateMiddle() {
         // Test normal case
         String longString = "com.example.very.very.very.very.very.very.very.very.long.package.name";
-        String truncated = Defaults.truncateMiddle(longString);
+        String truncated = new Defaults().truncateMiddle(longString);
         assertEquals("com.example.very.very.ve..y.very.long.package.name", truncated);
 
         // Test string already shorter than max
         String shortString = "com.example";
-        String notTruncated = Defaults.truncateMiddle(shortString);
+        String notTruncated = new Defaults().truncateMiddle(shortString);
         assertEquals(shortString, notTruncated);
     }
 
