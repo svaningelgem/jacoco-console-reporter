@@ -38,12 +38,10 @@ public class Mockito5Test extends BaseTestClass {
                             context.arguments().get(0).equals(dirMock) &&
                             "target".equals(context.arguments().get(1))) {
                         intercepted.set(true);
-                        // Forward all methods to targetDirMock to avoid recursion
-                        lenient().doAnswer(inv -> inv.getMethod().invoke(targetDirMock, inv.getArguments()))
-                                .when(mock).exists();
-                        lenient().doAnswer(inv -> inv.getMethod().invoke(targetDirMock, inv.getArguments()))
-                                .when(mock).isDirectory();
-                        lenient().doReturn(null).when(mock).listFiles(any(FilenameFilter.class));
+                        // Don't forward to another spy - directly set behavior
+                        lenient().when(mock.exists()).thenReturn(true);
+                        lenient().when(mock.isDirectory()).thenReturn(true);
+                        lenient().when(mock.listFiles(any(FilenameFilter.class))).thenReturn(null);
                     }
                 })) {
 
