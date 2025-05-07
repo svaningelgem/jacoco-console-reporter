@@ -3,8 +3,6 @@ package io.github.svaningelgem;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Arrays;
-
 import static org.junit.Assert.assertEquals;
 
 public class PrintTreeShowTogglesTest extends BaseTestClass {
@@ -39,7 +37,7 @@ public class PrintTreeShowTogglesTest extends BaseTestClass {
                 "[info] all classes                                        │ 87.50% (14/16)       │ 83.33% (10/12)       │ 50.00% (2/4)         │ 75.00% (6/8)        ",
         };
 
-        assertEquals(Arrays.asList(expected), log.writtenData);
+        assertLogContains(expected);
     }
 
     @Test
@@ -62,7 +60,7 @@ public class PrintTreeShowTogglesTest extends BaseTestClass {
                 "[info] all classes                                        │ 87.50% (14/16)       │ 83.33% (10/12)       │ 50.00% (2/4)         │ 75.00% (6/8)        ",
         };
 
-        assertEquals(Arrays.asList(expected), log.writtenData);
+        assertLogContains(expected);
     }
 
     @Test

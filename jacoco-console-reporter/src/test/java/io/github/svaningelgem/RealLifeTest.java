@@ -23,7 +23,7 @@ public class RealLifeTest extends BaseTestClass {
         mojo.showFiles = false;
 
         // Print the tree
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", mojo.showFiles);
+        root.printTree(mojo.getLog(), "", Defaults.getInstance().lineFormat, "", mojo.showFiles);
 
         // Test output should match the expected format for com.example
         String[] expectedLines = {
@@ -61,7 +61,7 @@ public class RealLifeTest extends BaseTestClass {
         mojo.showFiles = true;
 
         // Print the tree
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", mojo.showFiles);
+        root.printTree(mojo.getLog(), "", Defaults.getInstance().lineFormat, "", mojo.showFiles);
 
         // Test output should match the expected format for com.example
         String[] expectedLines = {

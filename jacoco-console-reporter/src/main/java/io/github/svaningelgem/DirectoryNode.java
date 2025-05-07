@@ -56,14 +56,14 @@ public class DirectoryNode implements FileSystemNode {
     private @NotNull String determineNewPrefix(@NotNull String oldPrefix, boolean isLast) {
         String prefix = oldPrefix;
 
-        if (prefix.endsWith(Defaults.CORNER)) {
-            prefix = prefix.substring(0, prefix.length() - Defaults.CORNER.length()) + Defaults.LAST_DIR_SPACE;
+        if (prefix.endsWith(Defaults.getInstance().corner)) {
+            prefix = prefix.substring(0, prefix.length() - Defaults.getInstance().corner.length()) + Defaults.getInstance().lastDirSpace;
         }
-        else if (prefix.endsWith(Defaults.TEE)) {
-            prefix = prefix.substring(0, prefix.length() - Defaults.TEE.length()) + Defaults.VERTICAL_LINE;
+        else if (prefix.endsWith(Defaults.getInstance().tee)) {
+            prefix = prefix.substring(0, prefix.length() - Defaults.getInstance().tee.length()) + Defaults.getInstance().verticalLine;
         }
 
-        String connector = isLast ? Defaults.CORNER : Defaults.TEE;
+        String connector = isLast ? Defaults.getInstance().corner : Defaults.getInstance().tee;
         return prefix + connector;
     }
 
@@ -93,11 +93,11 @@ public class DirectoryNode implements FileSystemNode {
 
         String printableName = isRoot ? "<root>" : prefix + packagePath + (packagePath.isEmpty() ? "" : ".") + name;
         log.info(String.format(format,
-                Defaults.truncateMiddle(printableName),
-                Defaults.formatCoverage(getMetrics().getCoveredClasses(), getMetrics().getTotalClasses()),
-                Defaults.formatCoverage(getMetrics().getCoveredMethods(), getMetrics().getTotalMethods()),
-                Defaults.formatCoverage(getMetrics().getCoveredBranches(), getMetrics().getTotalBranches()),
-                Defaults.formatCoverage(getMetrics().getCoveredLines(), getMetrics().getTotalLines())));
+                Defaults.getInstance().truncateMiddle(printableName),
+                Defaults.getInstance().formatCoverage(getMetrics().getCoveredClasses(), getMetrics().getTotalClasses()),
+                Defaults.getInstance().formatCoverage(getMetrics().getCoveredMethods(), getMetrics().getTotalMethods()),
+                Defaults.getInstance().formatCoverage(getMetrics().getCoveredBranches(), getMetrics().getTotalBranches()),
+                Defaults.getInstance().formatCoverage(getMetrics().getCoveredLines(), getMetrics().getTotalLines())));
 
         packagePath = "";  // Reset because we shouldn't collapse now anymore
 

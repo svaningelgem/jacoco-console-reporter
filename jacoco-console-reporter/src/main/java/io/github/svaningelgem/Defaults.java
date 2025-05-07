@@ -3,27 +3,52 @@ package io.github.svaningelgem;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-public class Defaults {
-    private static final boolean USE_ASCII = false;  // disabled for now
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
+public class Defaults {
     // Define column widths
-    static final int PACKAGE_WIDTH = 50;
-    static final int METRICS_WIDTH = 20;
+    final static int PACKAGE_WIDTH = 50;
+    final static int METRICS_WIDTH = 20;
+
+    private final boolean useAscii;
 
     // Define tree characters based on terminal capabilities
-    static final String LAST_DIR_SPACE = "  ";
-    static final String VERTICAL_LINE = USE_ASCII ? "| " : "│ ";
-    static final String TEE = USE_ASCII ? "+-" : "├─";
-    static final String CORNER = USE_ASCII ? "\\-" : "└─";
+    final String lastDirSpace = "  ";
+    final String verticalLine;
+    final String tee;
+    final String corner;
 
-    static final String DIVIDER = getDivider();
-    static final String LINE_FORMAT = "%-" + PACKAGE_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s " + VERTICAL_LINE + "%-" + METRICS_WIDTH + "s";
+    final String lineFormat;
+    final String divider;
+
+    static Defaults instance = null;
+    public static Defaults getInstance() {
+        if (instance == null) {
+            instance = new Defaults();
+        }
+        return instance;
+    }
+
+    public Defaults() {
+        this(CharsetDetector.getInstance().getCharset());
+    }
+
+    public Defaults(Charset currentCharset) {
+        useAscii = currentCharset != StandardCharsets.UTF_8;
+
+        verticalLine = this.useAscii ? "| " : "│ ";
+        tee = this.useAscii ? "+-" : "├─";
+        corner = this.useAscii ? "\\-" : "└─";
+        lineFormat = "%-" + PACKAGE_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s";
+        divider = String.format(lineFormat, "", "", "", "", "").replace(' ', '-');
+    }
 
     /**
      * Truncates a string in the middle if it exceeds maxLength
      * Example: "com.example.very.long.package.name" -> "com.example...kage.name"
      */
-    static @NotNull String truncateMiddle(@NotNull String input) {
+    @NotNull String truncateMiddle(@NotNull String input) {
         if (input.length() <= PACKAGE_WIDTH) {
             return input;
         }
@@ -43,18 +68,9 @@ public class Defaults {
      * @return Formatted string showing percentage and ratio (e.g., "75.00% (3/4)")
      */
     @Contract(pure = true)
-    static @NotNull String formatCoverage(double covered, double total) {
+    @NotNull String formatCoverage(double covered, double total) {
         if (total <= 0) return " ***** (0/0)";
         double percentage = covered / total * 100;
         return String.format("%5.2f%% (%d/%d)", percentage, (int)covered, (int)total);
     }
-
-    /**
-     * Build a divider with certain widths
-     */
-    private static @NotNull String getDivider() {
-        return String.format(Defaults.LINE_FORMAT, "", "", "", "", "").replace(' ', '-');
-    }
-
-    private Defaults() { }
 }

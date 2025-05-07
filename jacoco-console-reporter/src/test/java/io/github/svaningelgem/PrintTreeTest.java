@@ -13,7 +13,7 @@ public class PrintTreeTest extends BaseTestClass {
         mojo.showFiles = true;
 
         // Print the tree directly
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+        root.printTree(mojo.getLog(), "", Defaults.getInstance().lineFormat, "", true);
 
         String[] expected = {
                 "[info] pkg            ",
@@ -30,7 +30,7 @@ public class PrintTreeTest extends BaseTestClass {
         createTree(root, 1, "pkg2");
 
         // Print the tree
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+        root.printTree(mojo.getLog(), "", Defaults.getInstance().lineFormat, "", true);
 
         String[] expected = {
                 "[info] <root>           ",
@@ -50,7 +50,7 @@ public class PrintTreeTest extends BaseTestClass {
         createTree(root, 2, "com", "example");
 
         // Print the tree
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+        root.printTree(mojo.getLog(), "", Defaults.getInstance().lineFormat, "", true);
 
         String[] expected = {
                 "[info] com.example      ",
@@ -68,7 +68,7 @@ public class PrintTreeTest extends BaseTestClass {
         createTree(root, 1, "com", "example", "util");
 
         // Print the tree - should collapse the path
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+        root.printTree(mojo.getLog(), "", Defaults.getInstance().lineFormat, "", true);
 
         String[] expected = {
                 "[info] com.example.util ",
@@ -90,7 +90,7 @@ public class PrintTreeTest extends BaseTestClass {
         mojo.showFiles = true;
 
         // Print the tree
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+        root.printTree(mojo.getLog(), "", Defaults.getInstance().lineFormat, "", true);
 
         // Test output should match the expected format for com.example
         String[] expected = {
@@ -116,7 +116,7 @@ public class PrintTreeTest extends BaseTestClass {
         mojo.showFiles = true;
 
         // Print the tree
-        root.printTree(mojo.getLog(), "", Defaults.LINE_FORMAT, "", true);
+        root.printTree(mojo.getLog(), "", Defaults.getInstance().lineFormat, "", true);
 
         String[] expected = {
                 "[info] com.example       ",
