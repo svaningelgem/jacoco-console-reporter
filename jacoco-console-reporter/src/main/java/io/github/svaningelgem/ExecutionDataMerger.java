@@ -1,12 +1,15 @@
 package io.github.svaningelgem;
 
+import lombok.Getter;
 import org.jacoco.core.data.*;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -14,10 +17,10 @@ import java.util.Set;
  * Handles merging execution data from multiple sources to prevent duplicated coverage counts
  */
 public class ExecutionDataMerger {
-    // Map to track which classes we've processed (by class ID)
-    private final Map<Long, String> processedClasses = new HashMap<>();
+    private final Set<Long> processedClasses = new HashSet<>();
 
     // Store to hold merged execution data
+    @Getter
     private final ExecutionDataStore mergedStore = new ExecutionDataStore();
     private final SessionInfoStore sessionInfoStore = new SessionInfoStore();
 
@@ -30,11 +33,7 @@ public class ExecutionDataMerger {
      */
     public @NotNull ExecutionDataStore loadExecutionData(@NotNull Set<File> execFiles) throws IOException {
         for (File execFile : execFiles) {
-            if (execFile == null || !execFile.exists()) {
-                continue;
-            }
-
-            loadExecFile(execFile);
+            loadExecFile(execFile, new MergingVisitor(), sessionInfoStore);
         }
 
         return mergedStore;
@@ -43,10 +42,14 @@ public class ExecutionDataMerger {
     /**
      * Loads an individual JaCoCo execution data file
      */
-    private void loadExecFile(@NotNull File execFile) throws IOException {
+    private void loadExecFile(@Nullable File execFile, IExecutionDataVisitor executionDataStore, SessionInfoStore sessionInfoStore) throws IOException {
+        if (execFile == null || !execFile.exists()) {
+            return;
+        }
+
         try (FileInputStream in = new FileInputStream(execFile)) {
             ExecutionDataReader reader = new ExecutionDataReader(in);
-            reader.setExecutionDataVisitor(new MergingVisitor());
+            reader.setExecutionDataVisitor(executionDataStore);
             reader.setSessionInfoVisitor(sessionInfoStore);
             reader.read();
         }
@@ -60,13 +63,6 @@ public class ExecutionDataMerger {
     }
 
     /**
-     * Get the merged execution data store (for testing)
-     */
-    public ExecutionDataStore getMergedStore() {
-        return mergedStore;
-    }
-
-    /**
      * Merges execution data for testing purposes
      */
     public void mergeExecData(ExecutionData data) {
@@ -74,8 +70,7 @@ public class ExecutionDataMerger {
             return;
         }
 
-        // Track that we've seen this class
-        processedClasses.put(data.getId(), data.getName());
+        processedClasses.add(data.getId());
 
         // Add to store (JaCoCo will handle the merging)
         mergedStore.put(data);
@@ -87,15 +82,7 @@ public class ExecutionDataMerger {
     private class MergingVisitor implements IExecutionDataVisitor {
         @Override
         public void visitClassExecution(ExecutionData data) {
-            final Long classId = data.getId();
-            final String className = data.getName();
-
-            // Track this class
-            processedClasses.put(classId, className);
-
-            // JaCoCo's ExecutionDataStore will automatically merge probe arrays
-            // when you put() execution data with the same class ID
-            mergedStore.put(data);
+            mergeExecData(data);
         }
     }
 }

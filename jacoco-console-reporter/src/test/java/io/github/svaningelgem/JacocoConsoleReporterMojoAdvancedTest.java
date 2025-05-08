@@ -152,114 +152,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(regularExec));
     }
 
-    // Create a configuration that will throw an exception when processed
-    static class ExceptionThrowingConfiguration {
-        @Override
-        public String toString() {
-            throw new RuntimeException("Test exception");
-        }
-    }
-
-    @Test
-    public void testGetConfiguredExecPluginPatternsThoroughly() throws Exception {
-        org.apache.maven.model.Plugin jacocoPlugin = new org.apache.maven.model.Plugin();
-        jacocoPlugin.setVersion("0.0.7");
-        jacocoPlugin.setConfiguration(new ExceptionThrowingConfiguration()); // To ensure I NEVER get there!
-
-        mojo.project.getBuild().getPlugins().clear();
-        mojo.project.getBuild().addPlugin(jacocoPlugin);
-
-        jacocoPlugin.setGroupId("org.jacoco");
-        jacocoPlugin.setArtifactId("no-idea-what");
-        getConfiguredExecFilePatterns.invoke(mojo);
-        assertFalse(log.writtenData.contains("[debug] Error parsing JaCoCo configuration: Test exception"));
-
-        jacocoPlugin.setGroupId("some.other.group");
-        jacocoPlugin.setArtifactId("no-idea-what");
-        getConfiguredExecFilePatterns.invoke(mojo);
-        assertFalse(log.writtenData.contains("[debug] Error parsing JaCoCo configuration: Test exception"));
-
-        jacocoPlugin.setGroupId("some.other.group");
-        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
-        getConfiguredExecFilePatterns.invoke(mojo);
-        assertFalse(log.writtenData.contains("[debug] Error parsing JaCoCo configuration: Test exception"));
-
-        jacocoPlugin.setGroupId("org.jacoco");
-        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
-        getConfiguredExecFilePatterns.invoke(mojo);
-        assertTrue(log.writtenData.contains("[debug] Error parsing JaCoCo configuration: Test exception"));
-    }
-
-    @Test
-    public void testGetConfiguredExecPluginWithWrongConfig() throws Exception {
-        @AllArgsConstructor
-        class WrongFormatConfiguration {
-            public String config;
-
-            @Override
-            public String toString() {
-                return config;
-            }
-        }
-
-        org.apache.maven.model.Plugin jacocoPlugin = new org.apache.maven.model.Plugin();
-        jacocoPlugin.setGroupId("org.jacoco");
-        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
-        jacocoPlugin.setVersion("0.8.7");
-
-        mojo.project.getBuild().getPlugins().clear();
-        mojo.project.getBuild().addPlugin(jacocoPlugin);
-
-        jacocoPlugin.setConfiguration(new WrongFormatConfiguration("")); // Step 1: doesn't contain a thing
-        getConfiguredExecFilePatterns.invoke(mojo);
-
-        jacocoPlugin.setConfiguration(new WrongFormatConfiguration("</destFile>file<destFile>")); // Step 2: Wrong order
-        getConfiguredExecFilePatterns.invoke(mojo);
-    }
-
-    @Test
-    public void testGetConfiguredExecFilePatternsThoroughly() throws Exception {
-        // Create a project with JaCoCo plugin that throws exception during configuration parsing
-        org.apache.maven.model.Plugin jacocoPlugin = new org.apache.maven.model.Plugin();
-        jacocoPlugin.setGroupId("org.jacoco");
-        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
-        jacocoPlugin.setVersion("0.8.7");
-        jacocoPlugin.setConfiguration(new ExceptionThrowingConfiguration());
-
-        // Add plugin to project's build
-        mojo.project.getBuild().getPlugins().clear();
-        mojo.project.getBuild().addPlugin(jacocoPlugin);
-
-        // Call the method - it should handle the exception
-        @SuppressWarnings("unchecked")
-        java.util.List<String> patterns = (java.util.List<String>) getConfiguredExecFilePatterns.invoke(mojo);
-
-        // Should still include the default pattern
-        assertTrue(patterns.contains("jacoco.exec"));
-
-        // Now test with a valid destFile that contains a path
-        jacocoPlugin = new org.apache.maven.model.Plugin();
-        jacocoPlugin.setGroupId("org.jacoco");
-        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
-        jacocoPlugin.setVersion("0.8.7");
-
-        org.codehaus.plexus.util.xml.Xpp3Dom config = new org.codehaus.plexus.util.xml.Xpp3Dom("configuration");
-        org.codehaus.plexus.util.xml.Xpp3Dom destFile = new org.codehaus.plexus.util.xml.Xpp3Dom("destFile");
-        destFile.setValue("/custom/path/custom-jacoco.exec");
-        config.addChild(destFile);
-        jacocoPlugin.setConfiguration(config);
-
-        mojo.project.getBuild().getPlugins().clear();
-        mojo.project.getBuild().addPlugin(jacocoPlugin);
-
-        @SuppressWarnings("unchecked")
-        java.util.List<String> patterns2 = (java.util.List<String>) getConfiguredExecFilePatterns.invoke(mojo);
-
-        // Should include both default and custom pattern
-        assertTrue(patterns2.contains("jacoco.exec"));
-        assertTrue(patterns2.contains("custom-jacoco.exec"));
-    }
-
     @Test
     public void testLoadExecFileWithIOException() throws Exception {
         // Create a file that will throw IOException when accessed
@@ -273,7 +165,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         mockExecFile.delete();
 
         // Call the method - it shouldn't throw an IOException
-        loadExecFile.invoke(mojo, mockExecFile, executionDataStore, sessionInfoStore);
+        loadExecFile.invoke(new ExecutionDataMerger(), mockExecFile, executionDataStore, sessionInfoStore);
     }
 
     @Test

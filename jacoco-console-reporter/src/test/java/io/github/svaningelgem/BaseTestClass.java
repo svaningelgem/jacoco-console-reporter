@@ -119,7 +119,7 @@ public class BaseTestClass {
         getConfiguredExecFilePatterns.setAccessible(true);
         shouldReport = JacocoConsoleReporterMojo.class.getDeclaredMethod("shouldReport");
         shouldReport.setAccessible(true);
-        loadExecFile = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecFile", File.class, org.jacoco.core.data.ExecutionDataStore.class, org.jacoco.core.data.SessionInfoStore.class);
+        loadExecFile = ExecutionDataMerger.class.getDeclaredMethod("loadExecFile", File.class, org.jacoco.core.data.IExecutionDataVisitor.class, org.jacoco.core.data.SessionInfoStore.class);
         loadExecFile.setAccessible(true);
         loadExecutionData = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecutionData");
         loadExecutionData.setAccessible(true);
@@ -302,13 +302,21 @@ public class BaseTestClass {
         plugin.setArtifactId("jacoco-maven-plugin");
         plugin.setVersion("0.8.12");
 
+        Xpp3Dom configuration = new Xpp3Dom("configuration");
         if (destFile != null) {
-            Xpp3Dom configuration = new Xpp3Dom("configuration");
             Xpp3Dom destFileNode = new Xpp3Dom("destFile");
             destFileNode.setValue(destFile);
             configuration.addChild(destFileNode);
-            plugin.setConfiguration(configuration);
         }
+
+        Xpp3Dom excludes = new Xpp3Dom("excludes");
+        configuration.addChild(excludes);
+
+        Xpp3Dom exclude = new Xpp3Dom("exclude");
+        exclude.setValue("com/example/generated");
+        excludes.addChild(exclude);
+
+        plugin.setConfiguration(configuration);
 
         build.addPlugin(plugin);
 
