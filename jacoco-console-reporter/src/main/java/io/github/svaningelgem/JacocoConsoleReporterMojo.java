@@ -325,7 +325,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
     }
 
-    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, String configValue, Consumer<String> configurationConsumer) {
+    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull String configValue, Consumer<String> configurationConsumer) {
         final String[] parts = configValue.split("\\.");
 
         project.getBuildPlugins().stream()
