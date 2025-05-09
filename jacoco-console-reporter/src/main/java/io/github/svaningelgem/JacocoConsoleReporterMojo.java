@@ -82,7 +82,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     /**
      * Option to scan for exec files in project modules.
-     * When true, will automatically discover all jacoco.exec files in the project.
+     * When true, this will automatically discover all jacoco.exec files in the project.
      */
     @Parameter(defaultValue = "false", property = "scanModules")
     boolean scanModules;
@@ -138,8 +138,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     static final Set<File> collectedExecFilePaths = new HashSet<>();
     static final Set<File> collectedClassesPaths = new HashSet<>();
-
-    final Set<Pattern> excludePatterns = new HashSet<>();
+    static final Set<Pattern> collectedExcludePatterns = new HashSet<>();
 
     public void execute() throws MojoExecutionException {
         additionalExecFiles.stream().map(File::getAbsoluteFile).forEach(collectedExecFilePaths::add);
@@ -253,21 +252,21 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         getLog().debug("Converted pattern '" + jacocoPattern + "' to regex '" + regex + "'");
 
         Pattern pattern = Pattern.compile(regex);
-        excludePatterns.add(pattern);
+        collectedExcludePatterns.add(pattern);
     }
 
     /**
      * Checks if a class should be excluded based on its name
      */
     boolean isExcluded(String className) {
-        if (excludePatterns.isEmpty()) {
+        if (collectedExcludePatterns.isEmpty()) {
             return false;
         }
 
         // Convert class name to path format (replace dots with /)
         String classPath = className.replace('.', '/') + ".class";
 
-        for (Pattern pattern : excludePatterns) {
+        for (Pattern pattern : collectedExcludePatterns) {
             if (pattern.matcher(classPath).matches()) {
                 getLog().debug("Excluding class: " + className);
                 return true;
@@ -279,7 +278,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     void generateReport() throws MojoExecutionException {
         try {
-            getLog().debug("Using exclusion patterns: " + excludePatterns);
+            getLog().debug("Using exclusion patterns: " + collectedExcludePatterns);
 
             getLog().debug("Loading execution data");
             ExecutionDataStore executionDataStore = loadExecutionData();
@@ -397,7 +396,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             return;
         }
 
-        // Check for target directory with an exec file
+        // Check for the target directory with an exec file
         File targetDir = new File(dir, "target");
         if (targetDir.exists() && targetDir.isDirectory()) {
             File[] execFiles = targetDir.listFiles((d, name) ->
@@ -411,7 +410,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             }
         }
 
-        // Recursively check subdirectories, but skip some common directories to avoid deep scanning
+        // Recursively check subdirectories but skip some common directories to avoid deep scanning
         File[] subdirs = dir.listFiles(file ->
                 file.isDirectory() &&
                         !file.getName().equals("target") &&
@@ -461,7 +460,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @throws IOException if there are issues reading the class files
      */
     @NotNull IBundleCoverage analyzeCoverage(@NotNull ExecutionDataStore executionDataStore) throws IOException {
-        // Create custom CoverageBuilder that filters excluded classes
+        // Create a custom CoverageBuilder that filters excluded classes
         CoverageBuilder coverageBuilder = new CoverageBuilder() {
             @Override
             public void visitCoverage(IClassCoverage coverage) {

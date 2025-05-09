@@ -113,22 +113,22 @@ public class ExclusionIntegrationTest extends BaseTestClass {
     public void testMergedExclusionPatterns() throws Exception {
         mojo.loadExclusionPatterns();
 
-        assertEquals("Should have combined all exclusion patterns", 4, mojo.excludePatterns.size());
+        assertEquals("Should have combined all exclusion patterns", 4, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
     }
 
     @Test
     public void testAddBuildDirExclusionEnabled() throws Exception {
-        assertEquals(0, mojo.excludePatterns.size());
+        assertEquals(0, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
         mojo.ignoreFilesInBuildDirectory = true;
         mojo.addBuildDirExclusion();
-        assertEquals(1, mojo.excludePatterns.size());
+        assertEquals(1, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
     }
 
     @Test
     public void testAddBuildDirExclusionDisabled() throws Exception {
-        assertEquals(0, mojo.excludePatterns.size());
+        assertEquals(0, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
         mojo.ignoreFilesInBuildDirectory = false;
         mojo.addBuildDirExclusion();
-        assertEquals(0, mojo.excludePatterns.size());
+        assertEquals(0, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
     }
 }

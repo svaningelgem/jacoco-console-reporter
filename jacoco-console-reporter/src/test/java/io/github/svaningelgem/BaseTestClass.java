@@ -101,6 +101,7 @@ public class BaseTestClass {
     public void tearDown() {
         JacocoConsoleReporterMojo.collectedClassesPaths.clear();
         JacocoConsoleReporterMojo.collectedExecFilePaths.clear();
+        JacocoConsoleReporterMojo.collectedExcludePatterns.clear();
     }
 
     private static int nextInt(int bound) {
