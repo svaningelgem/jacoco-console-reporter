@@ -17,12 +17,11 @@ import java.util.Set;
  * Handles merging execution data from multiple sources to prevent duplicated coverage counts
  */
 public class ExecutionDataMerger {
-    private final Set<Long> processedClasses = new HashSet<>();
+    final Set<Long> processedClasses = new HashSet<>();
 
     // Store to hold merged execution data
-    @Getter
-    private final ExecutionDataStore mergedStore = new ExecutionDataStore();
-    private final SessionInfoStore sessionInfoStore = new SessionInfoStore();
+    final ExecutionDataStore mergedStore = new ExecutionDataStore();
+    final SessionInfoStore sessionInfoStore = new SessionInfoStore();
 
     /**
      * Loads execution data from multiple files with deduplication
@@ -42,7 +41,7 @@ public class ExecutionDataMerger {
     /**
      * Loads an individual JaCoCo execution data file
      */
-    private void loadExecFile(@Nullable File execFile, IExecutionDataVisitor executionDataStore, SessionInfoStore sessionInfoStore) throws IOException {
+    void loadExecFile(@Nullable File execFile, IExecutionDataVisitor executionDataStore, SessionInfoStore sessionInfoStore) throws IOException {
         if (execFile == null || !execFile.exists()) {
             return;
         }
@@ -79,7 +78,7 @@ public class ExecutionDataMerger {
     /**
      * Custom visitor that intelligently merges execution data
      */
-    private class MergingVisitor implements IExecutionDataVisitor {
+    class MergingVisitor implements IExecutionDataVisitor {
         @Override
         public void visitClassExecution(ExecutionData data) {
             mergeExecData(data);

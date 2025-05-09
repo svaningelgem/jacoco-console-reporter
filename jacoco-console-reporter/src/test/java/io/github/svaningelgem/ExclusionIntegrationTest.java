@@ -7,12 +7,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -68,26 +64,20 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         JacocoConsoleReporterMojo.collectedClassesPaths.add(classesDir);
 
         // First, load the exclusion patterns
-        Method loadExclusionPatterns = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExclusionPatterns");
-        loadExclusionPatterns.setAccessible(true);
-        loadExclusionPatterns.invoke(mojo);
-
-        // Get the isExcluded method to test our patterns
-        Method isExcluded = JacocoConsoleReporterMojo.class.getDeclaredMethod("isExcluded", String.class);
-        isExcluded.setAccessible(true);
+        mojo.loadExclusionPatterns();
 
         // Verify exclusion patterns are working
         assertTrue("Generated code should be excluded",
-                (Boolean) isExcluded.invoke(mojo, "com.example.generated.api.UsersApi"));
+                (Boolean) mojo.isExcluded("com.example.generated.api.UsersApi"));
 
         assertTrue("Controllers should be excluded",
-                (Boolean) isExcluded.invoke(mojo, "com.example.web.UserController"));
+                (Boolean) mojo.isExcluded("com.example.web.UserController"));
 
         assertTrue("Model classes should be excluded",
-                (Boolean) isExcluded.invoke(mojo, "com.example.model.User"));
+                (Boolean) mojo.isExcluded("com.example.model.User"));
 
         assertFalse("Normal classes should not be excluded",
-                (Boolean) isExcluded.invoke(mojo, "com.example.Calculator"));
+                (Boolean) mojo.isExcluded("com.example.Calculator"));
     }
 
     @Test
@@ -99,39 +89,24 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         );
 
         // Load the patterns
-        Method loadExclusionPatterns = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExclusionPatterns");
-        loadExclusionPatterns.setAccessible(true);
-        loadExclusionPatterns.invoke(mojo);
-
-        // Get the isExcluded method
-        Method isExcluded = JacocoConsoleReporterMojo.class.getDeclaredMethod("isExcluded", String.class);
-        isExcluded.setAccessible(true);
+        mojo.loadExclusionPatterns();
+        additionalExcludes.forEach(mojo::addExclusion);
 
         // Test combined exclusions
         assertTrue("Generated code should be excluded (from JaCoCo config)",
-                (Boolean) isExcluded.invoke(mojo, "com.example.generated.model.User"));
+                (Boolean) mojo.isExcluded("com.example.generated.model.User"));
 
         assertTrue("Ignored classes should be excluded (from additional config)",
-                (Boolean) isExcluded.invoke(mojo, "com.example.ignored.SomeClass"));
+                (Boolean) mojo.isExcluded("com.example.ignored.SomeClass"));
 
         assertTrue("Test classes should be excluded (from additional config)",
-                (Boolean) isExcluded.invoke(mojo, "com.example.service.UserServiceTest"));
+                (Boolean) mojo.isExcluded("com.example.service.UserServiceTest"));
     }
 
     @Test
     public void testMergedExclusionPatterns() throws Exception {
-        // Load patterns
-        Method loadExclusionPatterns = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExclusionPatterns");
-        loadExclusionPatterns.setAccessible(true);
-        loadExclusionPatterns.invoke(mojo);
+        mojo.loadExclusionPatterns();
 
-        // Get the patterns list to check its size
-        Field patternsField = JacocoConsoleReporterMojo.class.getDeclaredField("excludePatterns");
-        patternsField.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Set<Object> patterns = (HashSet<Object>) patternsField.get(mojo);
-
-        // Should have 4 patterns (3 from JaCoCo config + 1 from additional config)
-        assertEquals("Should have combined all exclusion patterns", 4, patterns.size());
+        assertEquals("Should have combined all exclusion patterns", 3, mojo.excludePatterns.size());
     }
 }

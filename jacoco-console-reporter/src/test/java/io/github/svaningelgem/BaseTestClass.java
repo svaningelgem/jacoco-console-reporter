@@ -8,8 +8,6 @@ import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.Mojo;
-import org.apache.maven.plugin.descriptor.MojoDescriptor;
-import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.PlexusContainer;
@@ -25,10 +23,12 @@ import org.junit.rules.TemporaryFolder;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Random;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -53,17 +53,6 @@ public class BaseTestClass {
     protected final File pom = new File(getBasedir(), "src/test/resources/unit/pom.xml");
 
     private int fileCounter = 0;
-
-    protected Method scanDirectoryForExecFiles;
-    protected Method generateReport;
-    protected Method analyzeCoverage;
-    protected Method printTree;
-    protected Method printSummary;
-    protected Method getConfiguredExecFilePatterns;
-    protected Method shouldReport;
-    protected Method buildDirectoryTree;
-    protected Method loadExecutionData;
-    protected Method loadExecFile;
 
     protected String getBasedir() {
         return System.getProperty("basedir", new File("").getAbsolutePath());
@@ -110,31 +99,6 @@ public class BaseTestClass {
 
         log = new MyLog();
         mojo.setLog(log);
-
-        reflectOnMethods();
-    }
-
-    private void reflectOnMethods() throws NoSuchMethodException {
-        scanDirectoryForExecFiles = JacocoConsoleReporterMojo.class.getDeclaredMethod("scanDirectoryForExecFiles", File.class, List.class);
-        scanDirectoryForExecFiles.setAccessible(true);
-        generateReport = JacocoConsoleReporterMojo.class.getDeclaredMethod("generateReport");
-        generateReport.setAccessible(true);
-        printTree = JacocoConsoleReporterMojo.class.getDeclaredMethod("printTree", DirectoryNode.class);
-        printTree.setAccessible(true);
-        analyzeCoverage = JacocoConsoleReporterMojo.class.getDeclaredMethod("analyzeCoverage", org.jacoco.core.data.ExecutionDataStore.class);
-        analyzeCoverage.setAccessible(true);
-        getConfiguredExecFilePatterns = JacocoConsoleReporterMojo.class.getDeclaredMethod("getConfiguredExecFilePatterns");
-        getConfiguredExecFilePatterns.setAccessible(true);
-        shouldReport = JacocoConsoleReporterMojo.class.getDeclaredMethod("shouldReport");
-        shouldReport.setAccessible(true);
-        loadExecFile = ExecutionDataMerger.class.getDeclaredMethod("loadExecFile", File.class, org.jacoco.core.data.IExecutionDataVisitor.class, org.jacoco.core.data.SessionInfoStore.class);
-        loadExecFile.setAccessible(true);
-        loadExecutionData = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecutionData");
-        loadExecutionData.setAccessible(true);
-        buildDirectoryTree = JacocoConsoleReporterMojo.class.getDeclaredMethod("buildDirectoryTree", org.jacoco.core.analysis.IBundleCoverage.class);
-        buildDirectoryTree.setAccessible(true);
-        printSummary = JacocoConsoleReporterMojo.class.getDeclaredMethod("printSummary", DirectoryNode.class);
-        printSummary.setAccessible(true);
     }
 
     @After

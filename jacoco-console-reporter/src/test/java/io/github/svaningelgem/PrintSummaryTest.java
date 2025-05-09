@@ -37,7 +37,7 @@ public class PrintSummaryTest extends BaseTestClass {
         mojo.weightLineCoverage = 0.25;
         mojo.weightBranchCoverage = 0.25;
 
-        printSummary.invoke(mojo, root);
+        mojo.printSummary(root);
 
         String[] expected = {
                 "[info] Overall Coverage Summary",
@@ -56,7 +56,7 @@ public class PrintSummaryTest extends BaseTestClass {
     public void testSummaryOn() throws Exception {
         mojo.showSummary = true;
 
-        printSummary.invoke(mojo, root);
+        mojo.printSummary(root);
 
         String[] expected = {
                 "[info] Overall Coverage Summary",
@@ -73,7 +73,7 @@ public class PrintSummaryTest extends BaseTestClass {
 
     @Test
     public void testSummaryOff() throws Exception {
-        printSummary.invoke(mojo, root);
+        mojo.printSummary(root);
 
         assertEquals(0, log.writtenData.size());
     }

@@ -24,7 +24,7 @@ public class PrintTreeShowTogglesTest extends BaseTestClass {
         mojo.showTree = true;
         mojo.showFiles = false;
 
-        printTree.invoke(mojo, root);
+        mojo.printTree(root);
 
         String[] expected = {
                 "[info] Overall Coverage Summary",
@@ -45,7 +45,7 @@ public class PrintTreeShowTogglesTest extends BaseTestClass {
         mojo.showTree = true;
         mojo.showFiles = true;
 
-        printTree.invoke(mojo, root);
+        mojo.printTree(root);
 
         String[] expected = {
                 "[info] Overall Coverage Summary",
@@ -68,7 +68,7 @@ public class PrintTreeShowTogglesTest extends BaseTestClass {
         mojo.showTree = false;
         mojo.showFiles = true;
 
-        printTree.invoke(mojo, root);
+        mojo.printTree(root);
 
         assertEquals(0, log.writtenData.size());
     }
@@ -78,7 +78,7 @@ public class PrintTreeShowTogglesTest extends BaseTestClass {
         mojo.showTree = false;
         mojo.showFiles = false;
 
-        printTree.invoke(mojo, root);
+        mojo.printTree(root);
 
         assertEquals(0, log.writtenData.size());
     }

@@ -1,13 +1,11 @@
 package io.github.svaningelgem;
 
-import lombok.AllArgsConstructor;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.FilenameFilter;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.util.Collections;
 
@@ -83,7 +81,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
 
         try {
             // Call the method
-            analyzeCoverage.invoke(mojo, mockStore);
+            mojo.analyzeCoverage(mockStore);
         } catch (Exception e) {
             fail("Should not throw an exception: " + e.getMessage());
         } finally {
@@ -144,7 +142,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         int initialSize = JacocoConsoleReporterMojo.collectedExecFilePaths.size();
 
         // Call the method on the base directory
-        scanDirectoryForExecFiles.invoke(mojo, baseDir, patterns);
+        mojo.scanDirectoryForExecFiles(baseDir, patterns);
 
         // Verify we found the exec files
         assertEquals(initialSize + 2, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
@@ -165,15 +163,12 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         mockExecFile.delete();
 
         // Call the method - it shouldn't throw an IOException
-        loadExecFile.invoke(new ExecutionDataMerger(), mockExecFile, executionDataStore, sessionInfoStore);
+        new ExecutionDataMerger().loadExecFile(mockExecFile, executionDataStore, sessionInfoStore);
     }
 
     @Test
     public void testExecuteWithNullAdditionalExecFiles() throws Exception {
-        // Set additionalExecFiles to null
-        Field additionalExecFilesField = JacocoConsoleReporterMojo.class.getDeclaredField("additionalExecFiles");
-        additionalExecFilesField.setAccessible(true);
-        additionalExecFilesField.set(mojo, null);
+        mojo.additionalExecFiles = null;
 
         // This should throw a NullPointerException, but the plugin should catch it
         try {
@@ -183,9 +178,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
             // Expected
             assertTrue(e instanceof NullPointerException);
         }
-
-        // Reset the field
-        additionalExecFilesField.set(mojo, new java.util.ArrayList<File>());
     }
 
     @Test
@@ -202,7 +194,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
 
         // Should handle zero weights
         mojo.showSummary = true;
-        printSummary.invoke(mojo, root);
+        mojo.printSummary(root);
 
         // Test with negative weights (invalid but should be handled)
         mojo.weightClassCoverage = -0.1;
@@ -211,7 +203,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         mojo.weightLineCoverage = -0.4;
 
         // Should handle negative weights
-        printSummary.invoke(mojo, root);
+        mojo.printSummary(root);
     }
 
     @Test
@@ -220,7 +212,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         JacocoConsoleReporterMojo.collectedExecFilePaths.add(null);
 
         // Call the method - it should handle null exec files
-        Object result = loadExecutionData.invoke(mojo);
+        Object result = mojo.loadExecutionData();
         assertNotNull(result);
 
         // Clean up
@@ -234,7 +226,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         when(mockBundle.getPackages()).thenReturn(Collections.emptyList());
 
         // Call the method - it should handle an empty bundle
-        Object result = buildDirectoryTree.invoke(mojo, mockBundle);
+        Object result = mojo.buildDirectoryTree(mockBundle);
         assertNotNull(result);
         assertTrue(result instanceof DirectoryNode);
     }
@@ -261,12 +253,12 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
 
     @Test
     public void testScanDirectoryForExecFilesWithNotExistingDir() throws Exception {
-        scanDirectoryForExecFiles.invoke(mojo, new File(temporaryFolder.getRoot(), "not_here"), null);
+        mojo.scanDirectoryForExecFiles(new File(temporaryFolder.getRoot(), "not_here"), null);
     }
 
     @Test
     public void testScanDirectoryForExecFilesWithFile() throws Exception {
         File tmp = temporaryFolder.newFile("tmp");
-        scanDirectoryForExecFiles.invoke(mojo, tmp, null);
+        mojo.scanDirectoryForExecFiles(tmp, null);
     }
 }

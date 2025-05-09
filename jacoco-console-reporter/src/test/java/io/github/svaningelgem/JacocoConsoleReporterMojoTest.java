@@ -283,18 +283,18 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         mojo.mavenSession = session;
         mojo.deferReporting = true;
 
-        boolean hasReported = (boolean) shouldReport.invoke(mojo);
+        boolean hasReported = (boolean) mojo.shouldReport();
         assertFalse("First module should not report when deferring", hasReported);
 
         // Test with last project
         mojo.project = project2;
-        hasReported = (boolean) shouldReport.invoke(mojo);
+        hasReported = (boolean) mojo.shouldReport();
         assertTrue("Last module should report even when deferring", hasReported);
 
         // Test without deferring
         mojo.project = project1;
         mojo.deferReporting = false;
-        hasReported = (boolean) shouldReport.invoke(mojo);
+        hasReported = (boolean) mojo.shouldReport();
         assertTrue("Module should report when not deferring", hasReported);
     }
 }

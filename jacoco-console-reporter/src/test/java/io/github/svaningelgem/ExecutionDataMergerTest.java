@@ -88,8 +88,7 @@ public class ExecutionDataMergerTest extends BaseTestClass {
         merger.mergeExecData(data2);
 
         // Get merged results
-        ExecutionDataStore mergedStore = merger.getMergedStore();
-        ExecutionData mergedData = mergedStore.get(classId);
+        ExecutionData mergedData = merger.mergedStore.get(classId);
 
         // Verify the merged result
         assertNotNull("Merged data should exist", mergedData);

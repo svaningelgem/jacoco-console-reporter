@@ -43,7 +43,7 @@ public class DirectoryNode implements FileSystemNode {
         return !sourceFiles.isEmpty() || subdirectories.values().stream().anyMatch(DirectoryNode::shouldInclude);
     }
 
-    private <T extends FileSystemNode> void printNodes(org.apache.maven.plugin.logging.Log log, String prefix,
+    <T extends FileSystemNode> void printNodes(org.apache.maven.plugin.logging.Log log, String prefix,
                             String format, String packagePath, boolean showFiles, @NotNull List<T> nodes, boolean extraCheck) {
         for (int i = 0; i < nodes.size(); i++) {
             boolean isLast = (i == nodes.size() - 1) && extraCheck;
@@ -53,7 +53,7 @@ public class DirectoryNode implements FileSystemNode {
         }
     }
 
-    private @NotNull String determineNewPrefix(@NotNull String oldPrefix, boolean isLast) {
+    @NotNull String determineNewPrefix(@NotNull String oldPrefix, boolean isLast) {
         String prefix = oldPrefix;
 
         if (prefix.endsWith(Defaults.getInstance().corner)) {

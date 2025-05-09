@@ -139,7 +139,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     static final Set<File> collectedExecFilePaths = new HashSet<>();
     static final Set<File> collectedClassesPaths = new HashSet<>();
 
-    private final Set<Pattern> excludePatterns = new HashSet<>();
+    final Set<Pattern> excludePatterns = new HashSet<>();
 
     public void execute() throws MojoExecutionException {
         additionalExecFiles.stream().map(File::getAbsoluteFile).forEach(collectedExecFilePaths::add);
@@ -168,7 +168,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Loads exclusion patterns from configuration and JaCoCo plugin settings
      */
-    private void loadExclusionPatterns() {
+    void loadExclusionPatterns() {
         addBuildDirExclusion();
         addJacocoExclusions();
         addSwaggerExclusions();
@@ -177,7 +177,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Adds an exclusion pattern for files in the build directory if configured
      */
-    private void addBuildDirExclusion() {
+    void addBuildDirExclusion() {
         if (!ignoreFilesInBuildDirectory) {
             return;
         }
@@ -185,8 +185,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         try {
             // Convert the target directory path to a relative path pattern
             String buildDirPath = targetDir.getCanonicalPath();
-            Pattern pattern = convertToPattern(buildDirPath);
-            excludePatterns.add(pattern);
+            addExclusion(buildDirPath);
             getLog().debug("Added build directory exclusion pattern: " + buildDirPath);
         } catch (IOException e) {
             getLog().warn("Failed to add build directory exclusion: " + e.getMessage());
@@ -196,9 +195,9 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Extracts exclusion patterns from the JaCoCo plugin configuration
      */
-    private void addJacocoExclusions() {
+    void addJacocoExclusions() {
         doSomethingForEachPluginConfiguration(JACOCO_GROUP_ID, JACOCO_ARTIFACT_ID, "excludes.exclude", excludePattern -> {
-            excludePatterns.add(convertToPattern(excludePattern));
+            addExclusion(excludePattern);
             getLog().debug("Excluded pattern: " + excludePattern);
         });
     }
@@ -206,22 +205,22 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Adds exclusion patterns for Swagger-generated files if present in the project
      */
-    private void addSwaggerExclusions() {
+    void addSwaggerExclusions() {
         // Check for Swagger code generation plugins and extract their configuration
         doSomethingForEachPluginConfiguration("io.swagger", "swagger-codegen-maven-plugin", Arrays.asList("output", "outputDirectory"), swaggerPattern -> {
-            excludePatterns.add(convertToPattern(swaggerPattern));
+            addExclusion(swaggerPattern);
             getLog().debug("Added Swagger exclusion pattern from outputDirectory: " + swaggerPattern);
         });
 
         // Check for SpringDoc OpenAPI generation
         doSomethingForEachPluginConfiguration("org.springdoc", "springdoc-openapi-maven-plugin", "outputDir", swaggerPattern -> {
-            excludePatterns.add(convertToPattern(swaggerPattern));
+            addExclusion(swaggerPattern);
             getLog().debug("Added SpringDoc OpenAPI exclusion pattern from outputDir: " + swaggerPattern);
         });
 
         // OpenAPI Generator plugin
         doSomethingForEachPluginConfiguration("org.openapitools", "openapi-generator-maven-plugin", Arrays.asList("outputDir", "output"), swaggerPattern -> {
-            excludePatterns.add(convertToPattern(swaggerPattern));
+            addExclusion(swaggerPattern);
             getLog().debug("Added OpenAPI Generator exclusion pattern from outputDir: " + swaggerPattern);
         });
     }
@@ -229,7 +228,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Converts a JaCoCo exclude pattern to a Java regex Pattern
      */
-    private @NotNull Pattern convertToPattern(@NotNull String jacocoPattern) {
+    void addExclusion(@NotNull String jacocoPattern) {
         jacocoPattern = jacocoPattern.replace("\\", "/");
 
         // Handle the .class extension if not present
@@ -251,14 +250,16 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
                 .replace("__STAR__", "[^/]*")
                 .replace("__DOT__", "\\.");
 
-        getLog().debug("Converted JaCoCo pattern '" + jacocoPattern + "' to regex '" + regex + "'");
-        return Pattern.compile(regex);
+        getLog().debug("Converted pattern '" + jacocoPattern + "' to regex '" + regex + "'");
+
+        Pattern pattern = Pattern.compile(regex);
+        excludePatterns.add(pattern);
     }
 
     /**
      * Checks if a class should be excluded based on its name
      */
-    private boolean isExcluded(String className) {
+    boolean isExcluded(String className) {
         if (excludePatterns.isEmpty()) {
             return false;
         }
@@ -276,7 +277,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         return false;
     }
 
-    private void generateReport() throws MojoExecutionException {
+    void generateReport() throws MojoExecutionException {
         try {
             getLog().debug("Using exclusion patterns: " + excludePatterns);
 
@@ -300,7 +301,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * Determines if this is the last module in a multi-module build
      * --> If so: start reporting
      */
-    private boolean shouldReport() {
+    boolean shouldReport() {
         //Defer execution until the last project.
         return !deferReporting || project.getId().equals(mavenSession.getProjects().get(mavenSession.getProjects().size() - 1).getId());
     }
@@ -308,7 +309,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Scan for JaCoCo exec files in all modules
      */
-    private void scanForExecFiles() {
+    void scanForExecFiles() {
         getLog().info("Scanning for JaCoCo exec files");
 
         // Get the configured exec file pattern from JaCoCo plugin if available
@@ -318,13 +319,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         scanDirectoryForExecFiles(baseDir, execPatterns);
     }
 
-    private void doSomethingForEachPluginConfiguration(String groupId, String artifactId, Iterable<String> configValue, Consumer<String> configurationConsumer) {
+    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, Iterable<String> configValue, Consumer<String> configurationConsumer) {
         for (String config : configValue) {
             doSomethingForEachPluginConfiguration(groupId, artifactId, config, configurationConsumer);
         }
     }
 
-    private void doSomethingForEachPluginConfiguration(String groupId, String artifactId, String configValue, Consumer<String> configurationConsumer) {
+    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, String configValue, Consumer<String> configurationConsumer) {
         final String[] parts = configValue.split("\\.");
 
         project.getBuildPlugins().stream()
@@ -385,7 +386,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Get the configured JaCoCo exec file patterns from the project
      */
-    private @NotNull List<String> getConfiguredExecFilePatterns() {
+    @NotNull List<String> getConfiguredExecFilePatterns() {
         List<String> patterns = new ArrayList<>();
         // Add the default pattern
         patterns.add(DEFAULT_EXEC_FILENAME);
@@ -402,7 +403,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Recursively scan directories for JaCoCo exec files
      */
-    private void scanDirectoryForExecFiles(@NotNull File dir, List<String> execPatterns) {
+    void scanDirectoryForExecFiles(@NotNull File dir, List<String> execPatterns) {
         if (!dir.exists() || !dir.isDirectory()) {
             return;
         }
@@ -443,7 +444,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @return Populated execution data store with deduplicated coverage information
      * @throws IOException if there are issues reading the JaCoCo execution files
      */
-    private @NotNull ExecutionDataStore loadExecutionData() throws IOException {
+    @NotNull ExecutionDataStore loadExecutionData() throws IOException {
         getLog().debug("Loading execution data with line-level deduplication");
         ExecutionDataMerger merger = new ExecutionDataMerger();
 
@@ -470,7 +471,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @return A bundle containing all coverage information
      * @throws IOException if there are issues reading the class files
      */
-    private @NotNull IBundleCoverage analyzeCoverage(@NotNull ExecutionDataStore executionDataStore) throws IOException {
+    @NotNull IBundleCoverage analyzeCoverage(@NotNull ExecutionDataStore executionDataStore) throws IOException {
         // Create custom CoverageBuilder that filters excluded classes
         CoverageBuilder coverageBuilder = new CoverageBuilder() {
             @Override
@@ -516,12 +517,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      *
      * @param root The root node of the directory tree containing coverage information
      */
-    private void printCoverageReport(@NotNull DirectoryNode root) {
+    void printCoverageReport(@NotNull DirectoryNode root) {
         printTree(root);
         printSummary(root);
     }
 
-    private void printSummary(@NotNull DirectoryNode root) {
+    void printSummary(@NotNull DirectoryNode root) {
         if (!showSummary) return;
 
         CoverageMetrics total = root.getMetrics();
@@ -555,7 +556,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     }
 
-    private void printTree(@NotNull DirectoryNode root) {
+    void printTree(@NotNull DirectoryNode root) {
         if (!showTree) return;
 
         // Print header
@@ -584,7 +585,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @param bundle The bundle containing coverage data for all analyzed classes
      * @return The root node of the directory tree containing coverage information
      */
-    private @NotNull DirectoryNode buildDirectoryTree(@NotNull IBundleCoverage bundle) {
+    @NotNull DirectoryNode buildDirectoryTree(@NotNull IBundleCoverage bundle) {
         DirectoryNode root = new DirectoryNode("");
         for (IPackageCoverage packageCoverage : bundle.getPackages()) {
             String packageName = packageCoverage.getName().replace('.', '/');

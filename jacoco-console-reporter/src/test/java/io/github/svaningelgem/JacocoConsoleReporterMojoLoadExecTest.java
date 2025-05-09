@@ -6,7 +6,6 @@ import org.junit.Test;
 import java.io.File;
 
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 public class JacocoConsoleReporterMojoLoadExecTest extends BaseTestClass {
 
@@ -16,9 +15,8 @@ public class JacocoConsoleReporterMojoLoadExecTest extends BaseTestClass {
         JacocoConsoleReporterMojo.collectedExecFilePaths.add(null);
 
         // Call the method - it should handle null exec files
-        Object result = loadExecutionData.invoke(mojo);
+        ExecutionDataStore result = mojo.loadExecutionData();
         assertNotNull(result);
-        assertTrue(result instanceof ExecutionDataStore);
 
         // Clean up
         JacocoConsoleReporterMojo.collectedExecFilePaths.remove(null);
@@ -36,9 +34,8 @@ public class JacocoConsoleReporterMojoLoadExecTest extends BaseTestClass {
         JacocoConsoleReporterMojo.collectedExecFilePaths.add(execFile2);
 
         // Mock files are empty but valid - test should pass
-        Object result = loadExecutionData.invoke(mojo);
+        ExecutionDataStore result = mojo.loadExecutionData();
         assertNotNull(result);
-        assertTrue(result instanceof ExecutionDataStore);
     }
 
     /**
@@ -51,7 +48,7 @@ public class JacocoConsoleReporterMojoLoadExecTest extends BaseTestClass {
         org.jacoco.core.data.SessionInfoStore sessionStore = new org.jacoco.core.data.SessionInfoStore();
 
         // This should not throw an exception
-        loadExecFile.invoke(new ExecutionDataMerger(), mockExecFile, dataStore, sessionStore);
+        new ExecutionDataMerger().loadExecFile(mockExecFile, dataStore, sessionStore);
     }
 
     @Test
@@ -60,6 +57,6 @@ public class JacocoConsoleReporterMojoLoadExecTest extends BaseTestClass {
         org.jacoco.core.data.SessionInfoStore sessionStore = new org.jacoco.core.data.SessionInfoStore();
 
         // This should not throw an exception
-        loadExecFile.invoke(new ExecutionDataMerger(), null, dataStore, sessionStore);
+        new ExecutionDataMerger().loadExecFile(null, dataStore, sessionStore);
     }
 }
