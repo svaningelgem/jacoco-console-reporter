@@ -10,7 +10,8 @@ import java.nio.charset.StandardCharsets;
 public class CharsetDetector {
     static CharsetDetector instance = null;
 
-    private CharsetDetector() { }
+    private CharsetDetector() {
+    }
 
     public static CharsetDetector getInstance() {
         if (instance == null) {

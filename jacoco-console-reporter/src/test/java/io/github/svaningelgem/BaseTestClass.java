@@ -7,6 +7,7 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
+import org.apache.maven.plugin.Mojo;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.PlexusContainer;
@@ -22,13 +23,9 @@ import org.junit.rules.TemporaryFolder;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Random;
+import java.util.*;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -54,17 +51,6 @@ public class BaseTestClass {
 
     private int fileCounter = 0;
 
-    protected Method scanDirectoryForExecFiles;
-    protected Method generateReport;
-    protected Method analyzeCoverage;
-    protected Method printTree;
-    protected Method printSummary;
-    protected Method getConfiguredExecFilePatterns;
-    protected Method shouldReport;
-    protected Method buildDirectoryTree;
-    protected Method loadExecutionData;
-    protected Method loadExecFile;
-
     protected String getBasedir() {
         return System.getProperty("basedir", new File("").getAbsolutePath());
     }
@@ -76,8 +62,24 @@ public class BaseTestClass {
 
         fileCounter = 0;
 
-        mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        // Setting the defaults
+        PlexusContainer container = rule.getContainer();
+        JacocoConsoleReporterMojo customMojo = new JacocoConsoleReporterMojo();
+
+        // Register it with the container - directly using a role hint
+        String roleHint = "io.github.svaningelgem:jacoco-console-reporter:report";
+        container.addComponent(customMojo, Mojo.class, roleHint);
+
+        mojo = (JacocoConsoleReporterMojo) container.lookup(Mojo.class, roleHint);
+
+        // Create a real project with JaCoCo plugin
+        MavenProject project = createProjectWithJacocoPlugin(null);
+        project.setFile(pom.getParentFile());
+
+        mojo.project = project;
+        mojo.mavenSession = createRealMavenSession(Collections.singletonList(project));
+
+        mojo.jacocoExecFile = new File(project.getBuild().getDirectory(), "jacoco.exec").getCanonicalFile();
+        mojo.classesDirectory = new File(project.getBuild().getOutputDirectory()).getCanonicalFile();
         mojo.deferReporting = true;
         mojo.showFiles = false;
         mojo.showTree = true;
@@ -87,52 +89,19 @@ public class BaseTestClass {
         mojo.weightMethodCoverage = 0.1;
         mojo.weightBranchCoverage = 0.4;
         mojo.weightLineCoverage = 0.4;
-
-        // Create a real project with JaCoCo plugin
-        MavenProject project = createProjectWithJacocoPlugin(null);
-        mojo.project = project;
-
-        // Create a real MavenSession with this as the only project
-        List<MavenProject> projects = new ArrayList<>();
-        projects.add(project);
-        mojo.mavenSession = createRealMavenSession(projects);
-
-        // Configure mojo
-        mojo.baseDir = temporaryFolder.getRoot();
+        mojo.ignoreFilesInBuildDirectory = true;
+        mojo.targetDir = new File(project.getBuild().getDirectory()).getCanonicalFile();
+        mojo.baseDir = project.getBasedir();
 
         log = new MyLog();
         mojo.setLog(log);
-
-        reflectOnMethods();
-    }
-
-    private void reflectOnMethods() throws NoSuchMethodException {
-        scanDirectoryForExecFiles = JacocoConsoleReporterMojo.class.getDeclaredMethod("scanDirectoryForExecFiles", File.class, List.class);
-        scanDirectoryForExecFiles.setAccessible(true);
-        generateReport = JacocoConsoleReporterMojo.class.getDeclaredMethod("generateReport");
-        generateReport.setAccessible(true);
-        printTree = JacocoConsoleReporterMojo.class.getDeclaredMethod("printTree", DirectoryNode.class);
-        printTree.setAccessible(true);
-        analyzeCoverage = JacocoConsoleReporterMojo.class.getDeclaredMethod("analyzeCoverage", org.jacoco.core.data.ExecutionDataStore.class);
-        analyzeCoverage.setAccessible(true);
-        getConfiguredExecFilePatterns = JacocoConsoleReporterMojo.class.getDeclaredMethod("getConfiguredExecFilePatterns");
-        getConfiguredExecFilePatterns.setAccessible(true);
-        shouldReport = JacocoConsoleReporterMojo.class.getDeclaredMethod("shouldReport");
-        shouldReport.setAccessible(true);
-        loadExecFile = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecFile", File.class, org.jacoco.core.data.ExecutionDataStore.class, org.jacoco.core.data.SessionInfoStore.class);
-        loadExecFile.setAccessible(true);
-        loadExecutionData = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecutionData");
-        loadExecutionData.setAccessible(true);
-        buildDirectoryTree = JacocoConsoleReporterMojo.class.getDeclaredMethod("buildDirectoryTree", org.jacoco.core.analysis.IBundleCoverage.class);
-        buildDirectoryTree.setAccessible(true);
-        printSummary = JacocoConsoleReporterMojo.class.getDeclaredMethod("printSummary", DirectoryNode.class);
-        printSummary.setAccessible(true);
     }
 
     @After
     public void tearDown() {
         JacocoConsoleReporterMojo.collectedClassesPaths.clear();
         JacocoConsoleReporterMojo.collectedExecFilePaths.clear();
+        JacocoConsoleReporterMojo.collectedExcludePatterns.clear();
     }
 
     private static int nextInt(int bound) {
@@ -204,7 +173,7 @@ public class BaseTestClass {
      * Create the tree starting from the root, with the names
      * Returns the last created DirectoryNode
      */
-    protected void createTree(DirectoryNode root, int amountOfFiles,@Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
+    protected void createTree(DirectoryNode root, int amountOfFiles, @Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
         if (names != null) {
             for (String name : names) {
                 if (name == null) {
@@ -216,8 +185,8 @@ public class BaseTestClass {
         }
 
         // Adding debug files
-        List<String> fileNames = new ArrayList<String>();
-        for(int i = 0; i < amountOfFiles; i++) {
+        List<String> fileNames = new ArrayList<>();
+        for (int i = 0; i < amountOfFiles; i++) {
             fileNames.add("Example" + (fileCounter++) + ".java");
         }
 
@@ -226,10 +195,6 @@ public class BaseTestClass {
 
     protected void createTree(DirectoryNode root, int amountOfFiles, @Nullable String @Nullable ... names) {
         createTree(root, amountOfFiles, null, names);
-    }
-
-    protected void addFiles(DirectoryNode toNode, @Nullable String @Nullable ... names) {
-        addFiles(toNode, null, names);
     }
 
     protected void addFiles(DirectoryNode toNode, @Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
@@ -288,13 +253,20 @@ public class BaseTestClass {
      * Creates a real MavenProject with JaCoCo plugin configuration
      */
     @Contract("_ -> new")
-    protected @NotNull MavenProject createProjectWithJacocoPlugin(String destFile) {
+    protected @NotNull MavenProject createProjectWithJacocoPlugin(String destFile) throws IOException {
         Model model = new Model();
         model.setGroupId("test.group");
         model.setArtifactId("test-artifact");
         model.setVersion("1.0.0");
 
+        File outputDir = new File(temporaryFolder.getRoot(), "output").getAbsoluteFile();
+        if (!outputDir.exists()) {
+            outputDir.mkdirs();
+        }
+
         Build build = new Build();
+        build.setOutputDirectory(outputDir.toString());
+        build.setDirectory(temporaryFolder.getRoot().getAbsolutePath());
         model.setBuild(build);
 
         Plugin plugin = new Plugin();
@@ -302,13 +274,21 @@ public class BaseTestClass {
         plugin.setArtifactId("jacoco-maven-plugin");
         plugin.setVersion("0.8.12");
 
+        Xpp3Dom configuration = new Xpp3Dom("configuration");
         if (destFile != null) {
-            Xpp3Dom configuration = new Xpp3Dom("configuration");
             Xpp3Dom destFileNode = new Xpp3Dom("destFile");
             destFileNode.setValue(destFile);
             configuration.addChild(destFileNode);
-            plugin.setConfiguration(configuration);
         }
+
+        Xpp3Dom excludes = new Xpp3Dom("excludes");
+        configuration.addChild(excludes);
+
+        Xpp3Dom exclude = new Xpp3Dom("exclude");
+        exclude.setValue("com/example/generated");
+        excludes.addChild(exclude);
+
+        plugin.setConfiguration(configuration);
 
         build.addPlugin(plugin);
 

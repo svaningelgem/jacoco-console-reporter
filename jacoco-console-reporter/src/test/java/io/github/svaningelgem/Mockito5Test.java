@@ -45,7 +45,7 @@ public class Mockito5Test extends BaseTestClass {
                     }
                 })) {
 
-            scanDirectoryForExecFiles.invoke(mojo, dirMock, null);
+            mojo.scanDirectoryForExecFiles(dirMock, null);
 
             // Verify the interception happened
             assertTrue("File constructor wasn't intercepted", intercepted.get());

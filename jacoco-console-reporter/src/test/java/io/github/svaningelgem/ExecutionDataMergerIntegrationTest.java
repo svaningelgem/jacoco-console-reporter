@@ -77,8 +77,8 @@ public class ExecutionDataMergerIntegrationTest extends BaseTestClass {
     }
 
     private void writeLong(FileOutputStream out, long value) throws IOException {
-        writeInt(out, (int)(value >>> 32));
-        writeInt(out, (int)(value));
+        writeInt(out, (int) (value >>> 32));
+        writeInt(out, (int) (value));
     }
 
     private void writeUTF(FileOutputStream out, String value) throws IOException {

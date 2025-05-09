@@ -5,10 +5,9 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jacoco.core.analysis.*;
-import org.jacoco.core.data.ExecutionDataReader;
 import org.jacoco.core.data.ExecutionDataStore;
-import org.jacoco.core.data.SessionInfoStore;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -20,6 +19,8 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 /**
  * Generates a console-based coverage report from JaCoCo execution data.
@@ -81,7 +82,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     /**
      * Option to scan for exec files in project modules.
-     * When true, will automatically discover all jacoco.exec files in the project.
+     * When true, this will automatically discover all jacoco.exec files in the project.
      */
     @Parameter(defaultValue = "false", property = "scanModules")
     boolean scanModules;
@@ -97,6 +98,18 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "0.4", property = "weightLineCoverage")
     double weightLineCoverage;
+
+    /**
+     * When true, ignore the files in the build directory. 99.9% of the time these are automatically generated files.
+     */
+    @Parameter(defaultValue = "true", property = "ignoreFilesInBuildDirectory")
+    boolean ignoreFilesInBuildDirectory;
+
+    /**
+     * Base directory for compiled output.
+     */
+    @Parameter(defaultValue = "${project.build.directory}", property = "targetDir")
+    File targetDir;
 
     /**
      * Base directory for module scanning.
@@ -125,17 +138,19 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     static final Set<File> collectedExecFilePaths = new HashSet<>();
     static final Set<File> collectedClassesPaths = new HashSet<>();
+    static final Set<Pattern> collectedExcludePatterns = new HashSet<>();
 
     public void execute() throws MojoExecutionException {
         additionalExecFiles.stream().map(File::getAbsoluteFile).forEach(collectedExecFilePaths::add);
         collectedExecFilePaths.add(jacocoExecFile.getAbsoluteFile());
         collectedClassesPaths.add(classesDirectory.getAbsoluteFile());
-        getLog().info("Collected Classes: " + collectedClassesPaths);
+        getLog().debug("Collected Classes: " + collectedClassesPaths);
         if (jacocoExecFile.exists()) {
             getLog().debug("Added exec file from current module: " + jacocoExecFile.getAbsolutePath());
         }
 
-        // Scan for exec files if requested
+        loadExclusionPatterns();
+
         if (scanModules) {
             scanForExecFiles();
         }
@@ -149,14 +164,131 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         generateReport();
     }
 
-    private void generateReport() throws MojoExecutionException {
+    /**
+     * Loads exclusion patterns from configuration and JaCoCo plugin settings
+     */
+    void loadExclusionPatterns() {
+        addBuildDirExclusion();
+        addJacocoExclusions();
+        addSwaggerExclusions();
+    }
+
+    /**
+     * Adds an exclusion pattern for files in the build directory if configured
+     */
+    void addBuildDirExclusion() {
+        if (!ignoreFilesInBuildDirectory) {
+            return;
+        }
+
         try {
+            // Convert the target directory path to a relative path pattern
+            String buildDirPath = targetDir.getCanonicalPath();
+            addExclusion(buildDirPath);
+            getLog().debug("Added build directory exclusion pattern: " + buildDirPath);
+        } catch (IOException e) {
+            getLog().warn("Failed to add build directory exclusion: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Extracts exclusion patterns from the JaCoCo plugin configuration
+     */
+    void addJacocoExclusions() {
+        doSomethingForEachPluginConfiguration(JACOCO_GROUP_ID, JACOCO_ARTIFACT_ID, "excludes.exclude", excludePattern -> {
+            addExclusion(excludePattern);
+            getLog().debug("Excluded pattern: " + excludePattern);
+        });
+    }
+
+    /**
+     * Adds exclusion patterns for Swagger-generated files if present in the project
+     */
+    void addSwaggerExclusions() {
+        // Check for Swagger code generation plugins and extract their configuration
+        doSomethingForEachPluginConfiguration("io.swagger", "swagger-codegen-maven-plugin", Arrays.asList("output", "outputDirectory"), swaggerPattern -> {
+            addExclusion(swaggerPattern);
+            getLog().debug("Added Swagger exclusion pattern from outputDirectory: " + swaggerPattern);
+        });
+
+        // Check for SpringDoc OpenAPI generation
+        doSomethingForEachPluginConfiguration("org.springdoc", "springdoc-openapi-maven-plugin", "outputDir", swaggerPattern -> {
+            addExclusion(swaggerPattern);
+            getLog().debug("Added SpringDoc OpenAPI exclusion pattern from outputDir: " + swaggerPattern);
+        });
+
+        // OpenAPI Generator plugin
+        doSomethingForEachPluginConfiguration("org.openapitools", "openapi-generator-maven-plugin", Arrays.asList("outputDir", "output"), swaggerPattern -> {
+            addExclusion(swaggerPattern);
+            getLog().debug("Added OpenAPI Generator exclusion pattern from outputDir: " + swaggerPattern);
+        });
+    }
+
+    /**
+     * Converts a JaCoCo exclude pattern to a Java regex Pattern
+     */
+    void addExclusion(@NotNull String jacocoPattern) {
+        jacocoPattern = jacocoPattern.replace("\\", "/");
+
+        // Handle the .class extension if not present
+        if (!jacocoPattern.endsWith(".class") && !jacocoPattern.endsWith("*")) {
+            jacocoPattern += jacocoPattern.endsWith("/") ? "**/*.class" : "/**/*.class";
+        }
+
+        // Use temporary placeholders to avoid interference between replacements
+        String regex = jacocoPattern
+                .replace("**/", "__DOUBLE_STAR_SLASH__")
+                .replace("**", "__DOUBLE_STAR__")
+                .replace("*", "__STAR__")
+                .replace(".", "__DOT__");
+
+        // Now perform the actual replacements
+        regex = regex
+                .replace("__DOUBLE_STAR_SLASH__", "(?:[^/]*/)*")
+                .replace("__DOUBLE_STAR__", ".*")
+                .replace("__STAR__", "[^/]*")
+                .replace("__DOT__", "\\.");
+
+        getLog().debug("Converted pattern '" + jacocoPattern + "' to regex '" + regex + "'");
+
+        Pattern pattern = Pattern.compile(regex);
+        collectedExcludePatterns.add(pattern);
+    }
+
+    /**
+     * Checks if a class should be excluded based on its name
+     */
+    boolean isExcluded(String className) {
+        if (collectedExcludePatterns.isEmpty()) {
+            return false;
+        }
+
+        // Convert class name to path format (replace dots with /)
+        String classPath = className.replace('.', '/') + ".class";
+
+        for (Pattern pattern : collectedExcludePatterns) {
+            if (pattern.matcher(classPath).matches()) {
+                getLog().debug("Excluding class: " + className);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void generateReport() throws MojoExecutionException {
+        try {
+            getLog().debug("Using exclusion patterns: " + collectedExcludePatterns);
+
             getLog().debug("Loading execution data");
             ExecutionDataStore executionDataStore = loadExecutionData();
+
             getLog().debug("Analyzing coverage");
             IBundleCoverage bundle = analyzeCoverage(executionDataStore);
+
             getLog().debug("Building internal tree model");
             DirectoryNode root = buildDirectoryTree(bundle);
+
             getLog().debug("Printing reports");
             printCoverageReport(root);
         } catch (IOException e) {
@@ -168,7 +300,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * Determines if this is the last module in a multi-module build
      * --> If so: start reporting
      */
-    private boolean shouldReport() {
+    boolean shouldReport() {
         //Defer execution until the last project.
         return !deferReporting || project.getId().equals(mavenSession.getProjects().get(mavenSession.getProjects().size() - 1).getId());
     }
@@ -176,7 +308,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Scan for JaCoCo exec files in all modules
      */
-    private void scanForExecFiles() {
+    void scanForExecFiles() {
         getLog().info("Scanning for JaCoCo exec files");
 
         // Get the configured exec file pattern from JaCoCo plugin if available
@@ -186,38 +318,72 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         scanDirectoryForExecFiles(baseDir, execPatterns);
     }
 
+    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull Iterable<String> configValue, Consumer<String> configurationConsumer) {
+        for (String config : configValue) {
+            doSomethingForEachPluginConfiguration(groupId, artifactId, config, configurationConsumer);
+        }
+    }
+
+    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull String configValue, Consumer<String> configurationConsumer) {
+        final String[] parts = Arrays.stream(configValue.split("\\.")).filter(s -> !s.isEmpty()).toArray(String[]::new);
+
+        project.getBuildPlugins().stream()
+                .filter(plugin -> groupId.equals(plugin.getGroupId())
+                        && artifactId.equals(plugin.getArtifactId()))
+                .forEach(plugin -> {
+                    Xpp3Dom config = (Xpp3Dom) plugin.getConfiguration();
+                    if (config == null) {
+                        return;
+                    }
+
+                    // Queue of nodes to process at the current level
+                    Queue<Xpp3Dom> currentLevelNodes = new LinkedList<>();
+                    currentLevelNodes.add(config);
+
+                    // Process each part of the path
+                    for (int i = 0; i < parts.length; i++) {
+                        String part = parts[i];
+                        Queue<Xpp3Dom> nextLevelNodes = new LinkedList<>();
+
+                        // Process all nodes at the current level
+                        for (Xpp3Dom currentNode : currentLevelNodes) {
+                            // Get all children with matching name
+                            Xpp3Dom[] children = currentNode.getChildren(part);
+                            Collections.addAll(nextLevelNodes, children);
+                        }
+
+                        // If this is the last part in the path, apply consumer to all matching nodes
+                        if (i == parts.length - 1) {
+                            nextLevelNodes.forEach(node -> {
+                                String value = node.getValue().trim();
+                                if (value.isEmpty()) return;
+
+                                configurationConsumer.accept(value);
+                            });
+                        } else if (nextLevelNodes.isEmpty()) {
+                            // If no matching nodes found at this level, stop processing
+                            return;
+                        } else {
+                            // Continue with the next level
+                            currentLevelNodes = nextLevelNodes;
+                        }
+                    }
+                });
+    }
+
     /**
      * Get the configured JaCoCo exec file patterns from the project
      */
-    private @NotNull List<String> getConfiguredExecFilePatterns() {
+    @NotNull List<String> getConfiguredExecFilePatterns() {
         List<String> patterns = new ArrayList<>();
         // Add the default pattern
         patterns.add(DEFAULT_EXEC_FILENAME);
 
-        project.getBuildPlugins().stream()
-                .filter(plugin -> JACOCO_GROUP_ID.equals(plugin.getGroupId())
-                        && JACOCO_ARTIFACT_ID.equals(plugin.getArtifactId()))
-                .forEach(plugin -> {
-                    Object config = plugin.getConfiguration();
-                    if (config != null) {
-                        try {
-                            // This is a very simplified approach - in a real implementation
-                            // you would need more robust XML parsing of the configuration
-                            String configStr = config.toString();
-                            if (configStr.contains("<destFile>")) {
-                                int start = configStr.indexOf("<destFile>") + 10;
-                                int end = configStr.indexOf("</destFile>", start);
-                                if (end > start) {
-                                    String destFile = configStr.substring(start, end).trim();
-                                    // Extract just the filename
-                                    patterns.add(new File(destFile).getName());
-                                }
-                            }
-                        } catch (Exception e) {
-                            getLog().debug("Error parsing JaCoCo configuration: " + e.getMessage());
-                        }
-                    }
-                });
+        doSomethingForEachPluginConfiguration(JACOCO_GROUP_ID, JACOCO_ARTIFACT_ID, "destFile", destFile -> {
+            // Extract just the filename
+            patterns.add(new File(destFile).getName());
+            getLog().debug("Found JaCoCo destFile: " + destFile);
+        });
 
         return patterns;
     }
@@ -225,12 +391,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Recursively scan directories for JaCoCo exec files
      */
-    private void scanDirectoryForExecFiles(@NotNull File dir, List<String> execPatterns) {
+    void scanDirectoryForExecFiles(@NotNull File dir, List<String> execPatterns) {
         if (!dir.exists() || !dir.isDirectory()) {
             return;
         }
 
-        // Check for target directory with exec file
+        // Check for the target directory with an exec file
         File targetDir = new File(dir, "target");
         if (targetDir.exists() && targetDir.isDirectory()) {
             File[] execFiles = targetDir.listFiles((d, name) ->
@@ -244,7 +410,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             }
         }
 
-        // Recursively check subdirectories, but skip some common directories to avoid deep scanning
+        // Recursively check subdirectories but skip some common directories to avoid deep scanning
         File[] subdirs = dir.listFiles(file ->
                 file.isDirectory() &&
                         !file.getName().equals("target") &&
@@ -266,7 +432,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @return Populated execution data store with deduplicated coverage information
      * @throws IOException if there are issues reading the JaCoCo execution files
      */
-    private @NotNull ExecutionDataStore loadExecutionData() throws IOException {
+    @NotNull ExecutionDataStore loadExecutionData() throws IOException {
         getLog().debug("Loading execution data with line-level deduplication");
         ExecutionDataMerger merger = new ExecutionDataMerger();
 
@@ -284,35 +450,31 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     /**
-     * Loads an individual JaCoCo execution data file
-     * This method is maintained for backward compatibility with tests
-     */
-    private void loadExecFile(File execFile, ExecutionDataStore executionDataStore, SessionInfoStore sessionInfoStore) throws IOException {
-        if (execFile == null || !execFile.exists()) {
-            return;
-        }
-
-        try (FileInputStream in = new FileInputStream(execFile)) {
-            ExecutionDataReader reader = new ExecutionDataReader(in);
-            reader.setExecutionDataVisitor(executionDataStore);
-            reader.setSessionInfoVisitor(sessionInfoStore);
-            reader.read();
-            getLog().debug("Processed exec file: " + execFile);
-        }
-    }
-
-    /**
      * Analyzes the compiled classes using the execution data to build coverage information.
      * Uses JaCoCo's analyzer to process all class files in the specified directory,
-     * building a complete picture of code coverage.
+     * building a complete picture of code coverage. Applies exclusion patterns to filter
+     * out classes that should not be included in coverage analysis.
      *
      * @param executionDataStore Contains the execution data from JaCoCo
      * @return A bundle containing all coverage information
      * @throws IOException if there are issues reading the class files
      */
-    private @NotNull IBundleCoverage analyzeCoverage(@NotNull ExecutionDataStore executionDataStore) throws IOException {
-        CoverageBuilder coverageBuilder = new CoverageBuilder();
+    @NotNull IBundleCoverage analyzeCoverage(@NotNull ExecutionDataStore executionDataStore) throws IOException {
+        // Create a custom CoverageBuilder that filters excluded classes
+        CoverageBuilder coverageBuilder = new CoverageBuilder() {
+            @Override
+            public void visitCoverage(IClassCoverage coverage) {
+                String className = coverage.getName().replace('/', '.');
+                if (!isExcluded(className)) {
+                    super.visitCoverage(coverage);
+                } else {
+                    getLog().debug("Excluded from coverage: " + className);
+                }
+            }
+        };
+
         Analyzer analyzer = new Analyzer(executionDataStore, coverageBuilder);
+
         for (File classPath : collectedClassesPaths) {
             if (classPath == null || !classPath.exists()) {
                 continue;
@@ -320,7 +482,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             getLog().debug("Analyzing class files in: " + classPath.getAbsolutePath());
             Files.walkFileTree(classPath.toPath(), new SimpleFileVisitor<Path>() {
                 @Override
-                public @NotNull FileVisitResult visitFile(Path file, @NotNull BasicFileAttributes attrs) {
+                public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) {
                     String filePath = file.toString().toLowerCase(Locale.ENGLISH);
                     if (filePath.endsWith(".class")) {
                         try (FileInputStream in = new FileInputStream(file.toFile())) {
@@ -343,12 +505,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      *
      * @param root The root node of the directory tree containing coverage information
      */
-    private void printCoverageReport(@NotNull DirectoryNode root) {
+    void printCoverageReport(@NotNull DirectoryNode root) {
         printTree(root);
         printSummary(root);
     }
 
-    private void printSummary(@NotNull DirectoryNode root) {
+    void printSummary(@NotNull DirectoryNode root) {
         if (!showSummary) return;
 
         CoverageMetrics total = root.getMetrics();
@@ -382,7 +544,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     }
 
-    private void printTree(@NotNull DirectoryNode root) {
+    void printTree(@NotNull DirectoryNode root) {
         if (!showTree) return;
 
         // Print header
@@ -411,7 +573,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * @param bundle The bundle containing coverage data for all analyzed classes
      * @return The root node of the directory tree containing coverage information
      */
-    private @NotNull DirectoryNode buildDirectoryTree(@NotNull IBundleCoverage bundle) {
+    @NotNull DirectoryNode buildDirectoryTree(@NotNull IBundleCoverage bundle) {
         DirectoryNode root = new DirectoryNode("");
         for (IPackageCoverage packageCoverage : bundle.getPackages()) {
             String packageName = packageCoverage.getName().replace('.', '/');

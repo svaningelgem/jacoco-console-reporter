@@ -39,8 +39,7 @@ public class JarFileHandlingTest extends BaseTestClass {
         collectedExecFilePaths.add(testProjectJacocoExec);
         collectedClassesPaths.add(testClassesDir);
 
-
-        generateReport.invoke(mojo);
+        mojo.generateReport();
 
         String[] expected = {
                 "[info] Overall Coverage Summary",
