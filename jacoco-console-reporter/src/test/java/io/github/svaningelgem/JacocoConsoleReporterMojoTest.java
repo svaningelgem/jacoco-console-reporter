@@ -4,6 +4,7 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Model;
 import org.apache.maven.project.MavenProject;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -160,6 +161,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         // Configure mojo
         mojo.scanModules = true;
         mojo.jacocoExecFile = new File("nonexistent.exec");
+        mojo.baseDir = temporaryFolder.getRoot();
         mojo.classesDirectory = testProjectClasses;
 
         assertEquals(0, JacocoConsoleReporterMojo.collectedExecFilePaths.size());

@@ -2,6 +2,7 @@ package io.github.svaningelgem;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.mockito.Mockito;
 
 import java.io.File;

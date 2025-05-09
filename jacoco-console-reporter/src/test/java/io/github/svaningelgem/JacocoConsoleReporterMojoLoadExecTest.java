@@ -2,6 +2,7 @@ package io.github.svaningelgem;
 
 import org.jacoco.core.data.ExecutionDataStore;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 

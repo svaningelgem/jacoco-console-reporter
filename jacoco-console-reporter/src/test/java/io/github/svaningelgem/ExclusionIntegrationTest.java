@@ -5,6 +5,7 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.util.Arrays;
@@ -50,9 +51,6 @@ public class ExclusionIntegrationTest extends BaseTestClass {
 
     @Test
     public void testExclusionFromAnalysis() throws Exception {
-        // Set up mock objects
-        ExecutionDataStore mockStore = new ExecutionDataStore();
-
         // Create a fake directory structure for class file analysis
         File classesDir = temporaryFolder.newFolder("classes");
         File generatedDir = new File(classesDir, "com/example/generated");
@@ -64,6 +62,7 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         JacocoConsoleReporterMojo.collectedClassesPaths.add(classesDir);
 
         // First, load the exclusion patterns
+        mojo.ignoreFilesInBuildDirectory = true;
         mojo.loadExclusionPatterns();
 
         // Verify exclusion patterns are working
@@ -116,6 +115,22 @@ public class ExclusionIntegrationTest extends BaseTestClass {
     public void testMergedExclusionPatterns() throws Exception {
         mojo.loadExclusionPatterns();
 
-        assertEquals("Should have combined all exclusion patterns", 3, mojo.excludePatterns.size());
+        assertEquals("Should have combined all exclusion patterns", 4, mojo.excludePatterns.size());
+    }
+
+    @Test
+    public void testAddBuildDirExclusionEnabled() throws Exception {
+        assertEquals(0, mojo.excludePatterns.size());
+        mojo.ignoreFilesInBuildDirectory = true;
+        mojo.addBuildDirExclusion();
+        assertEquals(1, mojo.excludePatterns.size());
+    }
+
+    @Test
+    public void testAddBuildDirExclusionDisabled() throws Exception {
+        assertEquals(0, mojo.excludePatterns.size());
+        mojo.ignoreFilesInBuildDirectory = false;
+        mojo.addBuildDirExclusion();
+        assertEquals(0, mojo.excludePatterns.size());
     }
 }

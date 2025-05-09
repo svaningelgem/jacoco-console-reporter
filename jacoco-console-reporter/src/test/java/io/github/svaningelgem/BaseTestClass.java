@@ -1,5 +1,6 @@
 package io.github.svaningelgem;
 
+import lombok.var;
 import org.apache.maven.execution.DefaultMavenExecutionRequest;
 import org.apache.maven.execution.DefaultMavenExecutionResult;
 import org.apache.maven.execution.MavenExecutionRequest;
@@ -25,10 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Random;
+import java.util.*;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -74,7 +72,15 @@ public class BaseTestClass {
 
         mojo = (JacocoConsoleReporterMojo) container.lookup(Mojo.class, roleHint);
 
-        // Setting the defaults
+        // Create a real project with JaCoCo plugin
+        MavenProject project = createProjectWithJacocoPlugin(null);
+        project.setFile(pom.getParentFile());
+
+        mojo.project = project;
+        mojo.mavenSession = createRealMavenSession(Collections.singletonList(project));
+
+        mojo.jacocoExecFile = new File(project.getBuild().getDirectory(), "jacoco.exec").getCanonicalFile();
+        mojo.classesDirectory = new File(project.getBuild().getOutputDirectory()).getCanonicalFile();
         mojo.deferReporting = true;
         mojo.showFiles = false;
         mojo.showTree = true;
@@ -84,18 +90,9 @@ public class BaseTestClass {
         mojo.weightMethodCoverage = 0.1;
         mojo.weightBranchCoverage = 0.4;
         mojo.weightLineCoverage = 0.4;
-
-        // Create a real project with JaCoCo plugin
-        MavenProject project = createProjectWithJacocoPlugin(null);
-        mojo.project = project;
-
-        // Create a real MavenSession with this as the only project
-        List<MavenProject> projects = new ArrayList<>();
-        projects.add(project);
-        mojo.mavenSession = createRealMavenSession(projects);
-
-        // Configure mojo
-        mojo.baseDir = temporaryFolder.getRoot();
+        mojo.ignoreFilesInBuildDirectory = true;
+        mojo.targetDir = new File(project.getBuild().getDirectory()).getCanonicalFile();
+        mojo.baseDir = project.getBasedir();
 
         log = new MyLog();
         mojo.setLog(log);
@@ -188,7 +185,7 @@ public class BaseTestClass {
         }
 
         // Adding debug files
-        List<String> fileNames = new ArrayList<String>();
+        List<String> fileNames = new ArrayList<>();
         for(int i = 0; i < amountOfFiles; i++) {
             fileNames.add("Example" + (fileCounter++) + ".java");
         }
@@ -198,10 +195,6 @@ public class BaseTestClass {
 
     protected void createTree(DirectoryNode root, int amountOfFiles, @Nullable String @Nullable ... names) {
         createTree(root, amountOfFiles, null, names);
-    }
-
-    protected void addFiles(DirectoryNode toNode, @Nullable String @Nullable ... names) {
-        addFiles(toNode, null, names);
     }
 
     protected void addFiles(DirectoryNode toNode, @Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
@@ -260,13 +253,20 @@ public class BaseTestClass {
      * Creates a real MavenProject with JaCoCo plugin configuration
      */
     @Contract("_ -> new")
-    protected @NotNull MavenProject createProjectWithJacocoPlugin(String destFile) {
+    protected @NotNull MavenProject createProjectWithJacocoPlugin(String destFile) throws IOException {
         Model model = new Model();
         model.setGroupId("test.group");
         model.setArtifactId("test-artifact");
         model.setVersion("1.0.0");
 
+        File outputDir = new File(temporaryFolder.getRoot(), "output").getAbsoluteFile();
+        if (!outputDir.exists()) {
+            outputDir.mkdirs();
+        }
+
         Build build = new Build();
+        build.setOutputDirectory(outputDir.toString());
+        build.setDirectory(temporaryFolder.getRoot().getAbsolutePath());
         model.setBuild(build);
 
         Plugin plugin = new Plugin();
