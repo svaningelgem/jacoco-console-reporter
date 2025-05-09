@@ -1,7 +1,6 @@
 package io.github.svaningelgem;
 
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 

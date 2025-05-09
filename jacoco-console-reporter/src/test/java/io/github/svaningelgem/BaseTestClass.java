@@ -1,6 +1,5 @@
 package io.github.svaningelgem;
 
-import lombok.var;
 import org.apache.maven.execution.DefaultMavenExecutionRequest;
 import org.apache.maven.execution.DefaultMavenExecutionResult;
 import org.apache.maven.execution.MavenExecutionRequest;
