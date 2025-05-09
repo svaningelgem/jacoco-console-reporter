@@ -319,7 +319,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         scanDirectoryForExecFiles(baseDir, execPatterns);
     }
 
-    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, Iterable<String> configValue, Consumer<String> configurationConsumer) {
+    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull Iterable<String> configValue, Consumer<String> configurationConsumer) {
         for (String config : configValue) {
             doSomethingForEachPluginConfiguration(groupId, artifactId, config, configurationConsumer);
         }
@@ -347,20 +347,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
                         Queue<Xpp3Dom> nextLevelNodes = new LinkedList<>();
 
                         // Process all nodes at the current level
-                        while (!currentLevelNodes.isEmpty()) {
-                            Xpp3Dom currentNode = currentLevelNodes.poll();
-
+                        for (Xpp3Dom currentNode : currentLevelNodes) {
                             // Get all children with matching name
                             Xpp3Dom[] children = currentNode.getChildren(part);
                             if (children != null) {
                                 // Add all matching children to the next level queue
                                 Collections.addAll(nextLevelNodes, children);
                             }
-                        }
-
-                        // If no matching nodes found at this level, stop processing
-                        if (nextLevelNodes.isEmpty()) {
-                            return;
                         }
 
                         // If this is the last part in the path, apply consumer to all matching nodes
@@ -374,10 +367,15 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
                                 configurationConsumer.accept(value);
                             });
+                            return; // We're done processing
+                        }
+
+                        // If no matching nodes found at this level, stop processing
+                        if (nextLevelNodes.isEmpty()) {
                             return;
                         }
 
-                        // Otherwise, continue with the next level
+                        // Continue with the next level
                         currentLevelNodes = nextLevelNodes;
                     }
                 });

@@ -3,11 +3,14 @@ package io.github.svaningelgem;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -20,143 +23,106 @@ import static org.mockito.Mockito.*;
 
 public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
 
-    public static final String TEST_GROUP = "test.group";
-    public static final String TEST_ARTIFACT = "test.artifact";
+    private static final String TEST_GROUP = "test.group";
+    private static final String TEST_ARTIFACT = "test.artifact";
+
     @Mock
     private MavenProject mockProject;
 
+    private List<String> values;
+    private Consumer<String> consumer;
+
     @Override
     @Before
-    public void setUp() throws Exception {
-        // Don't call super.setUp() since we're using mocks for this test
-        // instead of the real implementation from BaseTestClass
+    public void setUp() {
         mojo = new JacocoConsoleReporterMojo();
         mockProject = mock(MavenProject.class);
         mojo.project = mockProject;
 
-        // Initialize a log for the mojo
         log = new MyLog();
         mojo.setLog(log);
+
+        values = new ArrayList<>();
+        consumer = values::add;
+    }
+
+    @Before
+    public void resetValues() {
+        values.clear();
     }
 
     @Test
     public void testPluginNotFound() {
-        // Arrange
         doReturn(Collections.emptyList()).when(mockProject).getBuildPlugins();
-        Consumer<String> consumer = mock(Consumer.class);
+        consumer = mock(Consumer.class);
 
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "config", consumer);
 
-        // Assert
         verify(consumer, never()).accept(anyString());
     }
 
     @Test
     public void testConfigNotFound() {
-        // Arrange
-        Plugin plugin = createPlugin(null);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
-        Consumer<String> consumer = mock(Consumer.class);
+        createPlugin((Xpp3Dom) null);
+        consumer = mock(Consumer.class);
 
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "config", consumer);
 
-        // Assert
         verify(consumer, never()).accept(anyString());
     }
 
     @Test
     public void testSimpleConfig() {
-        // Arrange
-        Xpp3Dom config = createConfig("config", "value");
-        Plugin plugin = createPlugin(config);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
+        createPlugin("<config>value</config>");
 
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "config", consumer);
 
-        // Assert
         assertEquals(1, values.size());
         assertEquals("value", values.get(0));
     }
 
     @Test
     public void testNestedConfig() {
-        // Arrange
-        Xpp3Dom parent = new Xpp3Dom("parent");
-        Xpp3Dom child = createConfig("child", "childValue");
-        parent.addChild(child);
+        createPlugin("<parent><child>childValue</child></parent>");
 
-        Plugin plugin = createPlugin(parent);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
-
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "parent.child", consumer);
 
-        // Assert
         assertEquals(1, values.size());
         assertEquals("childValue", values.get(0));
     }
 
     @Test
     public void testDeepNestedConfig() {
-        // Arrange
-        Xpp3Dom root = new Xpp3Dom("root");
-        Xpp3Dom level1 = new Xpp3Dom("level1");
-        Xpp3Dom level2 = new Xpp3Dom("level2");
-        Xpp3Dom level3 = createConfig("level3", "deepValue");
+        createPlugin(
+                "<root>" +
+                        "<level1>" +
+                        "<level2>" +
+                        "<level3>deepValue</level3>" +
+                        "</level2>" +
+                        "</level1>" +
+                        "</root>"
+        );
 
-        level2.addChild(level3);
-        level1.addChild(level2);
-        root.addChild(level1);
-
-        Plugin plugin = createPlugin(root);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
-
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "root.level1.level2.level3", consumer);
 
-        // Assert
         assertEquals(1, values.size());
         assertEquals("deepValue", values.get(0));
     }
 
     @Test
     public void testMultipleMatchingNodes() {
-        // Arrange
-        Xpp3Dom root = new Xpp3Dom("root");
+        createPlugin(
+                "<root>" +
+                        "<excludes>" +
+                        "<exclude>pattern1</exclude>" +
+                        "<exclude>pattern2</exclude>" +
+                        "<exclude>pattern3</exclude>" +
+                        "</excludes>" +
+                        "</root>"
+        );
 
-        Xpp3Dom excludes = new Xpp3Dom("excludes");
-        root.addChild(excludes);
+        mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "root.excludes.exclude", consumer);
 
-        Xpp3Dom exclude1 = createConfig("exclude", "pattern1");
-        Xpp3Dom exclude2 = createConfig("exclude", "pattern2");
-        Xpp3Dom exclude3 = createConfig("exclude", "pattern3");
-
-        excludes.addChild(exclude1);
-        excludes.addChild(exclude2);
-        excludes.addChild(exclude3);
-
-        Plugin plugin = createPlugin(root);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
-
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
-        mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "excludes.exclude", consumer);
-
-        // Assert
         assertEquals(3, values.size());
         assertEquals("pattern1", values.get(0));
         assertEquals("pattern2", values.get(1));
@@ -165,80 +131,40 @@ public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
 
     @Test
     public void testIncompletePathNoMatch() {
-        // Arrange
-        Xpp3Dom root = new Xpp3Dom("root");
-        Xpp3Dom level1 = new Xpp3Dom("level1");
-        root.addChild(level1);
+        createPlugin("<root><level1></level1></root>");
 
-        Plugin plugin = createPlugin(root);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
-
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "root.level1.nonexistent", consumer);
 
-        // Assert
         assertTrue(values.isEmpty());
     }
 
     @Test
     public void testEmptyValues() {
-        // Arrange
-        Xpp3Dom config = new Xpp3Dom("config");
-        config.setValue("");  // Empty value
+        createPlugin("<config></config>");
 
-        Plugin plugin = createPlugin(config);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
-
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "config", consumer);
 
-        // Assert
-        assertTrue(values.isEmpty());  // Should ignore empty values
+        assertTrue(values.isEmpty());
     }
 
     @Test
     public void testWhitespaceValues() {
-        // Arrange
-        Xpp3Dom config = new Xpp3Dom("config");
-        config.setValue("   ");  // Whitespace-only value
+        createPlugin("<config>   </config>");
 
-        Plugin plugin = createPlugin(config);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
-
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "config", consumer);
 
-        // Assert
-        assertTrue(values.isEmpty());  // Should ignore whitespace-only values
+        assertTrue(values.isEmpty());
     }
 
     @Test
     public void testMultiplePlugins() {
-        // Arrange
-        Xpp3Dom config1 = createConfig("config", "value1");
-        Plugin plugin1 = createPlugin(config1);
-
-        Xpp3Dom config2 = createConfig("config", "value2");
-        Plugin plugin2 = createPlugin(config2);
+        Plugin plugin1 = createPlugin("<config>value1</config>");
+        Plugin plugin2 = createPlugin("<config>value2</config>");
 
         doReturn(Arrays.asList(plugin1, plugin2)).when(mockProject).getBuildPlugins();
 
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "config", consumer);
 
-        // Assert
         assertEquals(2, values.size());
         assertEquals("value1", values.get(0));
         assertEquals("value2", values.get(1));
@@ -246,24 +172,14 @@ public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
 
     @Test
     public void testWithIterable_ProcessesAllValues() {
-        // Arrange
-        Xpp3Dom root = new Xpp3Dom("root");
-        Xpp3Dom output = createConfig("output", "output-dir");
-        Xpp3Dom outputDir = createConfig("outputDirectory", "output-directory");
-        root.addChild(output);
-        root.addChild(outputDir);
+        createPlugin("<root>" +
+                "<output>output-dir</output>" +
+                "<outputDirectory>output-directory</outputDirectory>" +
+                "</root>");
 
-        Plugin plugin = createPlugin(root);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
-
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT,
-                Arrays.asList("output", "outputDirectory"), consumer);
+                Arrays.asList("root.output", "root.outputDirectory"), consumer);
 
-        // Assert
         assertEquals(2, values.size());
         assertEquals("output-dir", values.get(0));
         assertEquals("output-directory", values.get(1));
@@ -271,60 +187,50 @@ public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
 
     @Test
     public void testWithIterable_PartialMatches() {
-        // Arrange
-        Xpp3Dom root = new Xpp3Dom("root");
-        Xpp3Dom output = createConfig("output", "output-dir");
-        root.addChild(output);
-        // Note: outputDirectory is missing
+        createPlugin("<root>" +
+                "<output>output-dir</output>" +
+                "<!-- outputDirectory is missing -->" +
+                "</root>");
 
-        Plugin plugin = createPlugin(root);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
-
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT,
-                Arrays.asList("output", "outputDirectory"), consumer);
+                Arrays.asList("root.output", "root.outputDirectory"), consumer);
 
-        // Assert
         assertEquals(1, values.size());
         assertEquals("output-dir", values.get(0));  // Should find only the matching path
     }
 
     @Test
     public void testWithIterable_NoMatches() {
-        // Arrange
-        Xpp3Dom root = new Xpp3Dom("root");
-        Xpp3Dom unrelated = createConfig("unrelated", "value");
-        root.addChild(unrelated);
+        createPlugin("<root><unrelated>value</unrelated></root>");
 
-        Plugin plugin = createPlugin(root);
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
-
-        List<String> values = new ArrayList<>();
-        Consumer<String> consumer = values::add;
-
-        // Act
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT,
-                Arrays.asList("output", "outputDirectory"), consumer);
+                Arrays.asList("root.output", "root.outputDirectory"), consumer);
 
-        // Assert
         assertTrue(values.isEmpty());  // Should find no matches
     }
 
-    // Helper methods specific to this test
+    @Contract("_ -> new")
     private @NotNull Plugin createPlugin(Xpp3Dom configuration) {
         Plugin plugin = new Plugin();
         plugin.setGroupId(TEST_GROUP);
         plugin.setArtifactId(TEST_ARTIFACT);
         plugin.setConfiguration(configuration);
+
+        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
         return plugin;
     }
 
-    private @NotNull Xpp3Dom createConfig(String name, String value) {
-        Xpp3Dom config = new Xpp3Dom(name);
-        config.setValue(value);
-        return config;
+    @Contract("_ -> new")
+    private @NotNull Plugin createPlugin(@NotNull String xml) {
+        return createPlugin(parseXml(xml));
+    }
+
+    @Contract("_ -> new")
+    private @NotNull Xpp3Dom parseXml(@NotNull String xml) {
+        try {
+            return Xpp3DomBuilder.build(new StringReader(xml));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse XML: " + xml, e);
+        }
     }
 }
