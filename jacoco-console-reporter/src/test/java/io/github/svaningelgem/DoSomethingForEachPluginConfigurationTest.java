@@ -6,6 +6,7 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -63,7 +64,7 @@ public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
 
     @Test
     public void testConfigNotFound() {
-        createPlugin((Xpp3Dom) null);
+        createPlugin("");
         consumer = mock(Consumer.class);
 
         mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT, "config", consumer);
@@ -209,24 +210,51 @@ public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
         assertTrue(values.isEmpty());  // Should find no matches
     }
 
+    @Test
+    public void testUnfoundNode() {
+        createPlugin("<a><c>value</c></a>");
+
+        mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT,
+                "a.b.c", consumer);
+
+        assertTrue(values.isEmpty());  // Should find no matches
+    }
+
+    @Test
+    public void testDontFindAnything() {
+        createPlugin("");
+
+        mojo.doSomethingForEachPluginConfiguration(TEST_GROUP, TEST_ARTIFACT,
+                "", consumer);
+
+        assertTrue(values.isEmpty());  // Should find no matches
+    }
+
     @Contract("_ -> new")
-    private @NotNull Plugin createPlugin(Xpp3Dom configuration) {
+    private @NotNull Plugin createPlugin(@Nullable Xpp3Dom configuration) {
         Plugin plugin = new Plugin();
         plugin.setGroupId(TEST_GROUP);
         plugin.setArtifactId(TEST_ARTIFACT);
-        plugin.setConfiguration(configuration);
+        if (configuration != null) {
+            Xpp3Dom configurationNode = new Xpp3Dom("configuration");
+            configurationNode.addChild(configuration);
+            plugin.setConfiguration(configurationNode);
+        }
 
         doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
         return plugin;
     }
 
     @Contract("_ -> new")
-    private @NotNull Plugin createPlugin(@NotNull String xml) {
+    private @NotNull Plugin createPlugin(@Nullable String xml) {
         return createPlugin(parseXml(xml));
     }
 
-    @Contract("_ -> new")
-    private @NotNull Xpp3Dom parseXml(@NotNull String xml) {
+    private @Nullable Xpp3Dom parseXml(@Nullable String xml) {
+        if (xml == null || xml.trim().isEmpty()) {
+            return null;
+        }
+
         try {
             return Xpp3DomBuilder.build(new StringReader(xml));
         } catch (Exception e) {

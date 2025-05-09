@@ -326,7 +326,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull String configValue, Consumer<String> configurationConsumer) {
-        final String[] parts = configValue.split("\\.");
+        final String[] parts = Arrays.stream(configValue.split("\\.")).filter(s -> !s.isEmpty()).toArray(String[]::new);
 
         project.getBuildPlugins().stream()
                 .filter(plugin -> groupId.equals(plugin.getGroupId())
@@ -350,33 +350,26 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
                         for (Xpp3Dom currentNode : currentLevelNodes) {
                             // Get all children with matching name
                             Xpp3Dom[] children = currentNode.getChildren(part);
-                            if (children != null) {
-                                // Add all matching children to the next level queue
-                                Collections.addAll(nextLevelNodes, children);
-                            }
+                            Collections.addAll(nextLevelNodes, children);
                         }
 
                         // If this is the last part in the path, apply consumer to all matching nodes
                         if (i == parts.length - 1) {
                             nextLevelNodes.forEach(node -> {
-                                if (node == null) return;
-                                String value = node.getValue();
-                                if (value == null) return;
-                                value = value.trim();
+                                String value = node.getValue().trim();
                                 if (value.isEmpty()) return;
 
                                 configurationConsumer.accept(value);
                             });
-                            return; // We're done processing
                         }
-
-                        // If no matching nodes found at this level, stop processing
-                        if (nextLevelNodes.isEmpty()) {
+                        else if (nextLevelNodes.isEmpty()) {
+                            // If no matching nodes found at this level, stop processing
                             return;
                         }
-
-                        // Continue with the next level
-                        currentLevelNodes = nextLevelNodes;
+                        else {
+                            // Continue with the next level
+                            currentLevelNodes = nextLevelNodes;
+                        }
                     }
                 });
     }

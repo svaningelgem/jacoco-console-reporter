@@ -85,7 +85,9 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         // Add explicit excludes to the mojo as well
         List<String> additionalExcludes = Arrays.asList(
                 "com/example/ignored/**/*",
-                "**/*Test.class"
+                "**/*Test.class",
+                "com/example/ignored2",
+                "com/example/ignored3/"
         );
 
         // Load the patterns
@@ -101,6 +103,13 @@ public class ExclusionIntegrationTest extends BaseTestClass {
 
         assertTrue("Test classes should be excluded (from additional config)",
                 (Boolean) mojo.isExcluded("com.example.service.UserServiceTest"));
+
+        assertTrue("Ignored classes should be excluded (from additional config)",
+                (Boolean) mojo.isExcluded("com.example.ignored2.SomeClass"));
+
+        assertTrue("Ignored classes should be excluded (from additional config)",
+                (Boolean) mojo.isExcluded("com.example.ignored3.SomeClass"));
+
     }
 
     @Test
