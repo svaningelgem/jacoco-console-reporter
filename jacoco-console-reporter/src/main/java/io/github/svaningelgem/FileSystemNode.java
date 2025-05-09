@@ -20,11 +20,11 @@ interface FileSystemNode extends Comparable<FileSystemNode> {
     /**
      * Print this node's tree representation and its children
      *
-     * @param log          The logger to use for output
-     * @param prefix       Current prefix for tree visualization
-     * @param format       Format string for output
-     * @param packagePath  Current package path
-     * @param showFiles    Whether to show files
+     * @param log         The logger to use for output
+     * @param prefix      Current prefix for tree visualization
+     * @param format      Format string for output
+     * @param packagePath Current package path
+     * @param showFiles   Whether to show files
      */
     default void printTree(@NotNull org.apache.maven.plugin.logging.Log log, String prefix,
                            String format, String packagePath, boolean showFiles) {

@@ -361,12 +361,10 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
                                 configurationConsumer.accept(value);
                             });
-                        }
-                        else if (nextLevelNodes.isEmpty()) {
+                        } else if (nextLevelNodes.isEmpty()) {
                             // If no matching nodes found at this level, stop processing
                             return;
-                        }
-                        else {
+                        } else {
                             // Continue with the next level
                             currentLevelNodes = nextLevelNodes;
                         }

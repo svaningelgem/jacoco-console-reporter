@@ -172,7 +172,7 @@ public class BaseTestClass {
      * Create the tree starting from the root, with the names
      * Returns the last created DirectoryNode
      */
-    protected void createTree(DirectoryNode root, int amountOfFiles,@Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
+    protected void createTree(DirectoryNode root, int amountOfFiles, @Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
         if (names != null) {
             for (String name : names) {
                 if (name == null) {
@@ -185,7 +185,7 @@ public class BaseTestClass {
 
         // Adding debug files
         List<String> fileNames = new ArrayList<>();
-        for(int i = 0; i < amountOfFiles; i++) {
+        for (int i = 0; i < amountOfFiles; i++) {
             fileNames.add("Example" + (fileCounter++) + ".java");
         }
 

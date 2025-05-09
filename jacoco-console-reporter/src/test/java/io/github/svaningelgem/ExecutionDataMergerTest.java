@@ -78,10 +78,10 @@ public class ExecutionDataMergerTest extends BaseTestClass {
         long classId = CRC64.classId(className.getBytes());
 
         // First execution: probes [true, false, false]
-        ExecutionData data1 = new ExecutionData(classId, className, new boolean[] {true, false, false});
+        ExecutionData data1 = new ExecutionData(classId, className, new boolean[]{true, false, false});
 
         // Second execution: probes [false, true, false]
-        ExecutionData data2 = new ExecutionData(classId, className, new boolean[] {false, true, false});
+        ExecutionData data2 = new ExecutionData(classId, className, new boolean[]{false, true, false});
 
         // Use the public method to merge data
         merger.mergeExecData(data1);
@@ -95,7 +95,7 @@ public class ExecutionDataMergerTest extends BaseTestClass {
         assertEquals("Class ID should match", classId, mergedData.getId());
         assertEquals("Class name should match", className, mergedData.getName());
 
-        boolean[] expectedProbes = new boolean[] {true, true, false};
+        boolean[] expectedProbes = new boolean[]{true, true, false};
         boolean[] actualProbes = mergedData.getProbes();
 
         assertEquals("Probe array length should match", expectedProbes.length, actualProbes.length);

@@ -23,6 +23,7 @@ public class Defaults {
     final String divider;
 
     static Defaults instance = null;
+
     public static Defaults getInstance() {
         if (instance == null) {
             instance = new Defaults();
@@ -71,6 +72,6 @@ public class Defaults {
     @NotNull String formatCoverage(double covered, double total) {
         if (total <= 0) return " ***** (0/0)";
         double percentage = covered / total * 100;
-        return String.format("%5.2f%% (%d/%d)", percentage, (int)covered, (int)total);
+        return String.format("%5.2f%% (%d/%d)", percentage, (int) covered, (int) total);
     }
 }

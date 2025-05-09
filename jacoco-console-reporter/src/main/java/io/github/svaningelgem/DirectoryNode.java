@@ -44,7 +44,7 @@ public class DirectoryNode implements FileSystemNode {
     }
 
     <T extends FileSystemNode> void printNodes(org.apache.maven.plugin.logging.Log log, String prefix,
-                            String format, String packagePath, boolean showFiles, @NotNull List<T> nodes, boolean extraCheck) {
+                                               String format, String packagePath, boolean showFiles, @NotNull List<T> nodes, boolean extraCheck) {
         for (int i = 0; i < nodes.size(); i++) {
             boolean isLast = (i == nodes.size() - 1) && extraCheck;
             FileSystemNode node = nodes.get(i);
@@ -58,8 +58,7 @@ public class DirectoryNode implements FileSystemNode {
 
         if (prefix.endsWith(Defaults.getInstance().corner)) {
             prefix = prefix.substring(0, prefix.length() - Defaults.getInstance().corner.length()) + Defaults.getInstance().lastDirSpace;
-        }
-        else if (prefix.endsWith(Defaults.getInstance().tee)) {
+        } else if (prefix.endsWith(Defaults.getInstance().tee)) {
             prefix = prefix.substring(0, prefix.length() - Defaults.getInstance().tee.length()) + Defaults.getInstance().verticalLine;
         }
 
