@@ -7,6 +7,9 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
+import org.apache.maven.plugin.Mojo;
+import org.apache.maven.plugin.descriptor.MojoDescriptor;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.PlexusContainer;
@@ -25,10 +28,7 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Random;
+import java.util.*;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -76,7 +76,15 @@ public class BaseTestClass {
 
         fileCounter = 0;
 
-        mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
+        PlexusContainer container = rule.getContainer();
+        JacocoConsoleReporterMojo customMojo = new JacocoConsoleReporterMojo();
+
+        // Register it with the container - directly using a role hint
+        String roleHint = "io.github.svaningelgem:jacoco-console-reporter:report";
+        container.addComponent(customMojo, Mojo.class, roleHint);
+
+        mojo = (JacocoConsoleReporterMojo) container.lookup(Mojo.class, roleHint);
+
         // Setting the defaults
         mojo.deferReporting = true;
         mojo.showFiles = false;
