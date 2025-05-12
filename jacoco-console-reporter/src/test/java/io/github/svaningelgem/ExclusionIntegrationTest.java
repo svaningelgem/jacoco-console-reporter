@@ -7,10 +7,9 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -105,6 +104,7 @@ public class ExclusionIntegrationTest extends BaseTestClass {
 
         // Create a few files in the target directory
         createFile(mojo.targetDir, "classes/com/example/TestClass.java", "package io.sample;");
+        createFile(mojo.targetDir, "classes/com/sth/Else.java", "not-a-package io.sample;");
         createFile(mojo.targetDir, "classes/com/example/ProductionClass.class", "package io.sample2;");
 
         mojo.addBuildDirExclusion();

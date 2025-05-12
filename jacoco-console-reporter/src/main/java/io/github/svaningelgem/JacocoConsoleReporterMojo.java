@@ -191,6 +191,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
                     try {
                         content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
                     } catch (IOException e) {
+                        getLog().warn("Failed to read file: " + file, e);
                         return FileVisitResult.CONTINUE;
                     }
 
