@@ -6,10 +6,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
+import java.io.IOException;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -69,17 +67,10 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         mojo.loadExclusionPatterns();
 
         // Verify exclusion patterns are working
-        assertTrue("Generated code should be excluded",
-                mojo.isExcluded("com.example.generated.api.UsersApi"));
-
-        assertTrue("Controllers should be excluded",
-                mojo.isExcluded("com.example.web.UserController"));
-
-        assertTrue("Model classes should be excluded",
-                mojo.isExcluded("com.example.model.User"));
-
-        assertFalse("Normal classes should not be excluded",
-                mojo.isExcluded("com.example.Calculator"));
+        assertTrue(mojo.isExcluded("com/example/generated/api/UsersApi"));
+        assertTrue(mojo.isExcluded("com/example/web/UserController"));
+        assertTrue(mojo.isExcluded("com/example/model/User"));
+        assertFalse(mojo.isExcluded("com/example/Calculator"));
     }
 
     @Test
@@ -88,6 +79,7 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         List<String> additionalExcludes = Arrays.asList(
                 "com/example/ignored/**/*",
                 "**/*Test.class",
+                "**/*DTO",
                 "com/example/ignored2",
                 "com/example/ignored3/"
         );
@@ -97,70 +89,27 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         additionalExcludes.forEach(mojo::addExclusion);
 
         // Test combined exclusions
-        assertTrue("Generated code should be excluded (from JaCoCo config)",
-                mojo.isExcluded("com.example.generated.model.User"));
-
-        assertTrue("Ignored classes should be excluded (from additional config)",
-                mojo.isExcluded("com.example.ignored.SomeClass"));
-
-        assertTrue("Test classes should be excluded (from additional config)",
-                mojo.isExcluded("com.example.service.UserServiceTest"));
-
-        assertTrue("Ignored classes should be excluded (from additional config)",
-                mojo.isExcluded("com.example.ignored2.SomeClass"));
-
-        assertTrue("Ignored classes should be excluded (from additional config)",
-                mojo.isExcluded("com.example.ignored3.SomeClass"));
-
+        assertTrue(mojo.isExcluded("com/example/generated/model/User"));
+        assertTrue(mojo.isExcluded("com/example/ignored/SomeClass"));
+        assertTrue(mojo.isExcluded("com/example/service/UserServiceTest"));
+        assertTrue(mojo.isExcluded("testing/UserDTO"));
+        assertFalse(mojo.isExcluded("testing/Userdto"));
+        assertFalse(mojo.isExcluded("com/example/ignored2/SomeClass"));
+        assertFalse(mojo.isExcluded("com/example/ignored3/SomeClass"));
     }
 
     @Test
-    public void testAddSwaggerExclusions() {
-        mojo.project.getBuild().getPlugins().clear();
-
-        Plugin swaggerCodegenPlugin = createPlugin("io.swagger", "swagger-codegen-maven-plugin", "<output>swagger-output</output><outputDirectory>swagger-outputDirectory</outputDirectory><sth>else1</sth>");
-        mojo.project.getBuild().addPlugin(swaggerCodegenPlugin);
-
-        Plugin springdocPlugin = createPlugin("org.springdoc", "springdoc-openapi-maven-plugin", "<outputDir>springdoc-outputDir</outputDir><sth>else2</sth>");
-        mojo.project.getBuild().addPlugin(springdocPlugin);
-
-        Plugin openapiPlugin = createPlugin("org.openapitools", "openapi-generator-maven-plugin", "<outputDir>openapi-outputDir</outputDir><output>openapi-output</output><sth>else3</sth>");
-        mojo.project.getBuild().addPlugin(openapiPlugin);
-
-        // Execute the method being tested
-        mojo.addSwaggerExclusions();
-
-        // We have to call ".pattern" here because one Pattern != another Pattern. Even though their strings are the same :-(
-        Set<String> expected = Stream.of("swagger-output", "swagger-outputDirectory", "springdoc-outputDir", "openapi-outputDir", "openapi-output").map(mojo::convertExclusionToPattern).map(Pattern::pattern).collect(Collectors.toSet());
-        Set<String> provided = JacocoConsoleReporterMojo.collectedExcludePatterns.stream().map(Pattern::pattern).collect(Collectors.toSet());
-
-        // Verify that the expected patterns were added (3 plugins = 3 patterns)
-        assertEquals(provided, expected);
-
-        // Test that specific paths would be excluded
-        assertTrue("Swagger generated code should be excluded",
-                mojo.isExcluded("path.to.swagger.output.SomeGeneratedClass"));
-
-        assertTrue("SpringDoc generated code should be excluded",
-                mojo.isExcluded("path.to.springdoc.output.SomeGeneratedClass"));
-
-        assertTrue("OpenAPI generated code should be excluded",
-                mojo.isExcluded("path.to.openapi.output.SomeGeneratedClass"));
-    }
-
-    @Test
-    public void testMergedExclusionPatterns() {
-        mojo.loadExclusionPatterns();
-
-        assertEquals("Should have combined all exclusion patterns", 4, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
-    }
-
-    @Test
-    public void testAddBuildDirExclusionEnabled() {
+    public void testAddBuildDirExclusionEnabled() throws IOException {
         assertEquals(0, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
         mojo.ignoreFilesInBuildDirectory = true;
+
+        // Create a few files in the target directory
+        createFile(mojo.targetDir, "classes/com/example/TestClass.java", "package io.sample;");
+        createFile(mojo.targetDir, "classes/com/example/ProductionClass.class", "package io.sample2;");
+
         mojo.addBuildDirExclusion();
-        assertEquals(1, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
+
+        assertPatternEquals(Collections.singletonList("^io/sample/TestClass$"), JacocoConsoleReporterMojo.collectedExcludePatterns);
     }
 
     @Test

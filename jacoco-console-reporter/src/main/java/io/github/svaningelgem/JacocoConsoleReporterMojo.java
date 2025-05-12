@@ -167,7 +167,6 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     void loadExclusionPatterns() {
         addBuildDirExclusion();
         addJacocoExclusions();
-        addSwaggerExclusions();
     }
 
     /**
@@ -222,29 +221,6 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         doSomethingForEachPluginConfiguration(JACOCO_GROUP_ID, JACOCO_ARTIFACT_ID, "excludes.exclude", excludePattern -> {
             addExclusion(excludePattern);
             getLog().debug("Excluded pattern: " + excludePattern);
-        });
-    }
-
-    /**
-     * Adds exclusion patterns for Swagger-generated files if present in the project
-     */
-    void addSwaggerExclusions() {
-        // Check for Swagger code generation plugins and extract their configuration
-        doSomethingForEachPluginConfiguration("io.swagger", "swagger-codegen-maven-plugin", Arrays.asList("output", "outputDirectory"), swaggerPattern -> {
-            addExclusion(swaggerPattern);
-            getLog().debug("Added Swagger exclusion pattern from outputDirectory: " + swaggerPattern);
-        });
-
-        // Check for SpringDoc OpenAPI generation
-        doSomethingForEachPluginConfiguration("org.springdoc", "springdoc-openapi-maven-plugin", "outputDir", swaggerPattern -> {
-            addExclusion(swaggerPattern);
-            getLog().debug("Added SpringDoc OpenAPI exclusion pattern from outputDir: " + swaggerPattern);
-        });
-
-        // OpenAPI Generator plugin
-        doSomethingForEachPluginConfiguration("org.openapitools", "openapi-generator-maven-plugin", Arrays.asList("outputDir", "output"), swaggerPattern -> {
-            addExclusion(swaggerPattern);
-            getLog().debug("Added OpenAPI Generator exclusion pattern from outputDir: " + swaggerPattern);
         });
     }
 

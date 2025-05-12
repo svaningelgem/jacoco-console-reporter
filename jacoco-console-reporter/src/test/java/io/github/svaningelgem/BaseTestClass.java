@@ -21,16 +21,14 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.doReturn;
 
 public class BaseTestClass {
@@ -325,8 +323,7 @@ public class BaseTestClass {
         if (configuration != null) {
             if ("configuration".equals(configuration.getName())) {
                 plugin.setConfiguration(configuration);
-            }
-            else {
+            } else {
                 Xpp3Dom configurationNode = new Xpp3Dom("configuration");
                 configurationNode.addChild(configuration);
                 plugin.setConfiguration(configurationNode);
@@ -370,5 +367,52 @@ public class BaseTestClass {
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse XML: " + xml, e);
         }
+    }
+
+    protected @NotNull File createFile(File parent, String path, String content) throws IOException {
+        File file = new File(parent, path);
+        file.getParentFile().mkdirs();
+
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.write(content);
+        }
+
+        return file;
+    }
+
+    /**
+     * Asserts that two Pattern objects are equal based on pattern string
+     */
+    public static void assertPatternEquals(String expected, Pattern actual) {
+        if (expected == null || actual == null) {
+            fail("One pattern is null");
+        }
+
+        boolean patternsEqual = expected.equals(actual.pattern());
+
+        if (!patternsEqual) {
+            fail(String.format("Patterns not equal: expected='%s', actual='%s'", expected, actual.pattern()));
+        }
+    }
+
+    /**
+     * Asserts that two collections of Pattern objects are equal
+     */
+    public static void assertPatternEquals(Collection<String> expected, Collection<Pattern> actual) {
+        if (expected == null || actual == null) {
+            fail("One collection is null");
+        }
+
+        // Convert to lists and sort by pattern and flags for consistent comparison
+        List<String> expectedPatterns = new ArrayList<>(expected).stream()
+                .sorted()
+                .collect(Collectors.toList());
+
+        List<String> actualPatterns = actual.stream()
+                .map(Pattern::pattern)
+                .sorted()
+                .collect(Collectors.toList());
+
+        assertEquals(expectedPatterns, actualPatterns);
     }
 }
