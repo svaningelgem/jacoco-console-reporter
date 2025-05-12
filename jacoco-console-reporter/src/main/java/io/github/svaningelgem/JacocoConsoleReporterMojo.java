@@ -13,13 +13,12 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -27,12 +26,10 @@ import java.util.regex.Pattern;
  * This plugin provides a simple way to view coverage metrics directly in the console
  * without needing to generate HTML or XML reports.
  */
-@Mojo(
-        name = "report",
-        defaultPhase = LifecyclePhase.VERIFY,
-        threadSafe = true
-)
+@Mojo(name = "report", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class JacocoConsoleReporterMojo extends AbstractMojo {
+    private final Pattern PACKAGE_PATTERN = Pattern.compile("(?:^|\\*/)\\s*package\\s+([^;]+);", Pattern.DOTALL | Pattern.MULTILINE);
+
     /**
      * Location of the JaCoCo execution data file.
      */
@@ -182,10 +179,37 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
 
         try {
-            // Convert the target directory path to a relative path pattern
             String buildDirPath = targetDir.getCanonicalPath();
-            addExclusion(buildDirPath);
-            getLog().debug("Added build directory exclusion pattern: " + buildDirPath);
+            Files.walkFileTree(Paths.get(buildDirPath), new SimpleFileVisitor<Path>() {
+                @Override
+                public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) {
+                    String filePath = file.toString().toLowerCase(Locale.ENGLISH);
+                    if (!filePath.endsWith(".java")) {
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    String content;
+                    try {
+                        content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+                    } catch (IOException e) {
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    Matcher matcher = PACKAGE_PATTERN.matcher(content);
+                    if (!matcher.find()) {
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    String packageName = matcher.group(1).trim();
+                    String fileName = file.getFileName().toString();
+                    String className = fileName.substring(0, fileName.lastIndexOf('.')) + ".class";
+
+                    // Add to exclusion patterns
+                    addExclusion(packageName.replace(".", "/") + "/" + className);
+
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         } catch (IOException e) {
             getLog().warn("Failed to add build directory exclusion: " + e.getMessage());
         }
@@ -226,32 +250,42 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     /**
      * Converts a JaCoCo exclude pattern to a Java regex Pattern
+     * <p/>
+     * Examples:
+     * <exclude>com/baeldung/** /ExcludedPOJO.class</exclude>
+     * <exclude>com/baeldung/** /*DTO.*</exclude>
+     * <exclude>** /config/*</exclude>
      */
-    void addExclusion(@NotNull String jacocoPattern) {
+    Pattern convertExclusionToPattern(@NotNull String jacocoPattern) {
         jacocoPattern = jacocoPattern.replace("\\", "/");
 
-        // Handle the .class extension if not present
-        if (!jacocoPattern.endsWith(".class") && !jacocoPattern.endsWith("*")) {
-            jacocoPattern += jacocoPattern.endsWith("/") ? "**/*.class" : "/**/*.class";
+        // Handle the .class extension
+        if (jacocoPattern.toLowerCase(Locale.ENGLISH).endsWith(".class")) {
+            jacocoPattern = jacocoPattern.substring(0, jacocoPattern.length() - 6);
         }
 
         // Use temporary placeholders to avoid interference between replacements
         String regex = jacocoPattern
-                .replace("**/", "__DOUBLE_STAR_SLASH__")
-                .replace("**", "__DOUBLE_STAR__")
-                .replace("*", "__STAR__")
+                .replace("**/", "__DOUBLE_STAR__") // Any directory
+                .replace("**", "__DOUBLE_STAR__") // Any directory
+                .replace("*", "__STAR__") // Any character (but not a directory)
                 .replace(".", "__DOT__");
 
         // Now perform the actual replacements
         regex = regex
-                .replace("__DOUBLE_STAR_SLASH__", "(?:[^/]*/)*")
-                .replace("__DOUBLE_STAR__", ".*")
+                .replace("__DOUBLE_STAR__", "(?:[^/]*/)*")
                 .replace("__STAR__", "[^/]*")
                 .replace("__DOT__", "\\.");
 
+        regex = "^" + regex + "$";
+
         getLog().debug("Converted pattern '" + jacocoPattern + "' to regex '" + regex + "'");
 
-        Pattern pattern = Pattern.compile(regex);
+        return Pattern.compile(regex);
+    }
+
+    void addExclusion(@NotNull String jacocoPattern) {
+        Pattern pattern = convertExclusionToPattern(jacocoPattern);
         collectedExcludePatterns.add(pattern);
     }
 
@@ -263,17 +297,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             return false;
         }
 
-        // Convert class name to path format (replace dots with /)
-        String classPath = className.replace('.', '/') + ".class";
-
-        for (Pattern pattern : collectedExcludePatterns) {
-            if (pattern.matcher(classPath).matches()) {
-                getLog().debug("Excluding class: " + className);
-                return true;
-            }
-        }
-
-        return false;
+        return collectedExcludePatterns.stream().anyMatch(p -> p.matcher(className).matches());
     }
 
     void generateReport() throws MojoExecutionException {
@@ -327,48 +351,45 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull String configValue, Consumer<String> configurationConsumer) {
         final String[] parts = Arrays.stream(configValue.split("\\.")).filter(s -> !s.isEmpty()).toArray(String[]::new);
 
-        project.getBuildPlugins().stream()
-                .filter(plugin -> groupId.equals(plugin.getGroupId())
-                        && artifactId.equals(plugin.getArtifactId()))
-                .forEach(plugin -> {
-                    Xpp3Dom config = (Xpp3Dom) plugin.getConfiguration();
-                    if (config == null) {
-                        return;
-                    }
+        project.getBuildPlugins().stream().filter(plugin -> groupId.equals(plugin.getGroupId()) && artifactId.equals(plugin.getArtifactId())).forEach(plugin -> {
+            Xpp3Dom config = (Xpp3Dom) plugin.getConfiguration();
+            if (config == null) {
+                return;
+            }
 
-                    // Queue of nodes to process at the current level
-                    Queue<Xpp3Dom> currentLevelNodes = new LinkedList<>();
-                    currentLevelNodes.add(config);
+            // Queue of nodes to process at the current level
+            Queue<Xpp3Dom> currentLevelNodes = new LinkedList<>();
+            currentLevelNodes.add(config);
 
-                    // Process each part of the path
-                    for (int i = 0; i < parts.length; i++) {
-                        String part = parts[i];
-                        Queue<Xpp3Dom> nextLevelNodes = new LinkedList<>();
+            // Process each part of the path
+            for (int i = 0; i < parts.length; i++) {
+                String part = parts[i];
+                Queue<Xpp3Dom> nextLevelNodes = new LinkedList<>();
 
-                        // Process all nodes at the current level
-                        for (Xpp3Dom currentNode : currentLevelNodes) {
-                            // Get all children with matching name
-                            Xpp3Dom[] children = currentNode.getChildren(part);
-                            Collections.addAll(nextLevelNodes, children);
-                        }
+                // Process all nodes at the current level
+                for (Xpp3Dom currentNode : currentLevelNodes) {
+                    // Get all children with matching name
+                    Xpp3Dom[] children = currentNode.getChildren(part);
+                    Collections.addAll(nextLevelNodes, children);
+                }
 
-                        // If this is the last part in the path, apply consumer to all matching nodes
-                        if (i == parts.length - 1) {
-                            nextLevelNodes.forEach(node -> {
-                                String value = node.getValue().trim();
-                                if (value.isEmpty()) return;
+                // If this is the last part in the path, apply consumer to all matching nodes
+                if (i == parts.length - 1) {
+                    nextLevelNodes.forEach(node -> {
+                        String value = node.getValue().trim();
+                        if (value.isEmpty()) return;
 
-                                configurationConsumer.accept(value);
-                            });
-                        } else if (nextLevelNodes.isEmpty()) {
-                            // If no matching nodes found at this level, stop processing
-                            return;
-                        } else {
-                            // Continue with the next level
-                            currentLevelNodes = nextLevelNodes;
-                        }
-                    }
-                });
+                        configurationConsumer.accept(value);
+                    });
+                } else if (nextLevelNodes.isEmpty()) {
+                    // If no matching nodes found at this level, stop processing
+                    return;
+                } else {
+                    // Continue with the next level
+                    currentLevelNodes = nextLevelNodes;
+                }
+            }
+        });
     }
 
     /**
@@ -399,8 +420,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         // Check for the target directory with an exec file
         File targetDir = new File(dir, "target");
         if (targetDir.exists() && targetDir.isDirectory()) {
-            File[] execFiles = targetDir.listFiles((d, name) ->
-                    execPatterns.stream().anyMatch(name::equals));
+            File[] execFiles = targetDir.listFiles((d, name) -> execPatterns.stream().anyMatch(name::equals));
 
             if (execFiles != null) {
                 for (File execFile : execFiles) {
@@ -411,11 +431,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
 
         // Recursively check subdirectories but skip some common directories to avoid deep scanning
-        File[] subdirs = dir.listFiles(file ->
-                file.isDirectory() &&
-                        !file.getName().equals("target") &&
-                        !file.getName().equals("node_modules") &&
-                        !file.getName().startsWith("."));
+        File[] subdirs = dir.listFiles(file -> file.isDirectory() && !file.getName().equals("target") && !file.getName().equals("node_modules") && !file.getName().startsWith("."));
 
         if (subdirs != null) {
             for (File subdir : subdirs) {
@@ -439,12 +455,9 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         // Pass all exec files to the merger
         ExecutionDataStore executionDataStore = merger.loadExecutionData(collectedExecFilePaths);
 
-        int fileCount = (int) collectedExecFilePaths.stream()
-                .filter(file -> file != null && file.exists())
-                .count();
+        int fileCount = (int) collectedExecFilePaths.stream().filter(file -> file != null && file.exists()).count();
 
-        getLog().debug(String.format("Processed %d exec files containing data for %d unique classes",
-                fileCount, merger.getUniqueClassCount()));
+        getLog().debug(String.format("Processed %d exec files containing data for %d unique classes", fileCount, merger.getUniqueClassCount()));
 
         return executionDataStore;
     }
@@ -461,24 +474,14 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     @NotNull IBundleCoverage analyzeCoverage(@NotNull ExecutionDataStore executionDataStore) throws IOException {
         // Create a custom CoverageBuilder that filters excluded classes
-        CoverageBuilder coverageBuilder = new CoverageBuilder() {
-            @Override
-            public void visitCoverage(IClassCoverage coverage) {
-                String className = coverage.getName().replace('/', '.');
-                if (!isExcluded(className)) {
-                    super.visitCoverage(coverage);
-                } else {
-                    getLog().debug("Excluded from coverage: " + className);
-                }
-            }
-        };
-
+        CoverageBuilder coverageBuilder = new CoverageBuilder();
         Analyzer analyzer = new Analyzer(executionDataStore, coverageBuilder);
 
         for (File classPath : collectedClassesPaths) {
             if (classPath == null || !classPath.exists()) {
                 continue;
             }
+
             getLog().debug("Analyzing class files in: " + classPath.getAbsolutePath());
             Files.walkFileTree(classPath.toPath(), new SimpleFileVisitor<Path>() {
                 @Override
@@ -533,14 +536,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         combinedCoverage += total.getCoveredLines() * weightLineCoverage;
         combinedTotalCoverage += total.getTotalLines() * weightLineCoverage;
 
-        getLog().info(
-                String.format("Combined coverage: %5.2f%% (Class %d%%, Method %d%%, Branch %d%%, Line %d%%)",
-                        combinedTotalCoverage == 0 ? 100. : combinedCoverage * 100.0 / combinedTotalCoverage,
-                        (int) (weightClassCoverage * 100.0),
-                        (int) (weightMethodCoverage * 100.0),
-                        (int) (weightBranchCoverage * 100.0),
-                        (int) (weightLineCoverage * 100.0))
-        );
+        getLog().info(String.format("Combined coverage: %5.2f%% (Class %d%%, Method %d%%, Branch %d%%, Line %d%%)", combinedTotalCoverage == 0 ? 100. : combinedCoverage * 100.0 / combinedTotalCoverage, (int) (weightClassCoverage * 100.0), (int) (weightMethodCoverage * 100.0), (int) (weightBranchCoverage * 100.0), (int) (weightLineCoverage * 100.0)));
 
     }
 
@@ -558,12 +554,56 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         // Print total metrics
         getLog().info(Defaults.getInstance().divider);
         CoverageMetrics total = root.getMetrics();
-        getLog().info(String.format(Defaults.getInstance().lineFormat,
-                "all classes",
-                Defaults.getInstance().formatCoverage(total.getCoveredClasses(), total.getTotalClasses()),
-                Defaults.getInstance().formatCoverage(total.getCoveredMethods(), total.getTotalMethods()),
-                Defaults.getInstance().formatCoverage(total.getCoveredBranches(), total.getTotalBranches()),
-                Defaults.getInstance().formatCoverage(total.getCoveredLines(), total.getTotalLines())));
+        getLog().info(String.format(Defaults.getInstance().lineFormat, "all classes", Defaults.getInstance().formatCoverage(total.getCoveredClasses(), total.getTotalClasses()), Defaults.getInstance().formatCoverage(total.getCoveredMethods(), total.getTotalMethods()), Defaults.getInstance().formatCoverage(total.getCoveredBranches(), total.getTotalBranches()), Defaults.getInstance().formatCoverage(total.getCoveredLines(), total.getTotalLines())));
+    }
+
+    void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IPackageCoverage packageCoverage, @NotNull ISourceFileCoverage sourceFileCoverage) {
+        String filename = sourceFileCoverage.getName();
+        String className = filename.substring(0, filename.lastIndexOf('.'));
+
+        String p = packageCoverage.getName() + "/" + className;
+        if (isExcluded(p)) {
+            return;
+        }
+
+        String[] pathComponents = packageCoverage.getName().split("/");
+        DirectoryNode current = root;
+        for (String component : pathComponents) {
+            current = current.getSubdirectories().computeIfAbsent(component, DirectoryNode::new);
+        }
+
+        String sourceFileName = sourceFileCoverage.getName();
+        List<IClassCoverage> classesInFile = new ArrayList<>();
+        for (IClassCoverage classCoverage : packageCoverage.getClasses()) {
+            if (classCoverage.getSourceFileName().equals(sourceFileName)) {
+                classesInFile.add(classCoverage);
+            }
+        }
+
+        CoverageMetrics metrics = new CoverageMetrics();
+        metrics.setTotalClasses(classesInFile.size());
+        metrics.setCoveredClasses((int) classesInFile.stream().filter(c -> c.getMethodCounter().getCoveredCount() > 0).count());
+        metrics.setTotalMethods(classesInFile.stream().mapToInt(c -> c.getMethodCounter().getTotalCount()).sum());
+        metrics.setCoveredMethods(classesInFile.stream().mapToInt(c -> c.getMethodCounter().getCoveredCount()).sum());
+        metrics.setTotalLines(sourceFileCoverage.getLineCounter().getTotalCount());
+        metrics.setCoveredLines(sourceFileCoverage.getLineCounter().getCoveredCount());
+        metrics.setTotalBranches(sourceFileCoverage.getBranchCounter().getTotalCount());
+        metrics.setCoveredBranches(sourceFileCoverage.getBranchCounter().getCoveredCount());
+
+        current.getSourceFiles().add(new SourceFileNode(sourceFileName, metrics));
+
+    }
+
+    void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IPackageCoverage packageCoverage) {
+        for (ISourceFileCoverage sourceFileCoverage : packageCoverage.getSourceFiles()) {
+            buildDirectoryTreeAddNode(root, packageCoverage, sourceFileCoverage);
+        }
+    }
+
+    void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IBundleCoverage bundle) {
+        for (IPackageCoverage packageCoverage : bundle.getPackages()) {
+            buildDirectoryTreeAddNode(root, packageCoverage);
+        }
     }
 
     /**
@@ -575,40 +615,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     @NotNull DirectoryNode buildDirectoryTree(@NotNull IBundleCoverage bundle) {
         DirectoryNode root = new DirectoryNode("");
-        for (IPackageCoverage packageCoverage : bundle.getPackages()) {
-            String packageName = packageCoverage.getName().replace('.', '/');
-            String[] pathComponents = packageName.split("/");
-            DirectoryNode current = root;
-            for (String component : pathComponents) {
-                current = current.getSubdirectories().computeIfAbsent(component, DirectoryNode::new);
-            }
-            for (ISourceFileCoverage sourceFileCoverage : packageCoverage.getSourceFiles()) {
-                String sourceFileName = sourceFileCoverage.getName();
-                List<IClassCoverage> classesInFile = new ArrayList<>();
-                for (IClassCoverage classCoverage : packageCoverage.getClasses()) {
-                    if (classCoverage.getSourceFileName().equals(sourceFileName)) {
-                        classesInFile.add(classCoverage);
-                    }
-                }
-                CoverageMetrics metrics = new CoverageMetrics();
-                metrics.setTotalClasses(classesInFile.size());
-                metrics.setCoveredClasses((int) classesInFile.stream()
-                        .filter(c -> c.getMethodCounter().getCoveredCount() > 0)
-                        .count());
-                metrics.setTotalMethods(classesInFile.stream()
-                        .mapToInt(c -> c.getMethodCounter().getTotalCount())
-                        .sum());
-                metrics.setCoveredMethods(classesInFile.stream()
-                        .mapToInt(c -> c.getMethodCounter().getCoveredCount())
-                        .sum());
-                metrics.setTotalLines(sourceFileCoverage.getLineCounter().getTotalCount());
-                metrics.setCoveredLines(sourceFileCoverage.getLineCounter().getCoveredCount());
-                metrics.setTotalBranches(sourceFileCoverage.getBranchCounter().getTotalCount());
-                metrics.setCoveredBranches(sourceFileCoverage.getBranchCounter().getCoveredCount());
-
-                current.getSourceFiles().add(new SourceFileNode(sourceFileName, metrics));
-            }
-        }
+        buildDirectoryTreeAddNode(root, bundle);
         return root;
     }
 }

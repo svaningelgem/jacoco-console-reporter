@@ -12,6 +12,7 @@ import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -23,15 +24,20 @@ import org.junit.rules.TemporaryFolder;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.doReturn;
 
 public class BaseTestClass {
     protected final static Random RANDOM = new Random();
+
+    protected static final String TEST_GROUP = "test.group";
+    protected static final String TEST_ARTIFACT = "test.artifact";
 
     @Rule
     public final MojoRule rule = new MojoRule();
@@ -308,5 +314,61 @@ public class BaseTestClass {
                 new DefaultMavenExecutionResult(),
                 projects
         );
+    }
+
+
+    @Contract("_, _, _ -> new")
+    protected @NotNull Plugin createPlugin(@NotNull String groupId, @NotNull String artifactId, @Nullable Xpp3Dom configuration) {
+        Plugin plugin = new Plugin();
+        plugin.setGroupId(groupId);
+        plugin.setArtifactId(artifactId);
+        if (configuration != null) {
+            if ("configuration".equals(configuration.getName())) {
+                plugin.setConfiguration(configuration);
+            }
+            else {
+                Xpp3Dom configurationNode = new Xpp3Dom("configuration");
+                configurationNode.addChild(configuration);
+                plugin.setConfiguration(configurationNode);
+            }
+        }
+
+        return plugin;
+    }
+
+    protected @NotNull Plugin createPlugin(@Nullable Xpp3Dom configuration) {
+        return createPlugin(TEST_GROUP, TEST_ARTIFACT, configuration);
+    }
+
+    @Contract("_ -> new")
+    protected @NotNull Plugin createPlugin(@Nullable String xml) {
+        return createPlugin(parseXml(xml));
+    }
+
+    @Contract("_, _, _ -> new")
+    protected @NotNull Plugin createPlugin(@NotNull String groupId, @NotNull String artifactId, @Nullable String xml) {
+        return createPlugin(groupId, artifactId, parseXml(xml));
+    }
+
+
+    protected @Nullable Xpp3Dom parseXml(@Nullable String xml) {
+        if (xml == null || xml.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            // Wrap the XML content in a configuration element
+            String wrappedXml = "<configuration>" + xml + "</configuration>";
+            Xpp3Dom config = Xpp3DomBuilder.build(new StringReader(wrappedXml));
+
+            // If there is only one child element, and it's a "configuration", unwrap it
+            if (config.getChildCount() == 1 && "configuration".equals(config.getChild(0).getName())) {
+                return config.getChild(0);
+            }
+
+            return config;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse XML: " + xml, e);
+        }
     }
 }

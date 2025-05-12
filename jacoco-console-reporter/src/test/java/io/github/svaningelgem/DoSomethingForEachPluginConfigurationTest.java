@@ -24,9 +24,6 @@ import static org.mockito.Mockito.*;
 
 public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
 
-    private static final String TEST_GROUP = "test.group";
-    private static final String TEST_ARTIFACT = "test.artifact";
-
     @Mock
     private MavenProject mockProject;
 
@@ -230,35 +227,10 @@ public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
         assertTrue(values.isEmpty());  // Should find no matches
     }
 
-    @Contract("_ -> new")
-    private @NotNull Plugin createPlugin(@Nullable Xpp3Dom configuration) {
-        Plugin plugin = new Plugin();
-        plugin.setGroupId(TEST_GROUP);
-        plugin.setArtifactId(TEST_ARTIFACT);
-        if (configuration != null) {
-            Xpp3Dom configurationNode = new Xpp3Dom("configuration");
-            configurationNode.addChild(configuration);
-            plugin.setConfiguration(configurationNode);
-        }
-
+    @Override
+    protected @NotNull Plugin createPlugin(@Nullable Xpp3Dom configuration) {
+        Plugin plugin = super.createPlugin(configuration);
         doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
         return plugin;
-    }
-
-    @Contract("_ -> new")
-    private @NotNull Plugin createPlugin(@Nullable String xml) {
-        return createPlugin(parseXml(xml));
-    }
-
-    private @Nullable Xpp3Dom parseXml(@Nullable String xml) {
-        if (xml == null || xml.trim().isEmpty()) {
-            return null;
-        }
-
-        try {
-            return Xpp3DomBuilder.build(new StringReader(xml));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse XML: " + xml, e);
-        }
     }
 }
