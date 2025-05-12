@@ -110,6 +110,66 @@ public class ExclusionIntegrationTest extends BaseTestClass {
     }
 
     @Test
+    public void testAddSwaggerExclusions() throws Exception {
+        // Clear existing patterns
+        JacocoConsoleReporterMojo.collectedExcludePatterns.clear();
+
+        // Create plugins for the different Swagger/OpenAPI generators
+        // 1. Swagger Codegen Maven Plugin
+        Plugin swaggerCodegenPlugin = new Plugin();
+        swaggerCodegenPlugin.setGroupId("io.swagger");
+        swaggerCodegenPlugin.setArtifactId("swagger-codegen-maven-plugin");
+        Xpp3Dom swaggerConfig = new Xpp3Dom("configuration");
+        Xpp3Dom swaggerOutput = new Xpp3Dom("output");
+        swaggerOutput.setValue("/path/to/swagger/output");
+        swaggerConfig.addChild(swaggerOutput);
+        swaggerCodegenPlugin.setConfiguration(swaggerConfig);
+
+        // 2. SpringDoc OpenAPI Maven Plugin
+        Plugin springdocPlugin = new Plugin();
+        springdocPlugin.setGroupId("org.springdoc");
+        springdocPlugin.setArtifactId("springdoc-openapi-maven-plugin");
+        Xpp3Dom springdocConfig = new Xpp3Dom("configuration");
+        Xpp3Dom springdocOutput = new Xpp3Dom("outputDir");
+        springdocOutput.setValue("/path/to/springdoc/output");
+        springdocConfig.addChild(springdocOutput);
+        springdocPlugin.setConfiguration(springdocConfig);
+
+        // 3. OpenAPI Generator Maven Plugin
+        Plugin openapiPlugin = new Plugin();
+        openapiPlugin.setGroupId("org.openapitools");
+        openapiPlugin.setArtifactId("openapi-generator-maven-plugin");
+        Xpp3Dom openapiConfig = new Xpp3Dom("configuration");
+        Xpp3Dom openapiOutput = new Xpp3Dom("outputDir");
+        openapiOutput.setValue("/path/to/openapi/output");
+        openapiConfig.addChild(openapiOutput);
+        openapiPlugin.setConfiguration(openapiConfig);
+
+        // Add plugins to the project
+        mojo.project.getBuild().getPlugins().clear();
+        mojo.project.getBuild().addPlugin(swaggerCodegenPlugin);
+        mojo.project.getBuild().addPlugin(springdocPlugin);
+        mojo.project.getBuild().addPlugin(openapiPlugin);
+
+        // Execute the method being tested
+        mojo.addSwaggerExclusions();
+
+        // Verify that the expected patterns were added (3 plugins = 3 patterns)
+        assertEquals("Should have added 3 Swagger exclusion patterns", 3,
+                JacocoConsoleReporterMojo.collectedExcludePatterns.size());
+
+        // Test that specific paths would be excluded
+        assertTrue("Swagger generated code should be excluded",
+                mojo.isExcluded("path.to.swagger.output.SomeGeneratedClass"));
+
+        assertTrue("SpringDoc generated code should be excluded",
+                mojo.isExcluded("path.to.springdoc.output.SomeGeneratedClass"));
+
+        assertTrue("OpenAPI generated code should be excluded",
+                mojo.isExcluded("path.to.openapi.output.SomeGeneratedClass"));
+    }
+
+    @Test
     public void testMergedExclusionPatterns() throws Exception {
         mojo.loadExclusionPatterns();
 

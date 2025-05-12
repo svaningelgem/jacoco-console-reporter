@@ -1,0 +1,173 @@
+I'll implement a method to process source file exclusions by reading the package declarations from Java files. This will allow you to exclude specific classes based on their original source files rather than compiled paths.
+
+```java
+/**
+ * Process source files to extract package declarations and add exclusion patterns.
+ * This allows excluding classes based on their original source files rather than
+ * the compiled class paths.
+ *
+ * @param sourceDirectories List of source directories to scan
+ * @throws IOException if there's an error reading source files
+ */
+void processSourceFileExclusions(List<File> sourceDirectories) throws IOException {
+    Pattern packagePattern = Pattern.compile("\\s*package\\s+([^;]+);");
+    
+    for (File sourceDir : sourceDirectories) {
+        if (!sourceDir.exists() || !sourceDir.isDirectory()) {
+            getLog().debug("Skipping non-existent source directory: " + sourceDir);
+            continue;
+        }
+        
+        getLog().debug("Scanning for Java files in: " + sourceDir);
+        
+        Files.walkFileTree(sourceDir.toPath(), new SimpleFileVisitor<Path>() {
+            @Override
+            public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) {
+                String filePath = file.toString().toLowerCase(Locale.ENGLISH);
+                if (filePath.endsWith(".java")) {
+                    try {
+                        String content = Files.readString(file);
+                        Matcher matcher = packagePattern.matcher(content);
+                        
+                        if (matcher.find()) {
+                            String packageName = matcher.group(1).trim();
+                            String fileName = file.getFileName().toString();
+                            String className = fileName.substring(0, fileName.lastIndexOf('.'));
+                            
+                            // Create class identifier (package.ClassName)
+                            String classIdentifier = packageName + "." + className;
+                            
+                            // Add to exclusion patterns
+                            addExclusion(classIdentifier);
+                            getLog().debug("Added exclusion for class: " + classIdentifier);
+                        }
+                    } catch (IOException e) {
+                        getLog().warn("Error reading Java file: " + file + ": " + e.getMessage());
+                    }
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+}
+```
+
+Now let's add a way to call this method with exclusion patterns. We'll need to modify the `loadExclusionPatterns` method to include this new functionality:
+
+```java
+/**
+ * Process Java source files for exclusions based on a list of patterns.
+ * This method scans source files matching the patterns and extracts their package
+ * declarations to create class-based exclusions.
+ *
+ * @param exclusionPatterns List of patterns to match source files for exclusion
+ */
+void processSourceExclusions(List<String> exclusionPatterns) throws IOException {
+    // Get source directories from project
+    List<File> sourceDirs = new ArrayList<>();
+    sourceDirs.add(new File(project.getBuild().getSourceDirectory()));
+    
+    // Add test source directories if needed
+    sourceDirs.add(new File(project.getBuild().getTestSourceDirectory()));
+    
+    // Add any additional source directories from plugins
+    project.getCompileSourceRoots().stream()
+           .map(File::new)
+           .forEach(sourceDirs::add);
+    
+    // Create glob patterns from exclusion patterns
+    List<PathMatcher> matchers = exclusionPatterns.stream()
+            .map(pattern -> FileSystems.getDefault().getPathMatcher("glob:" + pattern))
+            .collect(Collectors.toList());
+    
+    // Process each source directory
+    for (File sourceDir : sourceDirs) {
+        if (!sourceDir.exists() || !sourceDir.isDirectory()) {
+            continue;
+        }
+        
+        getLog().debug("Processing source exclusions in: " + sourceDir);
+        
+        Files.walkFileTree(sourceDir.toPath(), new SimpleFileVisitor<Path>() {
+            @Override
+            public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) {
+                // Check if file matches any exclusion pattern
+                boolean matches = matchers.stream().anyMatch(matcher -> matcher.matches(file));
+                
+                if (matches && file.toString().toLowerCase(Locale.ENGLISH).endsWith(".java")) {
+                    try {
+                        String content = Files.readString(file);
+                        Pattern packagePattern = Pattern.compile("\\s*package\\s+([^;]+);");
+                        Matcher matcher = packagePattern.matcher(content);
+                        
+                        if (matcher.find()) {
+                            String packageName = matcher.group(1).trim();
+                            String fileName = file.getFileName().toString();
+                            String className = fileName.substring(0, fileName.lastIndexOf('.'));
+                            
+                            // Create class identifier (package.ClassName)
+                            String classIdentifier = packageName + "." + className;
+                            
+                            // Add to exclusion patterns
+                            addExclusion(classIdentifier);
+                            getLog().debug("Added source-based exclusion for class: " + classIdentifier);
+                        }
+                    } catch (IOException e) {
+                        getLog().warn("Error reading Java file: " + file + ": " + e.getMessage());
+                    }
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+}
+```
+
+You would then call this method from `loadExclusionPatterns()`:
+
+```java
+void loadExclusionPatterns() throws MojoExecutionException {
+    addBuildDirExclusion();
+    addJacocoExclusions();
+    addSwaggerExclusions();
+    
+    // Add new method to process source-based exclusions
+    try {
+        // Get source exclusion patterns from configuration
+        List<String> sourceExclusionPatterns = getSourceExclusionPatterns();
+        processSourceExclusions(sourceExclusionPatterns);
+    } catch (IOException e) {
+        throw new MojoExecutionException("Failed to process source exclusions", e);
+    }
+}
+
+/**
+ * Get source file exclusion patterns from the plugin configuration
+ */
+@NotNull List<String> getSourceExclusionPatterns() {
+    List<String> patterns = new ArrayList<>();
+    
+    // Add any configured source exclusion patterns
+    doSomethingForEachPluginConfiguration(
+        JACOCO_GROUP_ID, 
+        JACOCO_ARTIFACT_ID, 
+        "sourceExcludes.exclude", 
+        patterns::add
+    );
+    
+    return patterns;
+}
+```
+
+You would also need to add a configuration parameter for `sourceExcludes`:
+
+```java
+/**
+ * Source file exclusion patterns.
+ * These patterns are used to identify Java source files to exclude from coverage.
+ */
+@Parameter(property = "sourceExcludes")
+List<String> sourceExcludes = new ArrayList<>();
+```
+
+Would you like me to make any adjustments to this implementation?
