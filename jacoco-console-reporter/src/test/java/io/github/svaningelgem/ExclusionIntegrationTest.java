@@ -9,7 +9,6 @@ import org.junit.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
@@ -119,7 +118,8 @@ public class ExclusionIntegrationTest extends BaseTestClass {
     @Test
     public void testThrowingExceptionDuringCanonicalPath() throws IOException {
         mojo.fileReader = new FileReader() {
-            @Override public String canonicalPath(@NotNull File f) throws IOException {
+            @Override
+            public String canonicalPath(@NotNull File f) throws IOException {
                 throw new IOException("boom");
             }
         };

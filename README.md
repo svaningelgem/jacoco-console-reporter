@@ -26,6 +26,7 @@ coverage metrics (Class %, Method %, Branch %, Line %) for packages, source file
 Add the plugin to your project's pom.xml:
 
 ```xml
+
 <build>
     <plugins>
         <plugin>
@@ -130,6 +131,7 @@ This will wait with generating the report until the last module in the build.
 If your JaCoCo plugin uses a non-default location for the execution data file:
 
 ```xml
+
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
@@ -146,6 +148,7 @@ If your JaCoCo plugin uses a non-default location for the execution data file:
 You can configure which parts of the report are displayed:
 
 ```xml
+
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
@@ -167,6 +170,7 @@ You can configure which parts of the report are displayed:
 You can adjust the weights used to calculate the combined coverage score:
 
 ```xml
+
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
@@ -183,9 +187,11 @@ You can adjust the weights used to calculate the combined coverage score:
 
 ### Excluding Files from Coverage
 
-The plugin supports excluding specific files or packages from coverage reports. There are two ways to configure exclusions:
+The plugin supports excluding specific files or packages from coverage reports. There are two ways to configure
+exclusions:
 
-1. **Using JaCoCo Exclusions**: The plugin automatically respects exclusion patterns defined in your JaCoCo plugin configuration:
+1. **Using JaCoCo Exclusions**: The plugin automatically respects exclusion patterns defined in your JaCoCo plugin
+   configuration:
 
    ```xml
    <plugin>
@@ -201,7 +207,8 @@ The plugin supports excluding specific files or packages from coverage reports. 
    </plugin>
    ```
 
-2. **Automatically Exclude Build Directory Files**: By default, the plugin will ignore files in the build directory, which are typically auto-generated. You can disable this with:
+2. **Automatically Exclude Build Directory Files**: By default, the plugin will ignore files in the build directory,
+   which are typically auto-generated. You can disable this with:
 
    ```xml
    <plugin>
@@ -223,6 +230,7 @@ The exclusion pattern for JaCoCo is:
 - Patterns without the `.class` suffix will automatically match class files
 
 For example:
+
 - `com/example/model/*` - Excludes all files directly in the model package
 - `com/example/generated/**/*` - Excludes all files in generated and its subpackages
 - `**/*Controller.class` - Excludes all files ending with "Controller.class" in any package
