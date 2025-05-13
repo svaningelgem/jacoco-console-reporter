@@ -314,6 +314,11 @@ public class BaseTestClass {
     }
 
     @Contract("_, _, _ -> new")
+    protected @NotNull Plugin createPlugin(@NotNull String groupId, @NotNull String artifactId, @Nullable String xml) {
+        return createPlugin(groupId, artifactId, parseXml(xml));
+    }
+
+    @Contract("_, _, _ -> new")
     protected @NotNull Plugin createPlugin(@NotNull String groupId, @NotNull String artifactId, @Nullable Xpp3Dom configuration) {
         Plugin plugin = new Plugin();
         plugin.setGroupId(groupId);
@@ -361,7 +366,7 @@ public class BaseTestClass {
         }
     }
 
-    protected @NotNull File createFile(File parent, String path, String content) throws IOException {
+    protected void createFile(File parent, String path, String content) throws IOException {
         File file = new File(parent, path);
         file.getParentFile().mkdirs();
 
@@ -369,7 +374,6 @@ public class BaseTestClass {
             writer.write(content);
         }
 
-        return file;
     }
 
     /**

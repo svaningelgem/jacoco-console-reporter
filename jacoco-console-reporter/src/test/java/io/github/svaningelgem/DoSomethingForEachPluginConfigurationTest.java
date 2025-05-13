@@ -224,9 +224,28 @@ public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
         assertTrue(values.isEmpty());  // Should find no matches
     }
 
+    @Test
+    public void testSomeOtherPlugin() {
+        Plugin plugin = createPlugin("some.example", "plugin", "<output>output</output>");
+        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
+
+        mojo.doSomethingForEachPluginConfiguration("some.example", "plugin",
+                "output", consumer);
+
+        assertEquals(1, values.size());
+        assertEquals("output", values.get(0));  // Should find only the matching path
+    }
+
     @Override
     protected @NotNull Plugin createPlugin(@Nullable Xpp3Dom configuration) {
         Plugin plugin = super.createPlugin(configuration);
+        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
+        return plugin;
+    }
+
+    @Override
+    protected @NotNull Plugin createPlugin(@Nullable String xml) {
+        Plugin plugin = super.createPlugin(xml);
         doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
         return plugin;
     }
