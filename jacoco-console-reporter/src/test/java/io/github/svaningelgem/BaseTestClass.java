@@ -144,7 +144,7 @@ public class BaseTestClass {
 
         final int begin = line;
         assertTrue("We should have at least enough lines left to check the whole expected array", line <= log.writtenData.size() - expected.length);
-        for (; line < log.writtenData.size(); line++) {
+        for (; line < log.writtenData.size() && line - begin < expected.length; line++) {
             String expectedAsUtf8 = expected[line - begin];
             String expectedAsAscii = expectedAsUtf8.replace("│", "|").replace("├─", "+-").replace("└─", "\\-");
 
@@ -314,7 +314,6 @@ public class BaseTestClass {
         );
     }
 
-
     @Contract("_, _, _ -> new")
     protected @NotNull Plugin createPlugin(@NotNull String groupId, @NotNull String artifactId, @Nullable Xpp3Dom configuration) {
         Plugin plugin = new Plugin();
@@ -341,12 +340,6 @@ public class BaseTestClass {
     protected @NotNull Plugin createPlugin(@Nullable String xml) {
         return createPlugin(parseXml(xml));
     }
-
-    @Contract("_, _, _ -> new")
-    protected @NotNull Plugin createPlugin(@NotNull String groupId, @NotNull String artifactId, @Nullable String xml) {
-        return createPlugin(groupId, artifactId, parseXml(xml));
-    }
-
 
     protected @Nullable Xpp3Dom parseXml(@Nullable String xml) {
         if (xml == null || xml.trim().isEmpty()) {

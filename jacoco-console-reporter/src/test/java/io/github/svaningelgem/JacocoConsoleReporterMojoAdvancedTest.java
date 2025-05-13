@@ -220,15 +220,14 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     }
 
     @Test
-    public void testBuildDirectoryTreeWithEmptyBundle() throws Exception {
+    public void testBuildDirectoryTreeWithEmptyBundle() {
         // Create a mock bundle with no packages
         org.jacoco.core.analysis.IBundleCoverage mockBundle = Mockito.mock(org.jacoco.core.analysis.IBundleCoverage.class);
         when(mockBundle.getPackages()).thenReturn(Collections.emptyList());
 
         // Call the method - it should handle an empty bundle
-        Object result = mojo.buildDirectoryTree(mockBundle);
+        DirectoryNode result = mojo.buildDirectoryTree(mockBundle);
         assertNotNull(result);
-        assertTrue(result instanceof DirectoryNode);
     }
 
     @Test
