@@ -7,10 +7,12 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
+import org.apache.maven.plugin.Mojo;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -19,22 +21,20 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Method;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Random;
+import java.util.*;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 public class BaseTestClass {
     protected final static Random RANDOM = new Random();
+
+    protected static final String TEST_GROUP = "test.group";
+    protected static final String TEST_ARTIFACT = "test.artifact";
 
     @Rule
     public final MojoRule rule = new MojoRule();
@@ -54,17 +54,6 @@ public class BaseTestClass {
 
     private int fileCounter = 0;
 
-    protected Method scanDirectoryForExecFiles;
-    protected Method generateReport;
-    protected Method analyzeCoverage;
-    protected Method printTree;
-    protected Method printSummary;
-    protected Method getConfiguredExecFilePatterns;
-    protected Method shouldReport;
-    protected Method buildDirectoryTree;
-    protected Method loadExecutionData;
-    protected Method loadExecFile;
-
     protected String getBasedir() {
         return System.getProperty("basedir", new File("").getAbsolutePath());
     }
@@ -76,8 +65,24 @@ public class BaseTestClass {
 
         fileCounter = 0;
 
-        mojo = (JacocoConsoleReporterMojo) rule.lookupConfiguredMojo(pom.getParentFile(), "report");
-        // Setting the defaults
+        PlexusContainer container = rule.getContainer();
+        JacocoConsoleReporterMojo customMojo = new JacocoConsoleReporterMojo();
+
+        // Register it with the container - directly using a role hint
+        String roleHint = "io.github.svaningelgem:jacoco-console-reporter:report";
+        container.addComponent(customMojo, Mojo.class, roleHint);
+
+        mojo = (JacocoConsoleReporterMojo) container.lookup(Mojo.class, roleHint);
+
+        // Create a real project with JaCoCo plugin
+        MavenProject project = createProjectWithJacocoPlugin(null);
+        project.setFile(pom.getParentFile());
+
+        mojo.project = project;
+        mojo.mavenSession = createRealMavenSession(Collections.singletonList(project));
+
+        mojo.jacocoExecFile = new File(project.getBuild().getDirectory(), "jacoco.exec").getCanonicalFile();
+        mojo.classesDirectory = new File(project.getBuild().getOutputDirectory()).getCanonicalFile();
         mojo.deferReporting = true;
         mojo.showFiles = false;
         mojo.showTree = true;
@@ -87,52 +92,19 @@ public class BaseTestClass {
         mojo.weightMethodCoverage = 0.1;
         mojo.weightBranchCoverage = 0.4;
         mojo.weightLineCoverage = 0.4;
-
-        // Create a real project with JaCoCo plugin
-        MavenProject project = createProjectWithJacocoPlugin(null);
-        mojo.project = project;
-
-        // Create a real MavenSession with this as the only project
-        List<MavenProject> projects = new ArrayList<>();
-        projects.add(project);
-        mojo.mavenSession = createRealMavenSession(projects);
-
-        // Configure mojo
-        mojo.baseDir = temporaryFolder.getRoot();
+        mojo.ignoreFilesInBuildDirectory = true;
+        mojo.targetDir = new File(project.getBuild().getDirectory()).getCanonicalFile();
+        mojo.baseDir = project.getBasedir();
 
         log = new MyLog();
         mojo.setLog(log);
-
-        reflectOnMethods();
-    }
-
-    private void reflectOnMethods() throws NoSuchMethodException {
-        scanDirectoryForExecFiles = JacocoConsoleReporterMojo.class.getDeclaredMethod("scanDirectoryForExecFiles", File.class, List.class);
-        scanDirectoryForExecFiles.setAccessible(true);
-        generateReport = JacocoConsoleReporterMojo.class.getDeclaredMethod("generateReport");
-        generateReport.setAccessible(true);
-        printTree = JacocoConsoleReporterMojo.class.getDeclaredMethod("printTree", DirectoryNode.class);
-        printTree.setAccessible(true);
-        analyzeCoverage = JacocoConsoleReporterMojo.class.getDeclaredMethod("analyzeCoverage", org.jacoco.core.data.ExecutionDataStore.class);
-        analyzeCoverage.setAccessible(true);
-        getConfiguredExecFilePatterns = JacocoConsoleReporterMojo.class.getDeclaredMethod("getConfiguredExecFilePatterns");
-        getConfiguredExecFilePatterns.setAccessible(true);
-        shouldReport = JacocoConsoleReporterMojo.class.getDeclaredMethod("shouldReport");
-        shouldReport.setAccessible(true);
-        loadExecFile = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecFile", File.class, org.jacoco.core.data.ExecutionDataStore.class, org.jacoco.core.data.SessionInfoStore.class);
-        loadExecFile.setAccessible(true);
-        loadExecutionData = JacocoConsoleReporterMojo.class.getDeclaredMethod("loadExecutionData");
-        loadExecutionData.setAccessible(true);
-        buildDirectoryTree = JacocoConsoleReporterMojo.class.getDeclaredMethod("buildDirectoryTree", org.jacoco.core.analysis.IBundleCoverage.class);
-        buildDirectoryTree.setAccessible(true);
-        printSummary = JacocoConsoleReporterMojo.class.getDeclaredMethod("printSummary", DirectoryNode.class);
-        printSummary.setAccessible(true);
     }
 
     @After
     public void tearDown() {
         JacocoConsoleReporterMojo.collectedClassesPaths.clear();
         JacocoConsoleReporterMojo.collectedExecFilePaths.clear();
+        JacocoConsoleReporterMojo.collectedExcludePatterns.clear();
     }
 
     private static int nextInt(int bound) {
@@ -171,7 +143,7 @@ public class BaseTestClass {
 
         final int begin = line;
         assertTrue("We should have at least enough lines left to check the whole expected array", line <= log.writtenData.size() - expected.length);
-        for (; line < log.writtenData.size(); line++) {
+        for (; line < log.writtenData.size() && line - begin < expected.length; line++) {
             String expectedAsUtf8 = expected[line - begin];
             String expectedAsAscii = expectedAsUtf8.replace("│", "|").replace("├─", "+-").replace("└─", "\\-");
 
@@ -204,7 +176,7 @@ public class BaseTestClass {
      * Create the tree starting from the root, with the names
      * Returns the last created DirectoryNode
      */
-    protected void createTree(DirectoryNode root, int amountOfFiles,@Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
+    protected void createTree(DirectoryNode root, int amountOfFiles, @Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
         if (names != null) {
             for (String name : names) {
                 if (name == null) {
@@ -216,8 +188,8 @@ public class BaseTestClass {
         }
 
         // Adding debug files
-        List<String> fileNames = new ArrayList<String>();
-        for(int i = 0; i < amountOfFiles; i++) {
+        List<String> fileNames = new ArrayList<>();
+        for (int i = 0; i < amountOfFiles; i++) {
             fileNames.add("Example" + (fileCounter++) + ".java");
         }
 
@@ -226,10 +198,6 @@ public class BaseTestClass {
 
     protected void createTree(DirectoryNode root, int amountOfFiles, @Nullable String @Nullable ... names) {
         createTree(root, amountOfFiles, null, names);
-    }
-
-    protected void addFiles(DirectoryNode toNode, @Nullable String @Nullable ... names) {
-        addFiles(toNode, null, names);
     }
 
     protected void addFiles(DirectoryNode toNode, @Nullable CoverageMetrics defaultCoverage, @Nullable String @Nullable ... names) {
@@ -288,13 +256,20 @@ public class BaseTestClass {
      * Creates a real MavenProject with JaCoCo plugin configuration
      */
     @Contract("_ -> new")
-    protected @NotNull MavenProject createProjectWithJacocoPlugin(String destFile) {
+    protected @NotNull MavenProject createProjectWithJacocoPlugin(String destFile) throws IOException {
         Model model = new Model();
         model.setGroupId("test.group");
         model.setArtifactId("test-artifact");
         model.setVersion("1.0.0");
 
+        File outputDir = new File(temporaryFolder.getRoot(), "output").getAbsoluteFile();
+        if (!outputDir.exists()) {
+            outputDir.mkdirs();
+        }
+
         Build build = new Build();
+        build.setOutputDirectory(outputDir.toString());
+        build.setDirectory(temporaryFolder.getRoot().getAbsolutePath());
         model.setBuild(build);
 
         Plugin plugin = new Plugin();
@@ -302,13 +277,21 @@ public class BaseTestClass {
         plugin.setArtifactId("jacoco-maven-plugin");
         plugin.setVersion("0.8.12");
 
+        Xpp3Dom configuration = new Xpp3Dom("configuration");
         if (destFile != null) {
-            Xpp3Dom configuration = new Xpp3Dom("configuration");
             Xpp3Dom destFileNode = new Xpp3Dom("destFile");
             destFileNode.setValue(destFile);
             configuration.addChild(destFileNode);
-            plugin.setConfiguration(configuration);
         }
+
+        Xpp3Dom excludes = new Xpp3Dom("excludes");
+        configuration.addChild(excludes);
+
+        Xpp3Dom exclude = new Xpp3Dom("exclude");
+        exclude.setValue("com/example/generated");
+        excludes.addChild(exclude);
+
+        plugin.setConfiguration(configuration);
 
         build.addPlugin(plugin);
 
@@ -328,5 +311,104 @@ public class BaseTestClass {
                 new DefaultMavenExecutionResult(),
                 projects
         );
+    }
+
+    @Contract("_, _, _ -> new")
+    protected @NotNull Plugin createPlugin(@NotNull String groupId, @NotNull String artifactId, @Nullable String xml) {
+        return createPlugin(groupId, artifactId, parseXml(xml));
+    }
+
+    @Contract("_, _, _ -> new")
+    protected @NotNull Plugin createPlugin(@NotNull String groupId, @NotNull String artifactId, @Nullable Xpp3Dom configuration) {
+        Plugin plugin = new Plugin();
+        plugin.setGroupId(groupId);
+        plugin.setArtifactId(artifactId);
+        if (configuration != null) {
+            if ("configuration".equals(configuration.getName())) {
+                plugin.setConfiguration(configuration);
+            } else {
+                Xpp3Dom configurationNode = new Xpp3Dom("configuration");
+                configurationNode.addChild(configuration);
+                plugin.setConfiguration(configurationNode);
+            }
+        }
+
+        return plugin;
+    }
+
+    protected @NotNull Plugin createPlugin(@Nullable Xpp3Dom configuration) {
+        return createPlugin(TEST_GROUP, TEST_ARTIFACT, configuration);
+    }
+
+    @Contract("_ -> new")
+    protected @NotNull Plugin createPlugin(@Nullable String xml) {
+        return createPlugin(parseXml(xml));
+    }
+
+    protected @Nullable Xpp3Dom parseXml(@Nullable String xml) {
+        if (xml == null || xml.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            // Wrap the XML content in a configuration element
+            String wrappedXml = "<configuration>" + xml + "</configuration>";
+            Xpp3Dom config = Xpp3DomBuilder.build(new StringReader(wrappedXml));
+
+            // If there is only one child element, and it's a "configuration", unwrap it
+            if (config.getChildCount() == 1 && "configuration".equals(config.getChild(0).getName())) {
+                return config.getChild(0);
+            }
+
+            return config;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse XML: " + xml, e);
+        }
+    }
+
+    protected void createFile(File parent, String path, String content) throws IOException {
+        File file = new File(parent, path);
+        file.getParentFile().mkdirs();
+
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.write(content);
+        }
+
+    }
+
+    /**
+     * Asserts that two Pattern objects are equal based on pattern string
+     */
+    public static void assertPatternEquals(String expected, Pattern actual) {
+        if (expected == null || actual == null) {
+            fail("One pattern is null");
+        }
+
+        boolean patternsEqual = expected.equals(actual.pattern());
+
+        if (!patternsEqual) {
+            fail(String.format("Patterns not equal: expected='%s', actual='%s'", expected, actual.pattern()));
+        }
+    }
+
+    /**
+     * Asserts that two collections of Pattern objects are equal
+     */
+    public static void assertPatternEquals(Collection<String> expected, Collection<Pattern> actual) {
+        if (expected == null || actual == null) {
+            fail("One collection is null");
+        }
+
+        // Convert to lists and sort by pattern and flags for consistent comparison
+        List<String> expectedPatterns = new ArrayList<>(expected).stream()
+                .sorted()
+                .collect(Collectors.toList());
+
+        List<String> actualPatterns = actual.stream()
+                .map(Pattern::pattern)
+                .sorted()
+                .collect(Collectors.toList());
+
+        assertEquals(expectedPatterns, actualPatterns);
     }
 }

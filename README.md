@@ -1,8 +1,10 @@
 # JaCoCo Console Reporter Maven Plugin
 
-A custom Maven plugin that generates a textual tree-like coverage report from JaCoCo's execution data files, displaying coverage metrics (Class %, Method %, Branch %, Line %) for packages, source files, and the entire project.
+A custom Maven plugin that generates a textual tree-like coverage report from JaCoCo's execution data files, displaying
+coverage metrics (Class %, Method %, Branch %, Line %) for packages, source files, and the entire project.
 
 ## Features
+
 - Reads coverage data from `jacoco.exec` files
 - Analyzes class files from the project's build output directory
 - Outputs a hierarchical console-based report with coverage metrics
@@ -12,14 +14,19 @@ A custom Maven plugin that generates a textual tree-like coverage report from Ja
 - Automatic scanning for `jacoco.exec` files across modules
 - Support for custom JaCoCo execution file patterns
 - Combined weighted coverage score based on customizable weights
+- Exclude target directory to ignore generated files
 
 ## Prerequisites
+
 - Maven 3.x
 - JaCoCo plugin configured in your project to generate `jacoco.exec`
 
 ## Installation
+
 Add the plugin to your project's pom.xml:
+
 ```xml
+
 <build>
     <plugins>
         <plugin>
@@ -40,7 +47,9 @@ Add the plugin to your project's pom.xml:
 ```
 
 ## Usage
+
 Run the plugin after tests:
+
 ```bash
 mvn verify
 ```
@@ -49,23 +58,25 @@ Ensure the JaCoCo plugin has executed beforehand to generate jacoco.exec.
 
 ## Configuration
 
-| Parameter             | Description                                               | Default Value                            |
-|-----------------------|-----------------------------------------------------------|------------------------------------------|
-| `jacocoExecFile`      | Path to the JaCoCo execution data file                    | `${project.build.directory}/jacoco.exec` |
-| `classesDirectory`    | Directory containing compiled classes                     | `${project.build.outputDirectory}`       |
-| `deferReporting`      | Defer reporting until the end (for multi-module projects) | `true`                                   |
-| `showFiles`           | Whether to show individual source files in the report     | `false`                                  |
-| `showTree`            | Whether to show the tree structure in the report          | `true`                                   |
-| `showSummary`         | Whether to show the summary information                   | `true`                                   |
-| `scanModules`         | Automatically scan for exec files in project modules      | `false`                                  |
-| `baseDir`             | Base directory for module scanning                        | `${project.basedir}`                     |
-| `additionalExecFiles` | Additional exec files to include in the report            | `[]`                                     |
-| `weightClassCoverage` | Weight for class coverage in combined score               | `0.1`                                    |
-| `weightMethodCoverage`| Weight for method coverage in combined score              | `0.1`                                    |
-| `weightBranchCoverage`| Weight for branch coverage in combined score              | `0.4`                                    |
-| `weightLineCoverage`  | Weight for line coverage in combined score                | `0.4`                                    |
+| Parameter                     | Description                                               | Default Value                            |
+|-------------------------------|-----------------------------------------------------------|------------------------------------------|
+| `jacocoExecFile`              | Path to the JaCoCo execution data file                    | `${project.build.directory}/jacoco.exec` |
+| `classesDirectory`            | Directory containing compiled classes                     | `${project.build.outputDirectory}`       |
+| `deferReporting`              | Defer reporting until the end (for multi-module projects) | `true`                                   |
+| `showFiles`                   | Whether to show individual source files in the report     | `false`                                  |
+| `showTree`                    | Whether to show the tree structure in the report          | `true`                                   |
+| `showSummary`                 | Whether to show the summary information                   | `true`                                   |
+| `scanModules`                 | Automatically scan for exec files in project modules      | `false`                                  |
+| `baseDir`                     | Base directory for module scanning                        | `${project.basedir}`                     |
+| `additionalExecFiles`         | Additional exec files to include in the report            | `[]`                                     |
+| `weightClassCoverage`         | Weight for class coverage in combined score               | `0.1`                                    |
+| `weightMethodCoverage`        | Weight for method coverage in combined score              | `0.1`                                    |
+| `weightBranchCoverage`        | Weight for branch coverage in combined score              | `0.4`                                    |
+| `weightLineCoverage`          | Weight for line coverage in combined score                | `0.4`                                    |
+| `ignoreFilesInBuildDirectory` | Ignore autogenerated files in build directory             | `true`                                   |
 
 ## Default Output
+
 ```text
 [INFO] Overall Coverage Summary
 [INFO] Package                                    │ Class, %         │ Method, %        │ Branch, %        │ Line, %
@@ -85,6 +96,7 @@ Ensure the JaCoCo plugin has executed beforehand to generate jacoco.exec.
 ```
 
 ## Output with all options on
+
 ```text
 [INFO] Overall Coverage Summary
 [INFO] Package                                    │ Class, %         │ Method, %        │ Branch, %        │ Line, %
@@ -119,6 +131,7 @@ This will wait with generating the report until the last module in the build.
 If your JaCoCo plugin uses a non-default location for the execution data file:
 
 ```xml
+
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
@@ -135,6 +148,7 @@ If your JaCoCo plugin uses a non-default location for the execution data file:
 You can configure which parts of the report are displayed:
 
 ```xml
+
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
@@ -156,6 +170,7 @@ You can configure which parts of the report are displayed:
 You can adjust the weights used to calculate the combined coverage score:
 
 ```xml
+
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
@@ -170,6 +185,56 @@ You can adjust the weights used to calculate the combined coverage score:
 </plugin>
 ```
 
+### Excluding Files from Coverage
+
+The plugin supports excluding specific files or packages from coverage reports. There are two ways to configure
+exclusions:
+
+1. **Using JaCoCo Exclusions**: The plugin automatically respects exclusion patterns defined in your JaCoCo plugin
+   configuration:
+
+   ```xml
+   <plugin>
+       <groupId>org.jacoco</groupId>
+       <artifactId>jacoco-maven-plugin</artifactId>
+       <configuration>
+           <excludes>
+               <exclude>com/example/generated/**/*</exclude>
+               <exclude>**/*Controller.class</exclude>
+               <exclude>com/example/model/*</exclude>
+           </excludes>
+       </configuration>
+   </plugin>
+   ```
+
+2. **Automatically Exclude Build Directory Files**: By default, the plugin will ignore files in the build directory,
+   which are typically auto-generated. You can disable this with:
+
+   ```xml
+   <plugin>
+       <groupId>io.github.svaningelgem</groupId>
+       <artifactId>jacoco-console-reporter</artifactId>
+       <configuration>
+           <ignoreFilesInBuildDirectory>false</ignoreFilesInBuildDirectory>
+       </configuration>
+   </plugin>
+   ```
+
+#### Exclusion Pattern Syntax
+
+The exclusion pattern for JaCoCo is:
+
+- `*` matches any character except path separators
+- `**` matches any directory
+- File paths use `/` as separator regardless of the operating system
+- Patterns without the `.class` suffix will automatically match class files
+
+For example:
+
+- `com/example/model/*` - Excludes all files directly in the model package
+- `com/example/generated/**/*` - Excludes all files in generated and its subpackages
+- `**/*Controller.class` - Excludes all files ending with "Controller.class" in any package
+
 ## Implementation Details
 
 The plugin works by:
@@ -181,6 +246,7 @@ The plugin works by:
 5. Calculating coverage metrics (class, method, branch, line) for each node
 6. Generating a tree-like report to the console
 7. Computing a weighted combined coverage score
+8. Applying exclusion patterns to filter out specific files or packages
 
 ## Contributing
 

@@ -12,12 +12,20 @@ public class MyLog extends SystemStreamLog {
     @Override
     public void info(@NotNull CharSequence content) {
         writtenData.add("[info] " + content);
-        super.info(content);
+    }
+
+    @Override
+    public void warn(@NotNull CharSequence content) {
+        writtenData.add("[warn] " + content);
+    }
+
+    @Override
+    public void warn(@NotNull CharSequence content, Throwable e) {
+        writtenData.add("[warn] " + content);
     }
 
     @Override
     public void debug(@NotNull CharSequence content) {
         writtenData.add("[debug] " + content);
-        super.info(content);
     }
 }

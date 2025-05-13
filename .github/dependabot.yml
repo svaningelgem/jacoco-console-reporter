@@ -9,7 +9,7 @@ updates:
     ignore:
       # Ignore patch updates for Maven plugins to reduce noise
       - dependency-name: "org.apache.maven.plugins:*"
-        update-types: ["version-update:semver-patch"]
+        update-types: [ "version-update:semver-patch" ]
 
   - package-ecosystem: "github-actions"
     directory: "/"

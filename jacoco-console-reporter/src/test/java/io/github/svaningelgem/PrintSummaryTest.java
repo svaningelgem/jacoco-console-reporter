@@ -21,7 +21,7 @@ public class PrintSummaryTest extends BaseTestClass {
         mojo.weightLineCoverage = 0.4;
         mojo.weightBranchCoverage = 0.4;
 
-        CoverageMetrics metrics = new CoverageMetrics(8,7,6,5,4,3,2,1);
+        CoverageMetrics metrics = new CoverageMetrics(8, 7, 6, 5, 4, 3, 2, 1);
         root = new DirectoryNode("");
         createTree(root, 1, metrics, "com", "example", "model");
         createTree(root, 1, metrics, "com", "example", "util");
@@ -37,7 +37,7 @@ public class PrintSummaryTest extends BaseTestClass {
         mojo.weightLineCoverage = 0.25;
         mojo.weightBranchCoverage = 0.25;
 
-        printSummary.invoke(mojo, root);
+        mojo.printSummary(root);
 
         String[] expected = {
                 "[info] Overall Coverage Summary",
@@ -56,7 +56,7 @@ public class PrintSummaryTest extends BaseTestClass {
     public void testSummaryOn() throws Exception {
         mojo.showSummary = true;
 
-        printSummary.invoke(mojo, root);
+        mojo.printSummary(root);
 
         String[] expected = {
                 "[info] Overall Coverage Summary",
@@ -73,7 +73,7 @@ public class PrintSummaryTest extends BaseTestClass {
 
     @Test
     public void testSummaryOff() throws Exception {
-        printSummary.invoke(mojo, root);
+        mojo.printSummary(root);
 
         assertEquals(0, log.writtenData.size());
     }

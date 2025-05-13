@@ -1,13 +1,11 @@
 package io.github.svaningelgem;
 
-import lombok.AllArgsConstructor;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.FilenameFilter;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.util.Collections;
 
@@ -83,7 +81,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
 
         try {
             // Call the method
-            analyzeCoverage.invoke(mojo, mockStore);
+            mojo.analyzeCoverage(mockStore);
         } catch (Exception e) {
             fail("Should not throw an exception: " + e.getMessage());
         } finally {
@@ -144,120 +142,12 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         int initialSize = JacocoConsoleReporterMojo.collectedExecFilePaths.size();
 
         // Call the method on the base directory
-        scanDirectoryForExecFiles.invoke(mojo, baseDir, patterns);
+        mojo.scanDirectoryForExecFiles(baseDir, patterns);
 
         // Verify we found the exec files
         assertEquals(initialSize + 2, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
         assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile));
         assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(regularExec));
-    }
-
-    // Create a configuration that will throw an exception when processed
-    static class ExceptionThrowingConfiguration {
-        @Override
-        public String toString() {
-            throw new RuntimeException("Test exception");
-        }
-    }
-
-    @Test
-    public void testGetConfiguredExecPluginPatternsThoroughly() throws Exception {
-        org.apache.maven.model.Plugin jacocoPlugin = new org.apache.maven.model.Plugin();
-        jacocoPlugin.setVersion("0.0.7");
-        jacocoPlugin.setConfiguration(new ExceptionThrowingConfiguration()); // To ensure I NEVER get there!
-
-        mojo.project.getBuild().getPlugins().clear();
-        mojo.project.getBuild().addPlugin(jacocoPlugin);
-
-        jacocoPlugin.setGroupId("org.jacoco");
-        jacocoPlugin.setArtifactId("no-idea-what");
-        getConfiguredExecFilePatterns.invoke(mojo);
-        assertFalse(log.writtenData.contains("[debug] Error parsing JaCoCo configuration: Test exception"));
-
-        jacocoPlugin.setGroupId("some.other.group");
-        jacocoPlugin.setArtifactId("no-idea-what");
-        getConfiguredExecFilePatterns.invoke(mojo);
-        assertFalse(log.writtenData.contains("[debug] Error parsing JaCoCo configuration: Test exception"));
-
-        jacocoPlugin.setGroupId("some.other.group");
-        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
-        getConfiguredExecFilePatterns.invoke(mojo);
-        assertFalse(log.writtenData.contains("[debug] Error parsing JaCoCo configuration: Test exception"));
-
-        jacocoPlugin.setGroupId("org.jacoco");
-        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
-        getConfiguredExecFilePatterns.invoke(mojo);
-        assertTrue(log.writtenData.contains("[debug] Error parsing JaCoCo configuration: Test exception"));
-    }
-
-    @Test
-    public void testGetConfiguredExecPluginWithWrongConfig() throws Exception {
-        @AllArgsConstructor
-        class WrongFormatConfiguration {
-            public String config;
-
-            @Override
-            public String toString() {
-                return config;
-            }
-        }
-
-        org.apache.maven.model.Plugin jacocoPlugin = new org.apache.maven.model.Plugin();
-        jacocoPlugin.setGroupId("org.jacoco");
-        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
-        jacocoPlugin.setVersion("0.8.7");
-
-        mojo.project.getBuild().getPlugins().clear();
-        mojo.project.getBuild().addPlugin(jacocoPlugin);
-
-        jacocoPlugin.setConfiguration(new WrongFormatConfiguration("")); // Step 1: doesn't contain a thing
-        getConfiguredExecFilePatterns.invoke(mojo);
-
-        jacocoPlugin.setConfiguration(new WrongFormatConfiguration("</destFile>file<destFile>")); // Step 2: Wrong order
-        getConfiguredExecFilePatterns.invoke(mojo);
-    }
-
-    @Test
-    public void testGetConfiguredExecFilePatternsThoroughly() throws Exception {
-        // Create a project with JaCoCo plugin that throws exception during configuration parsing
-        org.apache.maven.model.Plugin jacocoPlugin = new org.apache.maven.model.Plugin();
-        jacocoPlugin.setGroupId("org.jacoco");
-        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
-        jacocoPlugin.setVersion("0.8.7");
-        jacocoPlugin.setConfiguration(new ExceptionThrowingConfiguration());
-
-        // Add plugin to project's build
-        mojo.project.getBuild().getPlugins().clear();
-        mojo.project.getBuild().addPlugin(jacocoPlugin);
-
-        // Call the method - it should handle the exception
-        @SuppressWarnings("unchecked")
-        java.util.List<String> patterns = (java.util.List<String>) getConfiguredExecFilePatterns.invoke(mojo);
-
-        // Should still include the default pattern
-        assertTrue(patterns.contains("jacoco.exec"));
-
-        // Now test with a valid destFile that contains a path
-        jacocoPlugin = new org.apache.maven.model.Plugin();
-        jacocoPlugin.setGroupId("org.jacoco");
-        jacocoPlugin.setArtifactId("jacoco-maven-plugin");
-        jacocoPlugin.setVersion("0.8.7");
-
-        org.codehaus.plexus.util.xml.Xpp3Dom config = new org.codehaus.plexus.util.xml.Xpp3Dom("configuration");
-        org.codehaus.plexus.util.xml.Xpp3Dom destFile = new org.codehaus.plexus.util.xml.Xpp3Dom("destFile");
-        destFile.setValue("/custom/path/custom-jacoco.exec");
-        config.addChild(destFile);
-        jacocoPlugin.setConfiguration(config);
-
-        mojo.project.getBuild().getPlugins().clear();
-        mojo.project.getBuild().addPlugin(jacocoPlugin);
-
-        @SuppressWarnings("unchecked")
-        java.util.List<String> patterns2 = (java.util.List<String>) getConfiguredExecFilePatterns.invoke(mojo);
-
-        // Should include both default and custom pattern
-        assertTrue(patterns2.contains("jacoco.exec"));
-        assertTrue(patterns2.contains("custom-jacoco.exec"));
     }
 
     @Test
@@ -273,15 +163,12 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         mockExecFile.delete();
 
         // Call the method - it shouldn't throw an IOException
-        loadExecFile.invoke(mojo, mockExecFile, executionDataStore, sessionInfoStore);
+        new ExecutionDataMerger().loadExecFile(mockExecFile, executionDataStore, sessionInfoStore);
     }
 
     @Test
     public void testExecuteWithNullAdditionalExecFiles() throws Exception {
-        // Set additionalExecFiles to null
-        Field additionalExecFilesField = JacocoConsoleReporterMojo.class.getDeclaredField("additionalExecFiles");
-        additionalExecFilesField.setAccessible(true);
-        additionalExecFilesField.set(mojo, null);
+        mojo.additionalExecFiles = null;
 
         // This should throw a NullPointerException, but the plugin should catch it
         try {
@@ -291,9 +178,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
             // Expected
             assertTrue(e instanceof NullPointerException);
         }
-
-        // Reset the field
-        additionalExecFilesField.set(mojo, new java.util.ArrayList<File>());
     }
 
     @Test
@@ -310,7 +194,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
 
         // Should handle zero weights
         mojo.showSummary = true;
-        printSummary.invoke(mojo, root);
+        mojo.printSummary(root);
 
         // Test with negative weights (invalid but should be handled)
         mojo.weightClassCoverage = -0.1;
@@ -319,7 +203,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         mojo.weightLineCoverage = -0.4;
 
         // Should handle negative weights
-        printSummary.invoke(mojo, root);
+        mojo.printSummary(root);
     }
 
     @Test
@@ -328,7 +212,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         JacocoConsoleReporterMojo.collectedExecFilePaths.add(null);
 
         // Call the method - it should handle null exec files
-        Object result = loadExecutionData.invoke(mojo);
+        Object result = mojo.loadExecutionData();
         assertNotNull(result);
 
         // Clean up
@@ -336,15 +220,14 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     }
 
     @Test
-    public void testBuildDirectoryTreeWithEmptyBundle() throws Exception {
+    public void testBuildDirectoryTreeWithEmptyBundle() {
         // Create a mock bundle with no packages
         org.jacoco.core.analysis.IBundleCoverage mockBundle = Mockito.mock(org.jacoco.core.analysis.IBundleCoverage.class);
         when(mockBundle.getPackages()).thenReturn(Collections.emptyList());
 
         // Call the method - it should handle an empty bundle
-        Object result = buildDirectoryTree.invoke(mojo, mockBundle);
+        DirectoryNode result = mojo.buildDirectoryTree(mockBundle);
         assertNotNull(result);
-        assertTrue(result instanceof DirectoryNode);
     }
 
     @Test
@@ -369,12 +252,12 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
 
     @Test
     public void testScanDirectoryForExecFilesWithNotExistingDir() throws Exception {
-        scanDirectoryForExecFiles.invoke(mojo, new File(temporaryFolder.getRoot(), "not_here"), null);
+        mojo.scanDirectoryForExecFiles(new File(temporaryFolder.getRoot(), "not_here"), null);
     }
 
     @Test
     public void testScanDirectoryForExecFilesWithFile() throws Exception {
         File tmp = temporaryFolder.newFile("tmp");
-        scanDirectoryForExecFiles.invoke(mojo, tmp, null);
+        mojo.scanDirectoryForExecFiles(tmp, null);
     }
 }

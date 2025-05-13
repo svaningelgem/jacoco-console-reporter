@@ -1,10 +1,8 @@
 package io.github.svaningelgem;
 
-import org.apache.maven.plugin.logging.Log;
 import org.junit.Test;
 
 import java.util.Collections;
-import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -86,60 +84,30 @@ public class DirectoryNodeTest extends BaseTestClass {
     public void testPrintNodesWithEmptyList() {
         DirectoryNode root = new DirectoryNode("");
 
-        // Access the private method using reflection
-        try {
-            java.lang.reflect.Method printNodesMethod = DirectoryNode.class.getDeclaredMethod(
-                    "printNodes",
-                    Log.class,
-                    String.class,
-                    String.class,
-                    String.class,
-                    boolean.class,
-                    List.class,
-                    boolean.class
-            );
-            printNodesMethod.setAccessible(true);
+        // Call the method with an empty list - should not throw exception
+        root.printNodes(log, "", "", "", true, Collections.emptyList(), true);
 
-            // Call the method with an empty list - should not throw exception
-            printNodesMethod.invoke(root, log, "", "", "", true, Collections.emptyList(), true);
-
-            // Test passed if no exception was thrown
-            assertTrue(true);
-        } catch (Exception e) {
-            fail("Exception should not be thrown: " + e.getMessage());
-        }
+        // Test passed if no exception was thrown
     }
 
     @Test
     public void testDetermineNewPrefixCases() {
         DirectoryNode node = new DirectoryNode("test");
 
-        try {
-            java.lang.reflect.Method determineNewPrefixMethod = DirectoryNode.class.getDeclaredMethod(
-                    "determineNewPrefix",
-                    String.class,
-                    boolean.class
-            );
-            determineNewPrefixMethod.setAccessible(true);
+        // Test with corner prefix
+        String result1 = node.determineNewPrefix(Defaults.getInstance().corner, true);
+        assertEquals("Should replace corner with space and add corner",
+                Defaults.getInstance().lastDirSpace + Defaults.getInstance().corner, result1);
 
-            // Test with corner prefix
-            String result1 = (String) determineNewPrefixMethod.invoke(node, Defaults.getInstance().corner, true);
-            assertEquals("Should replace corner with space and add corner",
-                    Defaults.getInstance().lastDirSpace + Defaults.getInstance().corner, result1);
+        // Test with tee prefix
+        String result2 = node.determineNewPrefix(Defaults.getInstance().tee, false);
+        assertEquals("Should replace tee with vertical line and add tee",
+                Defaults.getInstance().verticalLine + Defaults.getInstance().tee, result2);
 
-            // Test with tee prefix
-            String result2 = (String) determineNewPrefixMethod.invoke(node, Defaults.getInstance().tee, false);
-            assertEquals("Should replace tee with vertical line and add tee",
-                    Defaults.getInstance().verticalLine + Defaults.getInstance().tee, result2);
-
-            // Test with other prefix not ending in corner or tee
-            String otherPrefix = "  ";
-            String result3 = (String) determineNewPrefixMethod.invoke(node, otherPrefix, true);
-            assertEquals("Should add corner to prefix without modification",
-                    otherPrefix + Defaults.getInstance().corner, result3);
-
-        } catch (Exception e) {
-            fail("Exception should not be thrown: " + e.getMessage());
-        }
+        // Test with other prefix not ending in corner or tee
+        String otherPrefix = "  ";
+        String result3 = node.determineNewPrefix(otherPrefix, true);
+        assertEquals("Should add corner to prefix without modification",
+                otherPrefix + Defaults.getInstance().corner, result3);
     }
 }
