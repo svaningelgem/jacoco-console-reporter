@@ -137,6 +137,8 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     static final Set<File> collectedClassesPaths = new HashSet<>();
     static final Set<Pattern> collectedExcludePatterns = new HashSet<>();
 
+    FileReader fileReader = new FileReader();
+
     public void execute() throws MojoExecutionException {
         additionalExecFiles.stream().map(File::getAbsoluteFile).forEach(collectedExecFilePaths::add);
         collectedExecFilePaths.add(jacocoExecFile.getAbsoluteFile());
@@ -178,7 +180,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
 
         try {
-            String buildDirPath = targetDir.getCanonicalPath();
+            String buildDirPath = fileReader.canonicalPath(targetDir);
             Files.walkFileTree(Paths.get(buildDirPath), new SimpleFileVisitor<Path>() {
                 @Override
                 public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) {
@@ -189,7 +191,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
                     String content;
                     try {
-                        content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+                        content = fileReader.readAllBytes(file);
                     } catch (IOException e) {
                         getLog().warn("Failed to read file: " + file, e);
                         return FileVisitResult.CONTINUE;

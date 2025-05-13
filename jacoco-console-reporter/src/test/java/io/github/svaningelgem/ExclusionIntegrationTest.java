@@ -2,11 +2,15 @@ package io.github.svaningelgem;
 
 import org.apache.maven.model.Plugin;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.jetbrains.annotations.NotNull;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -110,6 +114,36 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         mojo.addBuildDirExclusion();
 
         assertPatternEquals(Collections.singletonList("^io/sample/TestClass$"), JacocoConsoleReporterMojo.collectedExcludePatterns);
+    }
+
+    @Test
+    public void testThrowingExceptionDuringCanonicalPath() throws IOException {
+        mojo.fileReader = new FileReader() {
+            @Override public String canonicalPath(@NotNull File f) throws IOException {
+                throw new IOException("boom");
+            }
+        };
+
+        mojo.addBuildDirExclusion();
+
+        String[] expected = {"[warn] Failed to add build directory exclusion: boom"};
+        assertLogContains(expected);
+    }
+
+    @Test
+    public void testThrowingExceptionDuringReadingFile() throws IOException {
+        mojo.fileReader = new FileReader() {
+            @Override
+            public String readAllBytes(Path path, Charset cs) throws IOException {
+                throw new IOException("boom");
+            }
+        };
+
+        createFile(mojo.targetDir, "classes/com/example/TestClass.java", "package io.sample;");
+        mojo.addBuildDirExclusion();
+
+        String[] expected = {"[warn] Failed to read file: "};
+        assertLogContains(expected);
     }
 
     @Test
