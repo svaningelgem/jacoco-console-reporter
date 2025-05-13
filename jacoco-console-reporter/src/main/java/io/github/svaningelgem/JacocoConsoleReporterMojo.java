@@ -328,7 +328,11 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull String configValue, Consumer<String> configurationConsumer) {
         final String[] parts = Arrays.stream(configValue.split("\\.")).filter(s -> !s.isEmpty()).toArray(String[]::new);
 
-        project.getBuildPlugins().stream().filter(plugin -> groupId.equals(plugin.getGroupId()) && artifactId.equals(plugin.getArtifactId())).forEach(plugin -> {
+        project.getBuildPlugins().stream().filter(plugin -> {
+            boolean groupEquals = groupId.equals(plugin.getGroupId());
+            boolean artifactEquals = artifactId.equals(plugin.getArtifactId());
+            return groupEquals && artifactEquals;
+        }).forEach(plugin -> {
             Xpp3Dom config = (Xpp3Dom) plugin.getConfiguration();
             if (config == null) {
                 return;

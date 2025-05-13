@@ -226,14 +226,20 @@ public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
 
     @Test
     public void testSomeOtherPlugin() {
-        Plugin plugin = createPlugin("some.example", "plugin", "<output>output</output>");
-        doReturn(Collections.singletonList(plugin)).when(mockProject).getBuildPlugins();
+        final String OTHER_GROUP = "org.example";
+        final String OTHER_ARTIFACT = "plugin";
 
-        mojo.doSomethingForEachPluginConfiguration("some.example", "plugin",
-                "output", consumer);
+        Plugin plugin1 = createPlugin(TEST_GROUP, TEST_ARTIFACT, "<output>output1</output>");
+        Plugin plugin2 = createPlugin(TEST_GROUP, OTHER_ARTIFACT, "<output>output2</output>");
+        Plugin plugin3 = createPlugin(OTHER_GROUP, TEST_ARTIFACT, "<output>output3</output>");
+        Plugin plugin4 = createPlugin(OTHER_GROUP, OTHER_ARTIFACT, "<output>output4</output>");
+        Plugin plugin5 = createPlugin(OTHER_GROUP + 1, OTHER_ARTIFACT + 1, "<output>output5</output>");
+        doReturn(Arrays.asList(plugin1, plugin2, plugin3, plugin4, plugin5)).when(mockProject).getBuildPlugins();
+
+        mojo.doSomethingForEachPluginConfiguration(OTHER_GROUP, OTHER_ARTIFACT, "output", consumer);
 
         assertEquals(1, values.size());
-        assertEquals("output", values.get(0));  // Should find only the matching path
+        assertEquals("output4", values.get(0));  // Should find only the matching path
     }
 
     @Override
