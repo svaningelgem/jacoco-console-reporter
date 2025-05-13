@@ -1,5 +1,6 @@
 package io.github.svaningelgem;
 
+import org.apache.maven.plugin.logging.Log;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -26,7 +27,7 @@ interface FileSystemNode extends Comparable<FileSystemNode> {
      * @param packagePath Current package path
      * @param showFiles   Whether to show files
      */
-    default void printTree(@NotNull org.apache.maven.plugin.logging.Log log, String prefix,
+    default void printTree(@NotNull Log log, String prefix,
                            String format, String packagePath, boolean showFiles) {
         CoverageMetrics metrics = getMetrics();
 
