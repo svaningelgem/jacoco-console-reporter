@@ -25,7 +25,11 @@ import java.util.regex.Pattern;
  * This plugin provides a simple way to view coverage metrics directly in the console
  * without needing to generate HTML or XML reports.
  */
-@Mojo(name = "report", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
+@Mojo(
+        name = "report",
+        defaultPhase = LifecyclePhase.VERIFY,
+        threadSafe = true
+)
 public class JacocoConsoleReporterMojo extends AbstractMojo {
     private final Pattern PACKAGE_PATTERN = Pattern.compile("(?:^|\\*/)\\s*package\\s+([^;]+);", Pattern.DOTALL | Pattern.MULTILINE);
 

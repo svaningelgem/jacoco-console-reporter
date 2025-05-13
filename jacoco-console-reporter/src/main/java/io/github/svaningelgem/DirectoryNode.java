@@ -2,6 +2,7 @@ package io.github.svaningelgem;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.apache.maven.plugin.logging.Log;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -43,8 +44,8 @@ public class DirectoryNode implements FileSystemNode {
         return !sourceFiles.isEmpty() || subdirectories.values().stream().anyMatch(DirectoryNode::shouldInclude);
     }
 
-    <T extends FileSystemNode> void printNodes(org.apache.maven.plugin.logging.Log log, String prefix,
-                                               String format, String packagePath, boolean showFiles, @NotNull List<T> nodes, boolean extraCheck) {
+    <T extends FileSystemNode> void printNodes(Log log, String prefix,
+                                                       String format, String packagePath, boolean showFiles, @NotNull List<T> nodes, boolean extraCheck) {
         for (int i = 0; i < nodes.size(); i++) {
             boolean isLast = (i == nodes.size() - 1) && extraCheck;
             FileSystemNode node = nodes.get(i);
@@ -67,7 +68,7 @@ public class DirectoryNode implements FileSystemNode {
     }
 
     @Override
-    public void printTree(org.apache.maven.plugin.logging.@NotNull Log log, String prefix,
+    public void printTree(@NotNull Log log, String prefix,
                           String format, String packagePath, boolean showFiles) {
         // Skip empty directories
         if (!shouldInclude()) {
