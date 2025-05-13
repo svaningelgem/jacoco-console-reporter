@@ -29,7 +29,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.doReturn;
 
 public class BaseTestClass {
     protected final static Random RANDOM = new Random();
