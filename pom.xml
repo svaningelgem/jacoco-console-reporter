@@ -33,7 +33,7 @@
         <!-- Added properties for deployment -->
         <gpg.keyname>Steven Van Ingelgem</gpg.keyname>
         <central-publishing-maven-plugin.version>0.8.0</central-publishing-maven-plugin.version>
-        <maven-gpg-plugin.version>3.2.7</maven-gpg-plugin.version>
+        <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
         <lombok.version>1.18.38</lombok.version>
