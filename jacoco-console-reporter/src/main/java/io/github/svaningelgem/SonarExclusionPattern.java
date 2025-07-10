@@ -2,6 +2,7 @@ package io.github.svaningelgem;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.project.MavenProject;
 import org.jetbrains.annotations.NotNull;
 
@@ -13,6 +14,7 @@ import java.util.regex.Pattern;
 /**
  * Represents a Sonar exclusion pattern with its source project context
  */
+@Slf4j
 @Data
 @RequiredArgsConstructor
 public class SonarExclusionPattern {
@@ -66,6 +68,8 @@ public class SonarExclusionPattern {
             }
         } catch (Exception e) {
             // Fall back to original path if relativization fails
+            log.warn("Failed to relativize file path {} to source project {}: {}", filePath, sourceProject.getId(), e.getMessage());
+            log.debug("Stacktrace:", e);
         }
 
         return filePath;
