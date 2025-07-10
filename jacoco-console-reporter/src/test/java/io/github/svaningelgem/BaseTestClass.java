@@ -105,6 +105,7 @@ public class BaseTestClass {
         JacocoConsoleReporterMojo.collectedClassesPaths.clear();
         JacocoConsoleReporterMojo.collectedExecFilePaths.clear();
         JacocoConsoleReporterMojo.collectedExcludePatterns.clear();
+        JacocoConsoleReporterMojo.collectedSonarExcludePatterns.clear();
     }
 
     private static int nextInt(int bound) {
@@ -129,6 +130,15 @@ public class BaseTestClass {
         return cm;
     }
 
+    protected void assertLogNotContains(@NotNull String @NotNull [] expected) {
+        try {
+            assertLogContains(expected);
+        } catch (AssertionError e) {
+            return; // Good!
+        }
+
+        failLog(expected, "Expected log to NOT contain:");
+    }
     protected void assertLogContains(@NotNull String @NotNull [] expected) {
         assertTrue("Wrong test: we need SOMETHING to check!", expected.length > 0);
 
@@ -157,8 +167,12 @@ public class BaseTestClass {
     }
 
     protected void failLog(String @NotNull [] expected) {
+        failLog(expected, "Expected log to contain:");
+    }
+
+    protected void failLog(String @NotNull [] expected, String message) {
         StringBuilder builder = new StringBuilder();
-        builder.append("Expected log to contain:\n");
+        builder.append(message).append('\n');
         for (String line : expected) {
             builder.append(line).append("\n");
         }
