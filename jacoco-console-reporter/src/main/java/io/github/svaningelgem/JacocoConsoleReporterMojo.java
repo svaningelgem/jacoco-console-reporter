@@ -25,11 +25,7 @@ import java.util.regex.Pattern;
  * This plugin provides a simple way to view coverage metrics directly in the console
  * without needing to generate HTML or XML reports.
  */
-@Mojo(
-        name = "report",
-        defaultPhase = LifecyclePhase.VERIFY,
-        threadSafe = true
-)
+@Mojo(name = "report", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class JacocoConsoleReporterMojo extends AbstractMojo {
     private final Pattern PACKAGE_PATTERN = Pattern.compile("(?:^|\\*/)\\s*package\\s+([^;]+);", Pattern.DOTALL | Pattern.MULTILINE);
 
@@ -104,6 +100,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "true", property = "ignoreFilesInBuildDirectory")
     boolean ignoreFilesInBuildDirectory;
+
+    /**
+     * When true, ignore the files in the build directory. 99.9% of the time these are automatically generated files.
+     */
+    @Parameter(defaultValue = "true", property = "interpretSonarIgnorePatterns")
+    boolean interpretSonarIgnorePatterns;
 
     /**
      * Base directory for compiled output.
@@ -236,6 +238,8 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * Extracts exclusion patterns from Sonar properties
      */
     void addSonarExclusions() {
+        if (!interpretSonarIgnorePatterns) return;
+
         // Check for Sonar exclusions in project properties
         Properties projectProperties = project.getProperties();
 
@@ -287,17 +291,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
 
         // Use temporary placeholders to avoid interference between replacements
-        String regex = jacocoPattern
-                .replace("**/", "__DOUBLE_STAR__") // Any directory
+        String regex = jacocoPattern.replace("**/", "__DOUBLE_STAR__") // Any directory
                 .replace("**", "__DOUBLE_STAR__") // Any directory
                 .replace("*", "__STAR__") // Any character (but not a directory)
                 .replace(".", "__DOT__");
 
         // Now perform the actual replacements
-        regex = regex
-                .replace("__DOUBLE_STAR__", "(?:[^/]*/)*")
-                .replace("__STAR__", "[^/]*")
-                .replace("__DOT__", "\\.");
+        regex = regex.replace("__DOUBLE_STAR__", "(?:[^/]*/)*").replace("__STAR__", "[^/]*").replace("__DOT__", "\\.");
 
         regex = "^" + regex + "$";
 
@@ -615,10 +615,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         String srcTestJavaPath = "src/test/java/" + javaFilePath;
 
         // Check exclusions with both package-style and file-style paths
-        if (isExcluded(classPath) ||
-                isExcluded(classPath, javaFilePath) ||
-                isExcluded(classPath, srcMainJavaPath) ||
-                isExcluded(classPath, srcTestJavaPath)) {
+        if (isExcluded(classPath) || isExcluded(classPath, javaFilePath) || isExcluded(classPath, srcMainJavaPath) || isExcluded(classPath, srcTestJavaPath)) {
             getLog().debug("Excluded source file: " + javaFilePath);
             return;
         }
