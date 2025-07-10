@@ -93,6 +93,7 @@ public class BaseTestClass {
         mojo.weightBranchCoverage = 0.4;
         mojo.weightLineCoverage = 0.4;
         mojo.ignoreFilesInBuildDirectory = true;
+        mojo.interpretSonarIgnorePatterns = true;
         mojo.targetDir = new File(project.getBuild().getDirectory()).getCanonicalFile();
         mojo.baseDir = project.getBasedir();
 
