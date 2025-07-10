@@ -25,11 +25,7 @@ import java.util.regex.Pattern;
  * This plugin provides a simple way to view coverage metrics directly in the console
  * without needing to generate HTML or XML reports.
  */
-@Mojo(
-        name = "report",
-        defaultPhase = LifecyclePhase.VERIFY,
-        threadSafe = true
-)
+@Mojo(name = "report", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class JacocoConsoleReporterMojo extends AbstractMojo {
     private final Pattern PACKAGE_PATTERN = Pattern.compile("(?:^|\\*/)\\s*package\\s+([^;]+);", Pattern.DOTALL | Pattern.MULTILINE);
 
@@ -106,6 +102,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     boolean ignoreFilesInBuildDirectory;
 
     /**
+     * When true, ignore the files in the build directory. 99.9% of the time these are automatically generated files.
+     */
+    @Parameter(defaultValue = "true", property = "interpretSonarIgnorePatterns")
+    boolean interpretSonarIgnorePatterns;
+
+    /**
      * Base directory for compiled output.
      */
     @Parameter(defaultValue = "${project.build.directory}", property = "targetDir")
@@ -139,6 +141,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     static final Set<File> collectedExecFilePaths = new HashSet<>();
     static final Set<File> collectedClassesPaths = new HashSet<>();
     static final Set<Pattern> collectedExcludePatterns = new HashSet<>();
+    static final Set<SonarExclusionPattern> collectedSonarExcludePatterns = new HashSet<>();
 
     FileReader fileReader = new FileReader();
 
@@ -172,6 +175,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     void loadExclusionPatterns() {
         addBuildDirExclusion();
         addJacocoExclusions();
+        addSonarExclusions();
     }
 
     /**
@@ -231,6 +235,46 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     /**
+     * Extracts exclusion patterns from Sonar properties
+     */
+    void addSonarExclusions() {
+        if (!interpretSonarIgnorePatterns) return;
+
+        // Check for Sonar exclusions in project properties
+        Properties projectProperties = project.getProperties();
+
+        // Handle sonar.exclusions (file-based patterns)
+        String sonarExclusions = projectProperties.getProperty("sonar.exclusions");
+        if (sonarExclusions != null && !sonarExclusions.trim().isEmpty()) {
+            addSonarFileExclusions(sonarExclusions);
+        }
+
+        // Handle sonar.coverage.exclusions (file-based patterns)
+        String sonarCoverageExclusions = projectProperties.getProperty("sonar.coverage.exclusions");
+        if (sonarCoverageExclusions != null && !sonarCoverageExclusions.trim().isEmpty()) {
+            addSonarFileExclusions(sonarCoverageExclusions);
+        }
+    }
+
+    /**
+     * Processes Sonar file-based exclusions and stores them for later evaluation
+     */
+    void addSonarFileExclusions(@NotNull String exclusions) {
+        String[] patterns = exclusions.split(",");
+        for (String pattern : patterns) {
+            pattern = pattern.trim();
+            if (pattern.isEmpty()) {
+                continue;
+            }
+
+            // Store the original pattern with project context for later evaluation
+            SonarExclusionPattern sonarPattern = new SonarExclusionPattern(pattern, project);
+            collectedSonarExcludePatterns.add(sonarPattern);
+            getLog().debug("Added Sonar file exclusion pattern: " + pattern);
+        }
+    }
+
+    /**
      * Converts a JaCoCo exclude pattern to a Java regex Pattern
      * <p/>
      * Examples:
@@ -247,17 +291,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         }
 
         // Use temporary placeholders to avoid interference between replacements
-        String regex = jacocoPattern
-                .replace("**/", "__DOUBLE_STAR__") // Any directory
+        String regex = jacocoPattern.replace("**/", "__DOUBLE_STAR__") // Any directory
                 .replace("**", "__DOUBLE_STAR__") // Any directory
                 .replace("*", "__STAR__") // Any character (but not a directory)
                 .replace(".", "__DOT__");
 
         // Now perform the actual replacements
-        regex = regex
-                .replace("__DOUBLE_STAR__", "(?:[^/]*/)*")
-                .replace("__STAR__", "[^/]*")
-                .replace("__DOT__", "\\.");
+        regex = regex.replace("__DOUBLE_STAR__", "(?:[^/]*/)*").replace("__STAR__", "[^/]*").replace("__DOT__", "\\.");
 
         regex = "^" + regex + "$";
 
@@ -272,14 +312,34 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     /**
-     * Checks if a class should be excluded based on its name
+     * Checks if a class should be excluded based on its name and file path
      */
     boolean isExcluded(String className) {
-        if (collectedExcludePatterns.isEmpty()) {
-            return false;
+        return isExcluded(className, null);
+    }
+
+    /**
+     * Checks if a class should be excluded based on its name and optional file path
+     */
+    boolean isExcluded(String className, String filePath) {
+        // Check JaCoCo-style package exclusions
+        if (!collectedExcludePatterns.isEmpty()) {
+            if (collectedExcludePatterns.stream().anyMatch(p -> p.matcher(className).matches())) {
+                return true;
+            }
         }
 
-        return collectedExcludePatterns.stream().anyMatch(p -> p.matcher(className).matches());
+        // Check Sonar-style file exclusions if we have a file path
+        if (filePath != null && !collectedSonarExcludePatterns.isEmpty()) {
+            for (SonarExclusionPattern sonarPattern : collectedSonarExcludePatterns) {
+                if (sonarPattern.matches(filePath, project)) {
+                    getLog().debug("Excluded by Sonar pattern '" + sonarPattern.getOriginalPattern() + "': " + filePath);
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     void generateReport() throws MojoExecutionException {
@@ -546,13 +606,21 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IPackageCoverage packageCoverage, @NotNull ISourceFileCoverage sourceFileCoverage) {
         String filename = sourceFileCoverage.getName();
         String className = filename.substring(0, filename.lastIndexOf('.'));
+        String packageName = packageCoverage.getName();
+        String classPath = packageName + "/" + className;
 
-        String p = packageCoverage.getName() + "/" + className;
-        if (isExcluded(p)) {
+        // Construct potential file paths for Sonar pattern matching
+        String javaFilePath = packageName.replace("/", "/") + "/" + filename;
+        String srcMainJavaPath = "src/main/java/" + javaFilePath;
+        String srcTestJavaPath = "src/test/java/" + javaFilePath;
+
+        // Check exclusions with both package-style and file-style paths
+        if (isExcluded(classPath) || isExcluded(classPath, javaFilePath) || isExcluded(classPath, srcMainJavaPath) || isExcluded(classPath, srcTestJavaPath)) {
+            getLog().debug("Excluded source file: " + javaFilePath);
             return;
         }
 
-        String[] pathComponents = packageCoverage.getName().split("/");
+        String[] pathComponents = packageName.split("/");
         DirectoryNode current = root;
         for (String component : pathComponents) {
             current = current.getSubdirectories().computeIfAbsent(component, DirectoryNode::new);
@@ -577,7 +645,6 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         metrics.setCoveredBranches(sourceFileCoverage.getBranchCounter().getCoveredCount());
 
         current.getSourceFiles().add(new SourceFileNode(sourceFileName, metrics));
-
     }
 
     void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IPackageCoverage packageCoverage) {

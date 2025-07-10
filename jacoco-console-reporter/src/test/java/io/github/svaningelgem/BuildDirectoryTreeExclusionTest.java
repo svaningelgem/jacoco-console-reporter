@@ -71,14 +71,12 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
                 "[info] com.example        ",
                 "[info] └─IncludedClass.java"
         };
+        String[] notExpected = {
+                "[info] └─ExcludedClass.java"
+        };
 
         assertLogContains(expected);
-
-        // Verify that the excluded file is not in the log
-        for (String line : log.writtenData) {
-            assertFalse("Log should not contain ExcludedClass",
-                    line.contains("ExcludedClass") && !line.contains("Converted pattern"));
-        }
+        assertLogNotContains(notExpected);
     }
 
     /**
