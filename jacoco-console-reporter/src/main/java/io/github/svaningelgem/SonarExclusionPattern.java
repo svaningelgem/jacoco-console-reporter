@@ -14,7 +14,6 @@ import java.util.regex.Pattern;
 /**
  * Represents a Sonar exclusion pattern with its source project context
  */
-@Slf4j
 @Data
 @RequiredArgsConstructor
 public class SonarExclusionPattern {
@@ -68,8 +67,6 @@ public class SonarExclusionPattern {
             }
         } catch (Exception e) {
             // Fall back to original path if relativization fails
-            log.warn("Failed to relativize file path {} to source project {}: {}", filePath, sourceProject.getId(), e.getMessage());
-            log.debug("Stacktrace:", e);
         }
 
         return filePath;
