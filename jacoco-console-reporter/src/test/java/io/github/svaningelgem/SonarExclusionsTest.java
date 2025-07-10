@@ -5,6 +5,8 @@ import org.apache.maven.project.MavenProject;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.Collections;
 import java.util.Properties;
 
@@ -455,5 +457,276 @@ public class SonarExclusionsTest extends BaseTestClass {
                 pattern4.matches("very/deep/nested/file.java", mojo.project));
         assertTrue("Single ** should match root file",
                 pattern4.matches("file.java", mojo.project));
+    }
+
+    @Test
+    public void testRelativePathCalculationWithDifferentProjects() throws Exception {
+        // Create temporary directories for testing
+        File tempDir = Files.createTempDirectory("maven-test").toFile();
+        File sourceProjectDir = new File(tempDir, "source-project");
+        File currentProjectDir = new File(tempDir, "current-project");
+
+        sourceProjectDir.mkdirs();
+        currentProjectDir.mkdirs();
+
+        try {
+            // Create source project with base directory
+            Model sourceModel = new Model();
+            sourceModel.setGroupId("test.group");
+            sourceModel.setArtifactId("source-project");
+            sourceModel.setVersion("1.0.0");
+            MavenProject sourceProject = new MavenProject(sourceModel);
+            sourceProject.setFile(new File(sourceProjectDir, "pom.xml"));
+
+            // Create current project with base directory
+            Model currentModel = new Model();
+            currentModel.setGroupId("test.group");
+            currentModel.setArtifactId("current-project");
+            currentModel.setVersion("1.0.0");
+            MavenProject currentProject = new MavenProject(currentModel);
+            currentProject.setFile(new File(currentProjectDir, "pom.xml"));
+
+            // Create pattern from source project
+            SonarExclusionPattern pattern = new SonarExclusionPattern("src/main/java/**", sourceProject);
+
+            // Test relative path calculation
+            String relativePath = pattern.getRelativePath("com/example/Test.java", currentProject);
+
+            // The relative path should include the path from source to current project
+            assertTrue(relativePath.contains("current-project"));
+            assertTrue(relativePath.endsWith("com/example/Test.java"));
+            assertFalse(relativePath.contains("\\")); // Should use forward slashes
+
+        } finally {
+            // Cleanup
+            deleteDirectory(tempDir);
+        }
+    }
+
+    @Test
+    public void testRelativePathCalculationWithNestedProjects() throws Exception {
+        File tempDir = Files.createTempDirectory("maven-test").toFile();
+        File parentDir = new File(tempDir, "parent");
+        File sourceProjectDir = new File(parentDir, "source");
+        File currentProjectDir = new File(parentDir, "modules/current");
+
+        parentDir.mkdirs();
+        sourceProjectDir.mkdirs();
+        currentProjectDir.mkdirs();
+
+        try {
+            // Create source project
+            Model sourceModel = new Model();
+            sourceModel.setGroupId("test.group");
+            sourceModel.setArtifactId("source");
+            sourceModel.setVersion("1.0.0");
+            MavenProject sourceProject = new MavenProject(sourceModel);
+            sourceProject.setFile(new File(sourceProjectDir, "pom.xml"));
+
+            // Create current project (nested under modules)
+            Model currentModel = new Model();
+            currentModel.setGroupId("test.group");
+            currentModel.setArtifactId("current");
+            currentModel.setVersion("1.0.0");
+            MavenProject currentProject = new MavenProject(currentModel);
+            currentProject.setFile(new File(currentProjectDir, "pom.xml"));
+
+            SonarExclusionPattern pattern = new SonarExclusionPattern("src/main/java/**", sourceProject);
+
+            String relativePath = pattern.getRelativePath("com/example/Test.java", currentProject);
+
+            // Should navigate from source to current via modules
+            assertTrue(relativePath.contains("modules/current"));
+            assertTrue(relativePath.endsWith("com/example/Test.java"));
+
+        } finally {
+            deleteDirectory(tempDir);
+        }
+    }
+
+    @Test
+    public void testRelativePathCalculationWithSameProjects() {
+        Model model = new Model();
+        model.setGroupId("test.group");
+        model.setArtifactId("same-project");
+        model.setVersion("1.0.0");
+        MavenProject project = new MavenProject(model);
+
+        SonarExclusionPattern pattern = new SonarExclusionPattern("src/main/java/**", project);
+
+        // When source and current are the same project, should return original path
+        String result = pattern.getRelativePath("com/example/Test.java", project);
+
+        assertEquals("com/example/Test.java", result);
+    }
+
+    @Test
+    public void testRelativePathCalculationWithNullBaseDirs() {
+        // Create projects without setting base directories (basedir will be null)
+        Model sourceModel = new Model();
+        sourceModel.setGroupId("test.group");
+        sourceModel.setArtifactId("source");
+        MavenProject sourceProject = new MavenProject(sourceModel);
+
+        Model currentModel = new Model();
+        currentModel.setGroupId("test.group");
+        currentModel.setArtifactId("current");
+        MavenProject currentProject = new MavenProject(currentModel);
+
+        SonarExclusionPattern pattern = new SonarExclusionPattern("src/main/java/**", sourceProject);
+
+        // Should fall back to original file path when base directories are null
+        String result = pattern.getRelativePath("com/example/Test.java", currentProject);
+
+        assertEquals("com/example/Test.java", result);
+    }
+
+    @Test
+    public void testRelativePathCalculationWithSourceBaseDirNull() throws Exception {
+        File tempDir = Files.createTempDirectory("maven-test").toFile();
+        File currentProjectDir = new File(tempDir, "current");
+        currentProjectDir.mkdirs();
+
+        try {
+            // Source project without base directory
+            Model sourceModel = new Model();
+            sourceModel.setGroupId("test.group");
+            sourceModel.setArtifactId("source");
+            MavenProject sourceProject = new MavenProject(sourceModel);
+
+            // Current project with base directory
+            Model currentModel = new Model();
+            currentModel.setGroupId("test.group");
+            currentModel.setArtifactId("current");
+            MavenProject currentProject = new MavenProject(currentModel);
+            currentProject.setFile(new File(currentProjectDir, "pom.xml"));
+
+            SonarExclusionPattern pattern = new SonarExclusionPattern("src/main/java/**", sourceProject);
+
+            // Should fall back to original path when source base dir is null
+            String result = pattern.getRelativePath("com/example/Test.java", currentProject);
+
+            assertEquals("com/example/Test.java", result);
+
+        } finally {
+            deleteDirectory(tempDir);
+        }
+    }
+
+    @Test
+    public void testRelativePathCalculationWithCurrentBaseDirNull() throws Exception {
+        File tempDir = Files.createTempDirectory("maven-test").toFile();
+        File sourceProjectDir = new File(tempDir, "source");
+        sourceProjectDir.mkdirs();
+
+        try {
+            // Source project with base directory
+            Model sourceModel = new Model();
+            sourceModel.setGroupId("test.group");
+            sourceModel.setArtifactId("source");
+            MavenProject sourceProject = new MavenProject(sourceModel);
+            sourceProject.setFile(new File(sourceProjectDir, "pom.xml"));
+
+            // Current project without base directory
+            Model currentModel = new Model();
+            currentModel.setGroupId("test.group");
+            currentModel.setArtifactId("current");
+            MavenProject currentProject = new MavenProject(currentModel);
+
+            SonarExclusionPattern pattern = new SonarExclusionPattern("src/main/java/**", sourceProject);
+
+            // Should fall back to original path when current base dir is null
+            String result = pattern.getRelativePath("com/example/Test.java", currentProject);
+
+            assertEquals("com/example/Test.java", result);
+
+        } finally {
+            deleteDirectory(tempDir);
+        }
+    }
+
+    @Test
+    public void testRelativePathCalculationWithPathRelativisationException() throws Exception {
+        File tempDir = Files.createTempDirectory("maven-test").toFile();
+        File sourceProjectDir = new File(tempDir, "source");
+        File currentProjectDir = new File("/tmp/completely-different-root"); // Different filesystem root
+
+        sourceProjectDir.mkdirs();
+
+        try {
+            Model sourceModel = new Model();
+            sourceModel.setGroupId("test.group");
+            sourceModel.setArtifactId("source");
+            MavenProject sourceProject = new MavenProject(sourceModel);
+            sourceProject.setFile(new File(sourceProjectDir, "pom.xml"));
+
+            Model currentModel = new Model();
+            currentModel.setGroupId("test.group");
+            currentModel.setArtifactId("current");
+            MavenProject currentProject = new MavenProject(currentModel);
+            currentProject.setFile(new File(currentProjectDir, "pom.xml"));
+
+            SonarExclusionPattern pattern = new SonarExclusionPattern("src/main/java/**", sourceProject);
+
+            // Should fall back to original path when relativization fails
+            String result = pattern.getRelativePath("com/example/Test.java", currentProject);
+
+            assertEquals("com/example/Test.java", result);
+
+        } finally {
+            deleteDirectory(tempDir);
+        }
+    }
+
+    @Test
+    public void testRelativePathCalculationWithWindowsStylePaths() throws Exception {
+        File tempDir = Files.createTempDirectory("maven-test").toFile();
+        File sourceProjectDir = new File(tempDir, "source");
+        File currentProjectDir = new File(tempDir, "modules\\current"); // Windows-style path
+
+        sourceProjectDir.mkdirs();
+        currentProjectDir.mkdirs();
+
+        try {
+            Model sourceModel = new Model();
+            sourceModel.setGroupId("test.group");
+            sourceModel.setArtifactId("source");
+            MavenProject sourceProject = new MavenProject(sourceModel);
+            sourceProject.setFile(new File(sourceProjectDir, "pom.xml"));
+
+            Model currentModel = new Model();
+            currentModel.setGroupId("test.group");
+            currentModel.setArtifactId("current");
+            MavenProject currentProject = new MavenProject(currentModel);
+            currentProject.setFile(new File(currentProjectDir, "pom.xml"));
+
+            SonarExclusionPattern pattern = new SonarExclusionPattern("src/main/java/**", sourceProject);
+
+            String result = pattern.getRelativePath("com\\example\\Test.java", currentProject);
+
+            // Should convert backslashes to forward slashes
+            assertFalse(result.contains("\\"));
+            assertTrue(result.contains("/"));
+            assertTrue(result.endsWith("com/example/Test.java"));
+
+        } finally {
+            deleteDirectory(tempDir);
+        }
+    }
+
+    private void deleteDirectory(File directory) {
+        if (directory.exists()) {
+            File[] files = directory.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        deleteDirectory(file);
+                    } else {
+                        file.delete();
+                    }
+                }
+            }
+            directory.delete();
+        }
     }
 }
