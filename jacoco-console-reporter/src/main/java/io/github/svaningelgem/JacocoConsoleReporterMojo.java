@@ -6,16 +6,37 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.jacoco.core.analysis.*;
+import org.jacoco.core.analysis.Analyzer;
+import org.jacoco.core.analysis.CoverageBuilder;
+import org.jacoco.core.analysis.IBundleCoverage;
+import org.jacoco.core.analysis.IClassCoverage;
+import org.jacoco.core.analysis.ICounter;
+import org.jacoco.core.analysis.ILine;
+import org.jacoco.core.analysis.IPackageCoverage;
+import org.jacoco.core.analysis.ISourceFileCoverage;
 import org.jacoco.core.data.ExecutionDataStore;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.Queue;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -106,6 +127,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "true", property = "interpretSonarIgnorePatterns")
     boolean interpretSonarIgnorePatterns;
+
+    /**
+     * Option to show missing lines and branches in the report.
+     * When true, displays uncovered line ranges and branch information.
+     */
+    @Parameter(defaultValue = "false", property = "showMissingLines")
+    boolean showMissingLines;
 
     /**
      * Base directory for compiled output.
@@ -586,21 +614,41 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     }
 
-    void printTree(@NotNull DirectoryNode root) {
+    void printTree(DirectoryNode root) {
         if (!showTree) return;
+
+        String format = showMissingLines ? Defaults.getInstance().lineFormatWithMissing : Defaults.getInstance().lineFormat;
+        String divider = showMissingLines ? Defaults.getInstance().dividerWithMissing : Defaults.getInstance().divider;
 
         // Print header
         getLog().info("Overall Coverage Summary");
-        getLog().info(String.format(Defaults.getInstance().lineFormat, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
-        getLog().info(Defaults.getInstance().divider);
+        if (showMissingLines) {
+            getLog().info(String.format(format, "Package", "Class, %", "Method, %", "Branch, %", "Line, %", "Missing"));
+        } else {
+            getLog().info(String.format(format, "Package", "Class, %", "Method, %", "Branch, %", "Line, %"));
+        }
+        getLog().info(divider);
 
-        // Print the tree structure - start with an empty prefix for root
-        root.printTree(getLog(), "", Defaults.getInstance().lineFormat, "", showFiles);
+        // Print the tree structure
+        root.printTree(getLog(), "", format, "", showFiles);
 
         // Print total metrics
-        getLog().info(Defaults.getInstance().divider);
+        getLog().info(divider);
         CoverageMetrics total = root.getMetrics();
-        getLog().info(String.format(Defaults.getInstance().lineFormat, "all classes", Defaults.getInstance().formatCoverage(total.getCoveredClasses(), total.getTotalClasses()), Defaults.getInstance().formatCoverage(total.getCoveredMethods(), total.getTotalMethods()), Defaults.getInstance().formatCoverage(total.getCoveredBranches(), total.getTotalBranches()), Defaults.getInstance().formatCoverage(total.getCoveredLines(), total.getTotalLines())));
+        if (showMissingLines) {
+            getLog().info(String.format(format, "all classes",
+                    Defaults.getInstance().formatCoverage(total.getCoveredClasses(), total.getTotalClasses()),
+                    Defaults.getInstance().formatCoverage(total.getCoveredMethods(), total.getTotalMethods()),
+                    Defaults.getInstance().formatCoverage(total.getCoveredBranches(), total.getTotalBranches()),
+                    Defaults.getInstance().formatCoverage(total.getCoveredLines(), total.getTotalLines()),
+                    ""));
+        } else {
+            getLog().info(String.format(format, "all classes",
+                    Defaults.getInstance().formatCoverage(total.getCoveredClasses(), total.getTotalClasses()),
+                    Defaults.getInstance().formatCoverage(total.getCoveredMethods(), total.getTotalMethods()),
+                    Defaults.getInstance().formatCoverage(total.getCoveredBranches(), total.getTotalBranches()),
+                    Defaults.getInstance().formatCoverage(total.getCoveredLines(), total.getTotalLines())));
+        }
     }
 
     void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IPackageCoverage packageCoverage, @NotNull ISourceFileCoverage sourceFileCoverage) {
@@ -644,7 +692,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         metrics.setTotalBranches(sourceFileCoverage.getBranchCounter().getTotalCount());
         metrics.setCoveredBranches(sourceFileCoverage.getBranchCounter().getCoveredCount());
 
-        current.getSourceFiles().add(new SourceFileNode(sourceFileName, metrics));
+        String missingLines = "";
+        if (showMissingLines) {
+            missingLines = formatMissingCoverage(sourceFileCoverage);
+        }
+
+        current.getSourceFiles().add(new SourceFileNode(sourceFileName, metrics, missingLines));
     }
 
     void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IPackageCoverage packageCoverage) {
@@ -670,5 +723,91 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         DirectoryNode root = new DirectoryNode("");
         buildDirectoryTreeAddNode(root, bundle);
         return root;
+    }
+
+    private @NotNull String formatMissingCoverage(ISourceFileCoverage sourceFileCoverage) {
+        List<String> missing = new ArrayList<>();
+
+        // Get uncovered line ranges
+        List<String> uncoveredLines = getUncoveredLineRanges(sourceFileCoverage);
+        missing.addAll(uncoveredLines);
+
+        // Get uncovered branches
+        List<String> uncoveredBranches = getUncoveredBranches(sourceFileCoverage);
+        missing.addAll(uncoveredBranches);
+
+        return missing.isEmpty() ? "" : String.join(", ", missing);
+    }
+
+    private @NotNull List<String> getUncoveredLineRanges(@NotNull ISourceFileCoverage sourceFileCoverage) {
+        List<String> ranges = new ArrayList<>();
+        List<Integer> uncoveredLines = new ArrayList<>();
+
+        // Collect all uncovered lines
+        for (int line = sourceFileCoverage.getFirstLine(); line <= sourceFileCoverage.getLastLine(); line++) {
+            ILine lineInfo = sourceFileCoverage.getLine(line);
+            if (lineInfo.getStatus() == ICounter.NOT_COVERED) {
+                uncoveredLines.add(line);
+            }
+        }
+
+        // Convert to ranges
+        if (!uncoveredLines.isEmpty()) {
+            Collections.sort(uncoveredLines);
+            ranges.addAll(compressToRanges(uncoveredLines));
+        }
+
+        return ranges;
+    }
+
+    private @NotNull List<String> getUncoveredBranches(@NotNull ISourceFileCoverage sourceFileCoverage) {
+        List<String> branches = new ArrayList<>();
+
+        for (int line = sourceFileCoverage.getFirstLine(); line <= sourceFileCoverage.getLastLine(); line++) {
+            ILine lineInfo = sourceFileCoverage.getLine(line);
+            if (lineInfo.getBranchCounter().getTotalCount() > 0) {
+                int covered = lineInfo.getBranchCounter().getCoveredCount();
+                int total = lineInfo.getBranchCounter().getTotalCount();
+
+                if (covered < total) {
+                    // We can't get specific branch targets from JaCoCo's public API,
+                    // so we'll show it as "line->?"
+                    branches.add(line + "->?");
+                }
+            }
+        }
+
+        return branches;
+    }
+
+    private @NotNull List<String> compressToRanges(@NotNull List<Integer> lines) {
+        List<String> ranges = new ArrayList<>();
+
+        int start = lines.get(0);
+        int end = start;
+
+        for (int i = 1; i < lines.size(); i++) {
+            int current = lines.get(i);
+
+            if (current == end + 1) {
+                // Consecutive line, extend the range
+                end = current;
+            } else {
+                // Gap found, close current range and start new one
+                ranges.add(formatRange(start, end));
+                start = current;
+                end = current;
+            }
+        }
+
+        // Add the final range
+        ranges.add(formatRange(start, end));
+
+        return ranges;
+    }
+
+    @Contract(pure = true)
+    private @NotNull String formatRange(int start, int end) {
+        return start == end ? String.valueOf(start) : start + "-" + end;
     }
 }

@@ -11,6 +11,9 @@ public class Defaults {
     final static int PACKAGE_WIDTH = 50;
     final static int METRICS_WIDTH = 20;
 
+    final static int PACKAGE_WIDTH_WITH_MISSING = 30;
+    final static int MISSING_WIDTH = 30;
+
     private final boolean useAscii;
 
     // Define tree characters based on terminal capabilities
@@ -21,6 +24,9 @@ public class Defaults {
 
     final String lineFormat;
     final String divider;
+
+    final String lineFormatWithMissing;
+    final String dividerWithMissing;
 
     static Defaults instance = null;
 
@@ -43,6 +49,14 @@ public class Defaults {
         corner = this.useAscii ? "\\-" : "└─";
         lineFormat = "%-" + PACKAGE_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s " + verticalLine + "%-" + METRICS_WIDTH + "s";
         divider = String.format(lineFormat, "", "", "", "", "").replace(' ', '-');
+
+        lineFormatWithMissing = "%-" + PACKAGE_WIDTH_WITH_MISSING + "s " + verticalLine +
+                "%-" + METRICS_WIDTH + "s " + verticalLine +
+                "%-" + METRICS_WIDTH + "s " + verticalLine +
+                "%-" + METRICS_WIDTH + "s " + verticalLine +
+                "%-" + METRICS_WIDTH + "s " + verticalLine +
+                "%-" + MISSING_WIDTH + "s";
+        dividerWithMissing = String.format(lineFormatWithMissing, "", "", "", "", "", "").replace(' ', '-');
     }
 
     /**
@@ -73,5 +87,26 @@ public class Defaults {
         if (total <= 0) return " ***** (0/0)";
         double percentage = covered / total * 100;
         return String.format("%5.2f%% (%d/%d)", percentage, (int) covered, (int) total);
+    }
+
+    String truncateMiddleForMissing(@NotNull String input) {
+        if (input.length() <= PACKAGE_WIDTH_WITH_MISSING) {
+            return input;
+        }
+
+        int prefixLength = (PACKAGE_WIDTH_WITH_MISSING - 2) / 2;
+        int suffixLength = PACKAGE_WIDTH_WITH_MISSING - 2 - prefixLength;
+
+        return input.substring(0, prefixLength) + ".." +
+                input.substring(input.length() - suffixLength);
+    }
+
+    String truncateMissing(@NotNull String missing) {
+        if (missing.length() <= MISSING_WIDTH) {
+            return missing;
+        }
+
+        // Show the first part of missing lines
+        return missing.substring(0, MISSING_WIDTH - 3) + "...";
     }
 }
