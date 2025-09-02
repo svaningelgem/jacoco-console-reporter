@@ -25,7 +25,7 @@
         <maven.plugin.annotations.version>3.15.1</maven.plugin.annotations.version>
         <jacoco.version>0.8.13</jacoco.version>
         <maven.plugin.testing.version>3.3.0</maven.plugin.testing.version>
-        <jetbrains-annotations.version>26.0.2</jetbrains-annotations.version>
+        <jetbrains-annotations.version>26.0.2-1</jetbrains-annotations.version>
         <slf4j-simple.version>2.0.17</slf4j-simple.version>
         <maven-plugin-plugin.version>3.15.1</maven-plugin-plugin.version>
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
