@@ -207,17 +207,6 @@ public class BaseTestClass {
     }
 
     /**
-     * Create a mock ICounter with lenient stubbing
-     */
-    protected ICounter createMockCounterLenient(int total, int covered) {
-        ICounter mockCounter = mock(ICounter.class);
-        lenient().when(mockCounter.getTotalCount()).thenReturn(total);
-        lenient().when(mockCounter.getCoveredCount()).thenReturn(covered);
-        lenient().when(mockCounter.getMissedCount()).thenReturn(total - covered);
-        return mockCounter;
-    }
-
-    /**
      * Create a simple mock bundle with minimal configuration
      */
     protected IBundleCoverage createSimpleMockBundle(String name) {
@@ -643,41 +632,5 @@ public class BaseTestClass {
         try (FileWriter writer = new FileWriter(file)) {
             writer.write(content);
         }
-    }
-
-    /**
-     * Asserts that two Pattern objects are equal based on pattern string
-     */
-    public static void assertPatternEquals(String expected, Pattern actual) {
-        if (expected == null || actual == null) {
-            fail("One pattern is null");
-        }
-
-        boolean patternsEqual = expected.equals(actual.pattern());
-
-        if (!patternsEqual) {
-            fail(String.format("Patterns not equal: expected='%s', actual='%s'", expected, actual.pattern()));
-        }
-    }
-
-    /**
-     * Asserts that two collections of Pattern objects are equal
-     */
-    public static void assertPatternEquals(Collection<String> expected, Collection<Pattern> actual) {
-        if (expected == null || actual == null) {
-            fail("One collection is null");
-        }
-
-        // Convert to lists and sort by pattern and flags for consistent comparison
-        List<String> expectedPatterns = new ArrayList<>(expected).stream()
-                .sorted()
-                .collect(Collectors.toList());
-
-        List<String> actualPatterns = actual.stream()
-                .map(Pattern::pattern)
-                .sorted()
-                .collect(Collectors.toList());
-
-        assertEquals(expectedPatterns, actualPatterns);
     }
 }
