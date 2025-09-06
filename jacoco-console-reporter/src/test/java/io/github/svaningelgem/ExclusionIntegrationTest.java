@@ -130,7 +130,7 @@ public class ExclusionIntegrationTest extends BaseTestClass {
 
         mojo.addBuildDirExclusion();
 
-        var patterns = JacocoConsoleReporterMojo.collectedExcludePatterns.stream().map(Pattern::pattern).collect(Collectors.toSet());
+        Set<String> patterns = JacocoConsoleReporterMojo.collectedExcludePatterns.stream().map(Pattern::pattern).collect(Collectors.toSet());
         assertTrue(patterns.contains("^io/sample/TestClass$"));
     }
 

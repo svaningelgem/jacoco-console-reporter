@@ -560,7 +560,7 @@ public class BaseTestClass {
 
         build.addPlugin(plugin);
 
-        var project = new MavenProject(model);
+        MavenProject project = new MavenProject(model);
         File pomFile = new File(temporaryFolder.getRoot(), "pom.xml");
         pomFile.createNewFile();
         project.setFile(pomFile);
