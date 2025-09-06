@@ -6,16 +6,38 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.jacoco.core.analysis.*;
+import org.jacoco.core.analysis.Analyzer;
+import org.jacoco.core.analysis.CoverageBuilder;
+import org.jacoco.core.analysis.IBundleCoverage;
+import org.jacoco.core.analysis.IClassCoverage;
+import org.jacoco.core.analysis.IPackageCoverage;
+import org.jacoco.core.analysis.ISourceFileCoverage;
 import org.jacoco.core.data.ExecutionDataStore;
+import org.jacoco.report.IReportVisitor;
+import org.jacoco.report.MultiSourceFileLocator;
+import org.jacoco.report.xml.XMLFormatter;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.Queue;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -108,6 +130,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     boolean interpretSonarIgnorePatterns;
 
     /**
+     * Output file for the aggregated JaCoCo XML report.
+     */
+    @Parameter(defaultValue = "${project.build.directory}/jacoco.xml", property = "xmlOutputFile")
+    File xmlOutputFile;
+
+    /**
      * Base directory for compiled output.
      */
     @Parameter(defaultValue = "${project.build.directory}", property = "targetDir")
@@ -166,7 +194,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             return;
         }
 
-        generateReport();
+        generateReports();
     }
 
     /**
@@ -342,7 +370,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         return false;
     }
 
-    void generateReport() throws MojoExecutionException {
+    void generateReports() throws MojoExecutionException {
         try {
             getLog().debug("Using exclusion patterns: " + collectedExcludePatterns);
 
@@ -357,6 +385,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
             getLog().debug("Printing reports");
             printCoverageReport(root);
+            generateXmlReport(bundle);
         } catch (IOException e) {
             throw new MojoExecutionException("Failed to process JaCoCo data", e);
         }
@@ -670,5 +699,26 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         DirectoryNode root = new DirectoryNode("");
         buildDirectoryTreeAddNode(root, bundle);
         return root;
+    }
+
+    void generateXmlReport(@NotNull IBundleCoverage bundle) throws IOException {
+        if (xmlOutputFile == null) {
+            return;
+        }
+
+        getLog().info("Generating aggregated JaCoCo XML report to: " + xmlOutputFile.getAbsolutePath());
+
+        XMLFormatter xmlFormatter = new XMLFormatter();
+        try (FileOutputStream output = new FileOutputStream(xmlOutputFile)) {
+            IReportVisitor visitor = xmlFormatter.createVisitor(output);
+
+            // Visit the bundle with a MultiSourceFileLocator
+            // The XMLFormatter requires session info, but for aggregated reports we can use empty session info
+            visitor.visitInfo(Collections.emptyList(), Collections.emptyList());
+            visitor.visitBundle(bundle, new MultiSourceFileLocator(4));
+            visitor.visitEnd();
+        }
+
+        getLog().info("XML report generated successfully.");
     }
 }
