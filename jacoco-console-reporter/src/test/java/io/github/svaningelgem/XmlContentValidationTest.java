@@ -3,6 +3,7 @@ package io.github.svaningelgem;
 import org.jacoco.core.analysis.IBundleCoverage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Before;
 import org.junit.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -16,6 +17,12 @@ import java.util.Map;
 import static org.junit.Assert.*;
 
 public class XmlContentValidationTest extends BaseTestClass {
+
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+        mojo.writeXmlReport = true;
+    }
 
     @Test
     public void testGeneratedXmlContainsCorrectStructure() throws Exception {

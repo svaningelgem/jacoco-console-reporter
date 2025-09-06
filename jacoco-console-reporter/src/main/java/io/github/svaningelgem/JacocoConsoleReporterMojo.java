@@ -158,10 +158,14 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
     FileReader fileReader = new FileReader();
 
-    public void execute() throws MojoExecutionException {
+    void setupDefaultVariables() {
         targetDir = new File(project.getBuild().getDirectory());
         baseDir = project.getBasedir();
         classesDirectory = new File(project.getBuild().getOutputDirectory()).getAbsoluteFile();
+    }
+
+    public void execute() throws MojoExecutionException {
+        setupDefaultVariables();
 
         doSomethingForEachPluginConfiguration(JACOCO_GROUP_ID, JACOCO_ARTIFACT_ID, "destFile", destFile -> {
             File jacocoExecFile = new File(destFile).getAbsoluteFile();

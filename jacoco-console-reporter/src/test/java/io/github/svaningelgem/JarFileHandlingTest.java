@@ -31,11 +31,14 @@ public class JarFileHandlingTest extends BaseTestClass {
         // Copy files from test-project classes to our test directory
         copyDirectory(mainProjectClasses, testClassesDir);
 
-        // Set up the mojo for testing
-//        mojo.jacocoExecFile = testProjectJacocoExec;
-        mojo.classesDirectory = testClassesDir;
+        // Set up the mojo for testing - configure project with proper directories
+        File targetDir = temporaryFolder.newFolder("target");
+        configureProjectForTesting(targetDir, testClassesDir, testProjectJacocoExec);
+
         mojo.showSummary = false;
 
+        collectedExecFilePaths.clear();
+        collectedClassesPaths.clear();
         collectedExecFilePaths.add(testProjectJacocoExec);
         collectedClassesPaths.add(testClassesDir);
 

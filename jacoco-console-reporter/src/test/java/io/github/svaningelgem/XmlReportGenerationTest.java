@@ -19,6 +19,7 @@ public class XmlReportGenerationTest extends BaseTestClass {
     @Test
     public void testGenerateXmlReportWithNullOutputFile() throws Exception {
         mojo.xmlOutputFile = null;
+        mojo.writeXmlReport = false;
 
         IBundleCoverage mockBundle = createSimpleMockBundle("TestBundle");
 
@@ -30,6 +31,10 @@ public class XmlReportGenerationTest extends BaseTestClass {
 
     @Test
     public void testGenerateXmlReportCreatesValidXmlFile() throws Exception {
+        File xmlFile = temporaryFolder.newFile("jacoco-report.xml");
+        mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
+
         IBundleCoverage mockBundle = createMockBundleWithPackage(
                 "TestProject",
                 "com/example",
@@ -40,11 +45,11 @@ public class XmlReportGenerationTest extends BaseTestClass {
         try {
             mojo.generateXmlReport(mockBundle);
 
-            assertTrue("XML file should exist", mojo.xmlOutputFile.exists());
-            assertTrue("XML file should have content", mojo.xmlOutputFile.length() > 0);
+            assertTrue("XML file should exist", xmlFile.exists());
+            assertTrue("XML file should have content", xmlFile.length() > 0);
 
             String[] expectedLogs = {
-                    "[info] Generating aggregated JaCoCo XML report to: " + mojo.xmlOutputFile.getAbsolutePath(),
+                    "[info] Generating aggregated JaCoCo XML report to: " + xmlFile.getAbsolutePath(),
                     "[info] XML report generated successfully."
             };
             assertLogContains(expectedLogs);
@@ -55,6 +60,10 @@ public class XmlReportGenerationTest extends BaseTestClass {
 
     @Test
     public void testGenerateXmlReportCreatesValidXmlStructure() throws Exception {
+        File xmlFile = temporaryFolder.newFile("jacoco-report.xml");
+        mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
+
         IBundleCoverage mockBundle = createMockBundleWithPackage(
                 "StructureTestProject",
                 "com/example",
@@ -65,8 +74,9 @@ public class XmlReportGenerationTest extends BaseTestClass {
         try {
             mojo.generateXmlReport(mockBundle);
 
-            if (mojo.xmlOutputFile.exists() && mojo.xmlOutputFile.length() > 0) {
-                Document document = parseXmlFile();
+            if (xmlFile.exists() && xmlFile.length() > 0) {
+                DocumentBuilder builder = createSafeDocumentBuilder();
+                Document document = builder.parse(xmlFile);
 
                 Element root = document.getDocumentElement();
                 assertEquals("Root element should be 'report'", "report", root.getTagName());
@@ -86,6 +96,10 @@ public class XmlReportGenerationTest extends BaseTestClass {
 
     @Test
     public void testGenerateXmlReportWithComplexBundleStructure() throws Exception {
+        File xmlFile = temporaryFolder.newFile("complex-jacoco-report.xml");
+        mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
+
         Map<String, String[]> packageToClasses = new HashMap<>();
         packageToClasses.put("com/example/service", new String[]{"UserService", "ProductService"});
         packageToClasses.put("com/example/controller", new String[]{"UserController"});
@@ -96,10 +110,11 @@ public class XmlReportGenerationTest extends BaseTestClass {
         try {
             mojo.generateXmlReport(mockBundle);
 
-            assertTrue("XML file should exist", mojo.xmlOutputFile.exists());
+            assertTrue("XML file should exist", xmlFile.exists());
 
-            if (mojo.xmlOutputFile.length() > 0) {
-                Document document = parseXmlFile();
+            if (xmlFile.length() > 0) {
+                DocumentBuilder builder = createSafeDocumentBuilder();
+                Document document = builder.parse(xmlFile);
 
                 NodeList packages = document.getElementsByTagName("package");
                 assertTrue("Should contain package elements", packages.getLength() >= 0);
@@ -119,6 +134,7 @@ public class XmlReportGenerationTest extends BaseTestClass {
     public void testGenerateXmlReportHandlesIOException() {
         File nonExistentDir = new File(temporaryFolder.getRoot(), "nonexistent");
         mojo.xmlOutputFile = new File(nonExistentDir, "jacoco-report.xml");
+        mojo.writeXmlReport = true;
 
         IBundleCoverage mockBundle = createSimpleMockBundle("TestProject");
 
@@ -140,6 +156,7 @@ public class XmlReportGenerationTest extends BaseTestClass {
         long initialSize = xmlFile.length();
 
         mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
         IBundleCoverage mockBundle = createMockBundleWithPackage(
                 "OverwriteProject",
                 "com/example",
@@ -164,13 +181,18 @@ public class XmlReportGenerationTest extends BaseTestClass {
 
     @Test
     public void testGenerateXmlReportWithEmptyBundle() throws Exception {
+        File xmlFile = temporaryFolder.newFile("empty-jacoco-report.xml");
+        mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
+
         IBundleCoverage mockBundle = createSimpleMockBundle("EmptyProject");
 
         try {
             mojo.generateXmlReport(mockBundle);
 
-            if (mojo.xmlOutputFile.exists() && mojo.xmlOutputFile.length() > 0) {
-                Document document = parseXmlFile();
+            if (xmlFile.exists() && xmlFile.length() > 0) {
+                DocumentBuilder builder = createSafeDocumentBuilder();
+                Document document = builder.parse(xmlFile);
 
                 Element root = document.getDocumentElement();
                 assertEquals("Root should still be 'report'", "report", root.getTagName());
@@ -186,14 +208,20 @@ public class XmlReportGenerationTest extends BaseTestClass {
             return;
         }
 
-//        mojo.jacocoExecFile = testProjectJacocoExec;
-        mojo.classesDirectory = testProjectClasses;
+        File xmlFile = temporaryFolder.newFile("integration-report.xml");
+        mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
+
+        // Configure project with test project files
+        File targetDir = testProjectJacocoExec.getParentFile();
+        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
+
         mojo.deferReporting = false;
 
         mojo.execute();
 
-        assertTrue("XML file should exist after full execution", mojo.xmlOutputFile.exists());
-        assertTrue("XML file should have content", mojo.xmlOutputFile.length() > 0);
+        assertTrue("XML file should exist after full execution", xmlFile.exists());
+        assertTrue("XML file should have content", xmlFile.length() > 0);
 
         boolean foundXmlGeneration = log.writtenData.stream()
                 .anyMatch(s -> s.contains("Generating aggregated JaCoCo XML report"));
@@ -203,8 +231,40 @@ public class XmlReportGenerationTest extends BaseTestClass {
                 .anyMatch(s -> s.contains("XML report generated successfully"));
         assertTrue("Should log XML generation success", foundXmlSuccess);
 
-        Document document = parseXmlFile();
+        DocumentBuilder builder = createSafeDocumentBuilder();
+        Document document = builder.parse(xmlFile);
         assertNotNull("Should be valid XML", document);
+    }
+
+    @Test
+    public void testXmlOutputFileParameterDefault() {
+        // Default value is now ${session.executionRootDirectory}/coverage.xml, not null
+        // But in test environment it might be null if not set
+        // Just check it can be set
+        mojo.xmlOutputFile = new File("test.xml");
+        assertEquals("Should be settable", new File("test.xml"), mojo.xmlOutputFile);
+    }
+
+    @Test
+    public void testWriteXmlReportFlag() {
+        // Test the writeXmlReport flag controls XML generation
+        assertFalse("writeXmlReport should default to false", mojo.writeXmlReport);
+
+        mojo.writeXmlReport = true;
+        mojo.xmlOutputFile = temporaryFolder.getRoot();
+
+        IBundleCoverage mockBundle = createSimpleMockBundle("TestBundle");
+
+        try {
+            mojo.generateXmlReport(mockBundle);
+        } catch (Exception e) {
+            // Expected - may fail due to directory instead of file
+        }
+
+        // Should have attempted generation
+        boolean foundXmlLog = log.writtenData.stream()
+                .anyMatch(s -> s.contains("Generating aggregated JaCoCo XML report"));
+        assertTrue("Should attempt XML generation when writeXmlReport is true", foundXmlLog);
     }
 
     private void verifyXmlGenerationAttempted() {

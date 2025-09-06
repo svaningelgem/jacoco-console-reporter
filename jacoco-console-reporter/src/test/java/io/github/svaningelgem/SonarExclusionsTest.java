@@ -309,7 +309,7 @@ public class SonarExclusionsTest extends BaseTestClass {
 
         mojo.loadExclusionPatterns();
 
-        // Should work without file path (only JaCoCo-style exclusions)
+        // Should work without a file path (only JaCoCo-style exclusions)
         assertTrue("JaCoCo exclusion should work without file path", mojo.isExcluded("com/example/legacy/OldClass"));
         assertFalse("Normal classes should not be excluded", mojo.isExcluded("com/example/service/UserService"));
     }

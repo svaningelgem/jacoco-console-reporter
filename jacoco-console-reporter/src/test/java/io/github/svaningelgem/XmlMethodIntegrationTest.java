@@ -103,10 +103,6 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
 
     @Test
     public void testGenerateXmlReportWithMockedBundle() throws Exception {
-        Method generateXmlReportMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod(
-                "generateXmlReport", IBundleCoverage.class);
-        generateXmlReportMethod.setAccessible(true);
-
         IBundleCoverage mockBundle = createMockBundleWithPackage(
                 "MockedTestProject",
                 "com/example/mocked",
@@ -115,7 +111,10 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
         );
 
         try {
-            generateXmlReportMethod.invoke(mojo, mockBundle);
+            assertFalse("XML file should not exist", mojo.xmlOutputFile.exists());
+
+            mojo.writeXmlReport = true;
+            mojo.generateXmlReport(mockBundle);
 
             assertTrue("XML file should exist", mojo.xmlOutputFile.exists());
 
