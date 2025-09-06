@@ -66,7 +66,7 @@ public class SonarExclusionPattern {
                 return relativePath.resolve(filePath).toString().replace('\\', '/');
             }
         } catch (Exception e) {
-            // Fall back to original path if relativization fails
+            // Fall back to the original path if relativization fails
         }
 
         return filePath;

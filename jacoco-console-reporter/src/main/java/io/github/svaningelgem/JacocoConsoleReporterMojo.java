@@ -6,16 +6,38 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.jacoco.core.analysis.*;
+import org.jacoco.core.analysis.Analyzer;
+import org.jacoco.core.analysis.CoverageBuilder;
+import org.jacoco.core.analysis.IBundleCoverage;
+import org.jacoco.core.analysis.IClassCoverage;
+import org.jacoco.core.analysis.IPackageCoverage;
+import org.jacoco.core.analysis.ISourceFileCoverage;
 import org.jacoco.core.data.ExecutionDataStore;
+import org.jacoco.report.IReportVisitor;
+import org.jacoco.report.MultiSourceFileLocator;
+import org.jacoco.report.xml.XMLFormatter;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.Queue;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,95 +50,102 @@ import java.util.regex.Pattern;
 @Mojo(name = "report", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class JacocoConsoleReporterMojo extends AbstractMojo {
     private final Pattern PACKAGE_PATTERN = Pattern.compile("(?:^|\\*/)\\s*package\\s+([^;]+);", Pattern.DOTALL | Pattern.MULTILINE);
+    private final String PROPERTY_PREFIX = "jacoco.reporter.";
 
     /**
      * Location of the JaCoCo execution data file.
      */
-    @Parameter(defaultValue = "${project.build.directory}/jacoco.exec", property = "jacocoExecFile", required = true)
+    @Parameter(defaultValue = "${project.build.directory}/jacoco.exec", property = PROPERTY_PREFIX + "jacocoExecFile", required = true)
     File jacocoExecFile;
 
     /**
      * Directory containing the compiled Java classes.
      */
-    @Parameter(defaultValue = "${project.build.outputDirectory}", property = "classesDirectory", required = true)
+    @Parameter(defaultValue = "${project.build.outputDirectory}", property = PROPERTY_PREFIX + "classesDirectory", required = true)
     File classesDirectory;
 
     /**
      * Option to defer reporting until the end (for multi-module projects).
      * When true, the plugin will not report during module execution.
      */
-    @Parameter(defaultValue = "true", property = "deferReporting")
+    @Parameter(defaultValue = "true", property = PROPERTY_PREFIX + "deferReporting")
     boolean deferReporting;
 
     /**
      * Option to show individual files in the report.
      * When false, only packages will be displayed.
      */
-    @Parameter(defaultValue = "false", property = "showFiles")
+    @Parameter(defaultValue = "false", property = PROPERTY_PREFIX + "showFiles")
     boolean showFiles;
 
     /**
      * Option to show individual files in the report.
      * When false, only packages will be displayed.
      */
-    @Parameter(defaultValue = "true", property = "showTree")
+    @Parameter(defaultValue = "true", property = PROPERTY_PREFIX + "showTree")
     boolean showTree;
 
     /**
      * Option to show the summary in the report.
      * When false, only packages will be displayed.
      */
-    @Parameter(defaultValue = "true", property = "showSummary")
+    @Parameter(defaultValue = "true", property = PROPERTY_PREFIX + "showSummary")
     boolean showSummary;
 
     /**
      * Additional exec files to include in the report.
      * Useful for aggregating multiple module reports.
      */
-    @Parameter(property = "additionalExecFiles")
+    @Parameter(property = PROPERTY_PREFIX + "additionalExecFiles")
     List<File> additionalExecFiles = new ArrayList<>();
 
     /**
      * Option to scan for exec files in project modules.
      * When true, this will automatically discover all jacoco.exec files in the project.
      */
-    @Parameter(defaultValue = "false", property = "scanModules")
+    @Parameter(defaultValue = "false", property = PROPERTY_PREFIX + "scanModules")
     boolean scanModules;
 
-    @Parameter(defaultValue = "0.1", property = "weightClassCoverage")
+    @Parameter(defaultValue = "0.1", property = PROPERTY_PREFIX + "weightClassCoverage")
     double weightClassCoverage;
 
-    @Parameter(defaultValue = "0.1", property = "weightMethodCoverage")
+    @Parameter(defaultValue = "0.1", property = PROPERTY_PREFIX + "weightMethodCoverage")
     double weightMethodCoverage;
 
-    @Parameter(defaultValue = "0.4", property = "weightBranchCoverage")
+    @Parameter(defaultValue = "0.4", property = PROPERTY_PREFIX + "weightBranchCoverage")
     double weightBranchCoverage;
 
-    @Parameter(defaultValue = "0.4", property = "weightLineCoverage")
+    @Parameter(defaultValue = "0.4", property = PROPERTY_PREFIX + "weightLineCoverage")
     double weightLineCoverage;
 
     /**
      * When true, ignore the files in the build directory. 99.9% of the time these are automatically generated files.
      */
-    @Parameter(defaultValue = "true", property = "ignoreFilesInBuildDirectory")
+    @Parameter(defaultValue = "true", property = PROPERTY_PREFIX + "ignoreFilesInBuildDirectory")
     boolean ignoreFilesInBuildDirectory;
 
     /**
      * When true, ignore the files in the build directory. 99.9% of the time these are automatically generated files.
      */
-    @Parameter(defaultValue = "true", property = "interpretSonarIgnorePatterns")
+    @Parameter(defaultValue = "true", property = PROPERTY_PREFIX + "interpretSonarIgnorePatterns")
     boolean interpretSonarIgnorePatterns;
+
+    /**
+     * Output file for the aggregated JaCoCo XML report.
+     */
+    @Parameter(defaultValue = "${session.executionRootDirectory}/coverage.xml", property = PROPERTY_PREFIX + "xmlOutputFile")
+    File xmlOutputFile;
 
     /**
      * Base directory for compiled output.
      */
-    @Parameter(defaultValue = "${project.build.directory}", property = "targetDir")
+    @Parameter(defaultValue = "${project.build.directory}", property = PROPERTY_PREFIX + "targetDir")
     File targetDir;
 
     /**
      * Base directory for module scanning.
      */
-    @Parameter(defaultValue = "${project.basedir}", property = "baseDir")
+    @Parameter(defaultValue = "${project.basedir}", property = PROPERTY_PREFIX + "baseDir")
     File baseDir;
 
     /**
@@ -166,7 +195,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             return;
         }
 
-        generateReport();
+        generateReports();
     }
 
     /**
@@ -342,7 +371,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         return false;
     }
 
-    void generateReport() throws MojoExecutionException {
+    void generateReports() throws MojoExecutionException {
         try {
             getLog().debug("Using exclusion patterns: " + collectedExcludePatterns);
 
@@ -357,6 +386,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
 
             getLog().debug("Printing reports");
             printCoverageReport(root);
+            generateXmlReport(bundle);
         } catch (IOException e) {
             throw new MojoExecutionException("Failed to process JaCoCo data", e);
         }
@@ -670,5 +700,26 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         DirectoryNode root = new DirectoryNode("");
         buildDirectoryTreeAddNode(root, bundle);
         return root;
+    }
+
+    void generateXmlReport(@NotNull IBundleCoverage bundle) throws IOException {
+        if (xmlOutputFile == null) {
+            return;
+        }
+
+        getLog().info("Generating aggregated JaCoCo XML report to: " + xmlOutputFile.getAbsolutePath());
+
+        XMLFormatter xmlFormatter = new XMLFormatter();
+        try (FileOutputStream output = new FileOutputStream(xmlOutputFile)) {
+            IReportVisitor visitor = xmlFormatter.createVisitor(output);
+
+            // Visit the bundle with a MultiSourceFileLocator
+            // The XMLFormatter requires session info, but for aggregated reports we can use empty session info
+            visitor.visitInfo(Collections.emptyList(), Collections.emptyList());
+            visitor.visitBundle(bundle, new MultiSourceFileLocator(4));
+            visitor.visitEnd();
+        }
+
+        getLog().info("XML report generated successfully.");
     }
 }

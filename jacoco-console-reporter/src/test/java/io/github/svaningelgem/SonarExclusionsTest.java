@@ -11,7 +11,12 @@ import java.nio.file.Files;
 import java.util.Collections;
 import java.util.Properties;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 public class SonarExclusionsTest extends BaseTestClass {
 
@@ -456,6 +461,7 @@ public class SonarExclusionsTest extends BaseTestClass {
         assertTrue("Single ** should match root file",
                 pattern4.matches("file.java", mojo.project));
     }
+
     @Test
     public void testRelativePathCalculationWithDifferentProjects() throws Exception {
         // Create temporary directories for testing
@@ -774,6 +780,23 @@ public class SonarExclusionsTest extends BaseTestClass {
         } finally {
             deleteDirectory(tempDir);
         }
+    }
+
+    @Test
+    public void testRelativePathCalculationWithException() {
+        Model differentModel = new Model();
+        differentModel.setGroupId("different.group");
+        differentModel.setArtifactId("different-artifact");
+        differentModel.setVersion("1.0.0");
+        MavenProject differentProject = spy(new MavenProject(differentModel));
+
+        when(differentProject.getBasedir()).thenThrow(new RuntimeException("Simulated getBasedir failure"));
+
+        SonarExclusionPattern pattern = new SonarExclusionPattern("src/main/java/**", mojo.project);
+
+        String result = pattern.getRelativePath("com/example/Test.java", differentProject);
+
+        assertEquals("Should return original path when exception occurs", "com/example/Test.java", result);
     }
 
     private void deleteDirectory(@NotNull File directory) {
