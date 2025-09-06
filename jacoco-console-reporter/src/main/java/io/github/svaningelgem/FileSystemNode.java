@@ -27,17 +27,7 @@ interface FileSystemNode extends Comparable<FileSystemNode> {
      * @param packagePath Current package path
      * @param showFiles   Whether to show files
      */
-    default void printTree(@NotNull Log log, String prefix,
-                           String format, String packagePath, boolean showFiles) {
-        CoverageMetrics metrics = getMetrics();
-
-        log.info(String.format(format,
-                Defaults.getInstance().truncateMiddle(prefix + getName()),
-                Defaults.getInstance().formatCoverage(metrics.getCoveredClasses(), metrics.getTotalClasses()),
-                Defaults.getInstance().formatCoverage(metrics.getCoveredMethods(), metrics.getTotalMethods()),
-                Defaults.getInstance().formatCoverage(metrics.getCoveredBranches(), metrics.getTotalBranches()),
-                Defaults.getInstance().formatCoverage(metrics.getCoveredLines(), metrics.getTotalLines())));
-    }
+    void printTree(@NotNull Log log, String prefix, String format, String packagePath, boolean showFiles);
 
     /**
      * Default comparison implementation - directories come before files,
