@@ -7,32 +7,19 @@ import org.mockito.ArgumentCaptor;
 import java.io.File;
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.atMost;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 public class XmlMethodIntegrationTest extends BaseTestClass {
 
     @Test
     public void testGenerateXmlReportMethodExists() throws Exception {
-        // Verify the generateXmlReport method exists with correct signature
         Method generateXmlReportMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod(
                 "generateXmlReport", IBundleCoverage.class);
 
         assertNotNull("generateXmlReport method should exist", generateXmlReportMethod);
         assertEquals("Method should return void", void.class, generateXmlReportMethod.getReturnType());
 
-        // Verify method parameters
         Class<?>[] parameterTypes = generateXmlReportMethod.getParameterTypes();
         assertEquals("Should have one parameter", 1, parameterTypes.length);
         assertEquals("Parameter should be IBundleCoverage", IBundleCoverage.class, parameterTypes[0]);
@@ -44,7 +31,6 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
             return;
         }
 
-        // Create a spy to verify the generateXmlReport method is called
         JacocoConsoleReporterMojo spyMojo = spy(mojo);
 
         File xmlFile = temporaryFolder.newFile("spy-test.xml");
@@ -53,13 +39,11 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
         spyMojo.classesDirectory = testProjectClasses;
         spyMojo.deferReporting = false;
 
-        // Replace the mojo with our spy
         spyMojo.setLog(log);
 
         try {
             spyMojo.execute();
 
-            // Verify that generateXmlReport was called
             ArgumentCaptor<IBundleCoverage> bundleCaptor = ArgumentCaptor.forClass(IBundleCoverage.class);
             verify(spyMojo, times(1)).generateXmlReport(bundleCaptor.capture());
 
@@ -67,18 +51,15 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
             assertNotNull("Bundle should not be null", capturedBundle);
 
         } catch (Exception e) {
-            // If the spy doesn't work (due to Maven plugin framework),
-            // just verify the XML file was created
             assertTrue("XML file should exist after execution", xmlFile.exists());
         }
     }
 
     @Test
     public void testGenerateReportDoesNotCallGenerateXmlReportWhenNull() throws Exception {
-        // Create a spy to verify the generateXmlReport method is not called when xmlOutputFile is null
         JacocoConsoleReporterMojo spyMojo = spy(mojo);
 
-        spyMojo.xmlOutputFile = null; // Explicitly set to null
+        spyMojo.xmlOutputFile = null;
         spyMojo.jacocoExecFile = new File("nonexistent.exec");
         spyMojo.classesDirectory = new File("nonexistent/classes");
         spyMojo.deferReporting = false;
@@ -88,12 +69,9 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
         try {
             spyMojo.execute();
 
-            // If we can verify through spy, do so
             verify(spyMojo, atMost(1)).generateXmlReport(any(IBundleCoverage.class));
 
         } catch (Exception e) {
-            // If spy doesn't work, just ensure no exception was thrown during execution
-            // and no XML-related log messages appeared
             boolean hasXmlLogs = log.writtenData.stream()
                     .anyMatch(s -> s.contains("Generating aggregated JaCoCo XML report"));
             assertFalse("Should not have XML generation logs when xmlOutputFile is null", hasXmlLogs);
@@ -107,17 +85,7 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
 
         generateXmlReportMethod.setAccessible(true);
 
-        IBundleCoverage mockBundle = mock(IBundleCoverage.class, RETURNS_DEEP_STUBS);
-        doReturn("TestBundle").when(mockBundle).getName();
-        doReturn(java.util.Collections.emptyList()).when(mockBundle).getPackages();
-
-        // Add all required counters to prevent NullPointerException
-        doReturn(createMockCounter(0, 0)).when(mockBundle).getInstructionCounter();
-        doReturn(createMockCounter(0, 0)).when(mockBundle).getBranchCounter();
-        doReturn(createMockCounter(0, 0)).when(mockBundle).getLineCounter();
-        doReturn(createMockCounter(0, 0)).when(mockBundle).getComplexityCounter();
-        doReturn(createMockCounter(0, 0)).when(mockBundle).getMethodCounter();
-        doReturn(createMockCounter(0, 0)).when(mockBundle).getClassCounter();
+        IBundleCoverage mockBundle = createSimpleMockBundle("TestBundle");
 
         mojo.xmlOutputFile = null;
         generateXmlReportMethod.invoke(mojo, mockBundle);
@@ -129,7 +97,6 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
             generateXmlReportMethod.invoke(mojo, mockBundle);
             assertTrue("XML file should exist after method call", xmlFile.exists());
         } catch (Exception e) {
-            // Expected with mocked data - verify attempt was made
             boolean foundGenerationLog = log.writtenData.stream()
                     .anyMatch(s -> s.contains("Generating aggregated JaCoCo XML report"));
             assertTrue("Should attempt XML generation", foundGenerationLog);
@@ -145,7 +112,12 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
         File xmlFile = temporaryFolder.newFile("mocked-bundle-test.xml");
         mojo.xmlOutputFile = xmlFile;
 
-        IBundleCoverage mockBundle = createCompletelyMockedBundle();
+        IBundleCoverage mockBundle = createMockBundleWithPackage(
+                "MockedTestProject",
+                "com/example/mocked",
+                "MockedClass.java",
+                "com/example/mocked/MockedClass"
+        );
 
         try {
             generateXmlReportMethod.invoke(mojo, mockBundle);
@@ -167,29 +139,5 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
                     .anyMatch(s -> s.contains("Generating aggregated JaCoCo XML report"));
             assertTrue("Should log XML generation attempt even if it fails", foundGenerationLog);
         }
-    }
-
-    // Helper method to create a bundle with all required counters
-    private IBundleCoverage createCompletelyMockedBundle() {
-        IBundleCoverage mockBundle = mock(IBundleCoverage.class, RETURNS_DEEP_STUBS);
-        doReturn("MockedTestProject").when(mockBundle).getName();
-        doReturn(java.util.Collections.emptyList()).when(mockBundle).getPackages();
-
-        doReturn(createMockCounter(100, 80)).when(mockBundle).getInstructionCounter();
-        doReturn(createMockCounter(20, 15)).when(mockBundle).getBranchCounter();
-        doReturn(createMockCounter(50, 40)).when(mockBundle).getLineCounter();
-        doReturn(createMockCounter(10, 8)).when(mockBundle).getComplexityCounter();
-        doReturn(createMockCounter(15, 12)).when(mockBundle).getMethodCounter();
-        doReturn(createMockCounter(5, 4)).when(mockBundle).getClassCounter();
-
-        return mockBundle;
-    }
-
-    private org.jacoco.core.analysis.ICounter createMockCounter(int total, int covered) {
-        org.jacoco.core.analysis.ICounter mockCounter = mock(org.jacoco.core.analysis.ICounter.class, RETURNS_DEEP_STUBS);
-        doReturn(total).when(mockCounter).getTotalCount();
-        doReturn(covered).when(mockCounter).getCoveredCount();
-        doReturn(total - covered).when(mockCounter).getMissedCount();
-        return mockCounter;
     }
 }

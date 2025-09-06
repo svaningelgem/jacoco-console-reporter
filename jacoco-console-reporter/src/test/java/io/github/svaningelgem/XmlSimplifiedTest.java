@@ -1,14 +1,12 @@
 package io.github.svaningelgem;
 
 import org.jacoco.core.analysis.IBundleCoverage;
-import org.jacoco.core.analysis.ICounter;
 import org.junit.Test;
 
 import java.io.File;
 import java.lang.reflect.Method;
 
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
 
 public class XmlSimplifiedTest extends BaseTestClass {
 
@@ -39,7 +37,7 @@ public class XmlSimplifiedTest extends BaseTestClass {
         method.setAccessible(true);
 
         mojo.xmlOutputFile = null;
-        IBundleCoverage mockBundle = mock(IBundleCoverage.class);
+        IBundleCoverage mockBundle = createSimpleMockBundle("TestProject");
 
         method.invoke(mojo, mockBundle);
 
@@ -56,7 +54,7 @@ public class XmlSimplifiedTest extends BaseTestClass {
         File xmlFile = temporaryFolder.newFile("test-report.xml");
         mojo.xmlOutputFile = xmlFile;
 
-        IBundleCoverage mockBundle = createMinimalMockBundle();
+        IBundleCoverage mockBundle = createSimpleMockBundle("TestProject");
 
         try {
             method.invoke(mojo, mockBundle);
@@ -73,33 +71,6 @@ public class XmlSimplifiedTest extends BaseTestClass {
                         message != null && (message.contains("counter") || message.contains("sessionInfos")));
             }
         }
-    }
-
-    private IBundleCoverage createMinimalMockBundle() {
-        IBundleCoverage mockBundle = mock(IBundleCoverage.class);
-
-        // Use lenient() to avoid UnfinishedStubbingException with final methods
-        lenient().when(mockBundle.getName()).thenReturn("TestProject");
-        lenient().when(mockBundle.getPackages()).thenReturn(java.util.Collections.emptyList());
-
-        // Create counter mocks with lenient stubbing
-        ICounter mockCounter = createMockCounter(0, 0);
-        lenient().when(mockBundle.getInstructionCounter()).thenReturn(mockCounter);
-        lenient().when(mockBundle.getBranchCounter()).thenReturn(mockCounter);
-        lenient().when(mockBundle.getLineCounter()).thenReturn(mockCounter);
-        lenient().when(mockBundle.getComplexityCounter()).thenReturn(mockCounter);
-        lenient().when(mockBundle.getMethodCounter()).thenReturn(mockCounter);
-        lenient().when(mockBundle.getClassCounter()).thenReturn(mockCounter);
-
-        return mockBundle;
-    }
-
-    private ICounter createMockCounter(int total, int covered) {
-        ICounter mockCounter = mock(ICounter.class);
-        lenient().when(mockCounter.getTotalCount()).thenReturn(total);
-        lenient().when(mockCounter.getCoveredCount()).thenReturn(covered);
-        lenient().when(mockCounter.getMissedCount()).thenReturn(total - covered);
-        return mockCounter;
     }
 
     @Test

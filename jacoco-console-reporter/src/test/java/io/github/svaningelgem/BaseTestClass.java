@@ -13,6 +13,11 @@ import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
+import org.jacoco.core.analysis.IBundleCoverage;
+import org.jacoco.core.analysis.IClassCoverage;
+import org.jacoco.core.analysis.ICounter;
+import org.jacoco.core.analysis.IPackageCoverage;
+import org.jacoco.core.analysis.ISourceFileCoverage;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,7 +25,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
+import org.w3c.dom.Document;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -29,6 +37,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 public class BaseTestClass {
     protected final static Random RANDOM = new Random();
@@ -109,9 +118,195 @@ public class BaseTestClass {
         JacocoConsoleReporterMojo.collectedSonarExcludePatterns.clear();
     }
 
+    // ============= XML Testing Helper Methods =============
+
+    /**
+     * Parse XML file safely with DTD disabled
+     */
+    protected Document parseXmlFile(File xmlFile) throws Exception {
+        DocumentBuilder builder = createSafeDocumentBuilder();
+        return builder.parse(xmlFile);
+    }
+
+    /**
+     * Create a DocumentBuilder with security features enabled
+     */
+    protected DocumentBuilder createSafeDocumentBuilder() throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setFeature("http://xml.org/sax/features/validation", false);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setValidating(false);
+        return factory.newDocumentBuilder();
+    }
+
+    /**
+     * Create a mock ICounter with specified total and covered counts
+     */
+    protected ICounter createMockCounter(int total, int covered) {
+        ICounter mockCounter = mock(ICounter.class, RETURNS_DEEP_STUBS);
+        doReturn(total).when(mockCounter).getTotalCount();
+        doReturn(covered).when(mockCounter).getCoveredCount();
+        doReturn(total - covered).when(mockCounter).getMissedCount();
+        return mockCounter;
+    }
+
+    /**
+     * Create a mock ICounter with lenient stubbing
+     */
+    protected ICounter createMockCounterLenient(int total, int covered) {
+        ICounter mockCounter = mock(ICounter.class);
+        lenient().when(mockCounter.getTotalCount()).thenReturn(total);
+        lenient().when(mockCounter.getCoveredCount()).thenReturn(covered);
+        lenient().when(mockCounter.getMissedCount()).thenReturn(total - covered);
+        return mockCounter;
+    }
+
+    /**
+     * Create a simple mock bundle with minimal configuration
+     */
+    protected IBundleCoverage createSimpleMockBundle(String name) {
+        IBundleCoverage mockBundle = mock(IBundleCoverage.class, RETURNS_DEEP_STUBS);
+        doReturn(name).when(mockBundle).getName();
+        doReturn(Collections.emptyList()).when(mockBundle).getPackages();
+
+        ICounter zeroCounter = createMockCounter(0, 0);
+        doReturn(zeroCounter).when(mockBundle).getInstructionCounter();
+        doReturn(zeroCounter).when(mockBundle).getBranchCounter();
+        doReturn(zeroCounter).when(mockBundle).getLineCounter();
+        doReturn(zeroCounter).when(mockBundle).getComplexityCounter();
+        doReturn(zeroCounter).when(mockBundle).getMethodCounter();
+        doReturn(zeroCounter).when(mockBundle).getClassCounter();
+
+        return mockBundle;
+    }
+
+    /**
+     * Create a mock bundle with single package
+     */
+    protected IBundleCoverage createMockBundleWithPackage(String bundleName, String packageName, String sourceFileName, String className) {
+        IBundleCoverage mockBundle = mock(IBundleCoverage.class, RETURNS_DEEP_STUBS);
+        doReturn(bundleName).when(mockBundle).getName();
+
+        IPackageCoverage mockPackage = createMockPackageWithClass(packageName, sourceFileName, className);
+        doReturn(Collections.singletonList(mockPackage)).when(mockBundle).getPackages();
+
+        // Add bundle-level counters
+        doReturn(createMockCounter(50, 40)).when(mockBundle).getInstructionCounter();
+        doReturn(createMockCounter(4, 3)).when(mockBundle).getBranchCounter();
+        doReturn(createMockCounter(10, 8)).when(mockBundle).getLineCounter();
+        doReturn(createMockCounter(6, 5)).when(mockBundle).getComplexityCounter();
+        doReturn(createMockCounter(5, 4)).when(mockBundle).getMethodCounter();
+        doReturn(createMockCounter(1, 1)).when(mockBundle).getClassCounter();
+
+        return mockBundle;
+    }
+
+    /**
+     * Create a mock package with a single class
+     */
+    protected IPackageCoverage createMockPackageWithClass(String packageName, String sourceFileName, String className) {
+        IPackageCoverage mockPackage = mock(IPackageCoverage.class, RETURNS_DEEP_STUBS);
+        doReturn(packageName).when(mockPackage).getName();
+
+        IClassCoverage mockClass = createMockClass(className, sourceFileName);
+        doReturn(Collections.singletonList(mockClass)).when(mockPackage).getClasses();
+        doReturn(Collections.emptyList()).when(mockPackage).getSourceFiles();
+
+        // Package counters
+        doReturn(createMockCounter(10, 8)).when(mockPackage).getLineCounter();
+        doReturn(createMockCounter(4, 3)).when(mockPackage).getBranchCounter();
+        doReturn(createMockCounter(5, 4)).when(mockPackage).getMethodCounter();
+        doReturn(createMockCounter(50, 40)).when(mockPackage).getInstructionCounter();
+        doReturn(createMockCounter(6, 5)).when(mockPackage).getComplexityCounter();
+        doReturn(createMockCounter(1, 1)).when(mockPackage).getClassCounter();
+
+        return mockPackage;
+    }
+
+    /**
+     * Create a mock package with multiple classes
+     */
+    protected IPackageCoverage createMockPackageWithClasses(String packageName, String @NotNull ... classNames) {
+        IPackageCoverage mockPackage = mock(IPackageCoverage.class, RETURNS_DEEP_STUBS);
+        doReturn(packageName).when(mockPackage).getName();
+
+        List<IClassCoverage> classes = new ArrayList<>();
+        List<ISourceFileCoverage> sourceFiles = new ArrayList<>();
+
+        for (String className : classNames) {
+            String sourceFileName = className + ".java";
+            classes.add(createMockClass(packageName + "/" + className, sourceFileName));
+
+            ISourceFileCoverage mockSourceFile = mock(ISourceFileCoverage.class, RETURNS_DEEP_STUBS);
+            doReturn(sourceFileName).when(mockSourceFile).getName();
+            doReturn(createMockCounter(10, 8)).when(mockSourceFile).getLineCounter();
+            doReturn(createMockCounter(4, 3)).when(mockSourceFile).getBranchCounter();
+            sourceFiles.add(mockSourceFile);
+        }
+
+        doReturn(classes).when(mockPackage).getClasses();
+        doReturn(sourceFiles).when(mockPackage).getSourceFiles();
+
+        int totalClasses = classes.size();
+        doReturn(createMockCounter(totalClasses * 10, totalClasses * 8)).when(mockPackage).getLineCounter();
+        doReturn(createMockCounter(totalClasses * 4, totalClasses * 3)).when(mockPackage).getBranchCounter();
+        doReturn(createMockCounter(totalClasses * 5, totalClasses * 4)).when(mockPackage).getMethodCounter();
+        doReturn(createMockCounter(totalClasses * 50, totalClasses * 40)).when(mockPackage).getInstructionCounter();
+        doReturn(createMockCounter(totalClasses * 6, totalClasses * 5)).when(mockPackage).getComplexityCounter();
+        doReturn(createMockCounter(totalClasses, totalClasses)).when(mockPackage).getClassCounter();
+
+        return mockPackage;
+    }
+
+    /**
+     * Create a mock class with standard counters
+     */
+    protected IClassCoverage createMockClass(String className, String sourceFileName) {
+        IClassCoverage mockClass = mock(IClassCoverage.class, RETURNS_DEEP_STUBS);
+        doReturn(className).when(mockClass).getName();
+        doReturn(sourceFileName).when(mockClass).getSourceFileName();
+
+        doReturn(createMockCounter(10, 8)).when(mockClass).getLineCounter();
+        doReturn(createMockCounter(4, 3)).when(mockClass).getBranchCounter();
+        doReturn(createMockCounter(5, 4)).when(mockClass).getMethodCounter();
+        doReturn(createMockCounter(50, 40)).when(mockClass).getInstructionCounter();
+        doReturn(createMockCounter(6, 5)).when(mockClass).getComplexityCounter();
+
+        return mockClass;
+    }
+
+    /**
+     * Create a mock bundle with multiple packages
+     */
+    protected IBundleCoverage createMultiPackageMockBundle(String bundleName, @NotNull Map<String, String[]> packageToClasses) {
+        IBundleCoverage mockBundle = mock(IBundleCoverage.class, RETURNS_DEEP_STUBS);
+        doReturn(bundleName).when(mockBundle).getName();
+
+        List<IPackageCoverage> packages = new ArrayList<>();
+        for (Map.Entry<String, String[]> entry : packageToClasses.entrySet()) {
+            packages.add(createMockPackageWithClasses(entry.getKey(), entry.getValue()));
+        }
+
+        doReturn(packages).when(mockBundle).getPackages();
+
+        // Aggregate counters
+        int totalClasses = packageToClasses.values().stream().mapToInt(arr -> arr.length).sum();
+        doReturn(createMockCounter(totalClasses * 50, totalClasses * 40)).when(mockBundle).getInstructionCounter();
+        doReturn(createMockCounter(totalClasses * 4, totalClasses * 3)).when(mockBundle).getBranchCounter();
+        doReturn(createMockCounter(totalClasses * 10, totalClasses * 8)).when(mockBundle).getLineCounter();
+        doReturn(createMockCounter(totalClasses * 6, totalClasses * 5)).when(mockBundle).getComplexityCounter();
+        doReturn(createMockCounter(totalClasses * 5, totalClasses * 4)).when(mockBundle).getMethodCounter();
+        doReturn(createMockCounter(totalClasses, totalClasses)).when(mockBundle).getClassCounter();
+
+        return mockBundle;
+    }
+
+    // ============= Other Helper Methods =============
+
     private static int nextInt(int bound) {
         if (bound == 0) return 0;
-
         return RANDOM.nextInt(bound);
     }
 
@@ -140,6 +335,7 @@ public class BaseTestClass {
 
         failLog(expected, "Expected log to NOT contain:");
     }
+
     protected void assertLogContains(@NotNull String @NotNull [] expected) {
         assertTrue("Wrong test: we need SOMETHING to check!", expected.length > 0);
 
@@ -388,7 +584,6 @@ public class BaseTestClass {
         try (FileWriter writer = new FileWriter(file)) {
             writer.write(content);
         }
-
     }
 
     /**
