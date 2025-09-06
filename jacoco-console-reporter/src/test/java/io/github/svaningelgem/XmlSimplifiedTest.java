@@ -17,7 +17,7 @@ public class XmlSimplifiedTest extends BaseTestClass {
         assertEquals("Should be File type", File.class, field.getType());
 
         field.setAccessible(true);
-        assertNull("Should default to null", field.get(mojo));
+        assertNotNull("Should have a value", field.get(mojo));
 
         File testFile = new File("test.xml");
         field.set(mojo, testFile);
@@ -51,8 +51,6 @@ public class XmlSimplifiedTest extends BaseTestClass {
         Method method = JacocoConsoleReporterMojo.class.getDeclaredMethod("generateXmlReport", IBundleCoverage.class);
         method.setAccessible(true);
 
-        mojo.xmlOutputFile = temporaryFolder.newFile("test-report.xml");
-
         IBundleCoverage mockBundle = createSimpleMockBundle("TestProject");
 
         try {
@@ -73,13 +71,28 @@ public class XmlSimplifiedTest extends BaseTestClass {
     }
 
     @Test
+    public void testSwitchedOffXmlReportDoesNotCreateFile() throws Exception {
+        mojo.writeXmlReport = false;
+
+        Method method = JacocoConsoleReporterMojo.class.getDeclaredMethod("generateXmlReport", IBundleCoverage.class);
+        method.setAccessible(true);
+
+        IBundleCoverage mockBundle = createSimpleMockBundle("TestProject");
+
+        method.invoke(mojo, mockBundle);
+
+        boolean hasGenerationLog = log.writtenData.stream()
+                .anyMatch(line -> line.contains("Generating aggregated JaCoCo XML report"));
+        assertFalse("No xml report should have been written", hasGenerationLog);
+        assertFalse("XML file should not exist", mojo.xmlOutputFile.exists());
+    }
+
+    @Test
     public void testXmlGenerationIntegrationWithRealData() throws Exception {
         if (!testProjectJacocoExec.exists() || !testProjectClasses.exists()) {
             return;
         }
 
-        File xmlFile = temporaryFolder.newFile("integration-test.xml");
-        mojo.xmlOutputFile = xmlFile;
         mojo.jacocoExecFile = testProjectJacocoExec;
         mojo.classesDirectory = testProjectClasses;
         mojo.deferReporting = false;
@@ -91,11 +104,11 @@ public class XmlSimplifiedTest extends BaseTestClass {
         boolean foundSuccessLog = log.writtenData.stream()
                 .anyMatch(line -> line.contains("XML report generated successfully"));
 
-        if (xmlFile.exists() && xmlFile.length() > 0) {
+        if (mojo.xmlOutputFile.exists() && mojo.xmlOutputFile.length() > 0) {
             assertTrue("Should log XML generation", foundGenerationLog);
             assertTrue("Should log XML success", foundSuccessLog);
 
-            String content = new String(java.nio.file.Files.readAllBytes(xmlFile.toPath()));
+            String content = new String(java.nio.file.Files.readAllBytes(mojo.xmlOutputFile.toPath()));
             assertTrue("Should be XML content", content.startsWith("<?xml"));
             assertTrue("Should contain report element", content.contains("<report"));
         } else if (foundGenerationLog) {

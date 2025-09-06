@@ -68,14 +68,4 @@ public class XmlParameterTest extends BaseTestClass {
         File retrievedFile = (File) xmlOutputFileField.get(mojo);
         assertEquals("Should be able to set and retrieve xmlOutputFile", testFile, retrievedFile);
     }
-
-    @Test
-    public void testXmlOutputFileParameterDefaultValue() throws Exception {
-        // Verify the default value is null
-        Field xmlOutputFileField = JacocoConsoleReporterMojo.class.getDeclaredField("xmlOutputFile");
-        xmlOutputFileField.setAccessible(true);
-
-        Object defaultValue = xmlOutputFileField.get(mojo);
-        assertNull("xmlOutputFile should default to null", defaultValue);
-    }
 }

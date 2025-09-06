@@ -2,6 +2,7 @@ package io.github.svaningelgem;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.Execute;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -47,7 +48,7 @@ import java.util.regex.Pattern;
  * This plugin provides a simple way to view coverage metrics directly in the console
  * without needing to generate HTML or XML reports.
  */
-@Mojo(name = "report", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true, aggregator = true)
+@Mojo(name = "report", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class JacocoConsoleReporterMojo extends AbstractMojo {
     private final Pattern PACKAGE_PATTERN = Pattern.compile("(?:^|\\*/)\\s*package\\s+([^;]+);", Pattern.DOTALL | Pattern.MULTILINE);
     private final String PROPERTY_PREFIX = "jacoco.reporter.";
@@ -135,6 +136,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "${session.executionRootDirectory}/coverage.xml", property = PROPERTY_PREFIX + "xmlOutputFile")
     File xmlOutputFile;
+
+    /**
+     * Write the xml report (default: don't write)
+     */
+    @Parameter(defaultValue = "false", property = PROPERTY_PREFIX + "writeXmlReport")
+    boolean writeXmlReport;
 
     /**
      * Base directory for compiled output.
@@ -703,7 +710,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     void generateXmlReport(@NotNull IBundleCoverage bundle) throws IOException {
-        if (xmlOutputFile == null) {
+        if (xmlOutputFile == null || !writeXmlReport) {
             return;
         }
 

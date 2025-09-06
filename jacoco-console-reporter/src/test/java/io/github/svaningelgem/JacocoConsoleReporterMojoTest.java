@@ -312,11 +312,8 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
             return;
         }
 
-        File xmlFile = temporaryFolder.newFile("test-report.xml");
-
         mojo.jacocoExecFile = testProjectJacocoExec;
         mojo.classesDirectory = testProjectClasses;
-        mojo.xmlOutputFile = xmlFile;
         mojo.deferReporting = false;
 
         // Should execute and attempt to generate XML report
@@ -326,7 +323,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         boolean foundXmlGenerationLog = log.writtenData.stream()
                 .anyMatch(line -> line.contains("Generating aggregated JaCoCo XML report"));
 
-        if (xmlFile.exists() && xmlFile.length() > 0) {
+        if (mojo.xmlOutputFile.exists() && mojo.xmlOutputFile.length() > 0) {
             // XML was successfully generated
             assertTrue("Should log XML generation", foundXmlGenerationLog);
 
@@ -341,11 +338,8 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
 
     @Test
     public void testExecuteWithXmlOutputFileAndNoExecFile() throws Exception {
-        File xmlFile = temporaryFolder.newFile("empty-report.xml");
-
         mojo.jacocoExecFile = new File("nonexistent.exec");
         mojo.classesDirectory = new File("nonexistent/classes");
-        mojo.xmlOutputFile = xmlFile;
         mojo.deferReporting = false;
 
         // Should execute without throwing exception
@@ -394,8 +388,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
             return;
         }
 
-        File xmlFile = temporaryFolder.newFile("deferred-report.xml");
-
         // Create two projects for multi-module build
         MavenProject project1 = createProjectWithJacocoPlugin(null);
         project1.setGroupId("test.group");
@@ -413,7 +405,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
 
         mojo.jacocoExecFile = testProjectJacocoExec;
         mojo.classesDirectory = testProjectClasses;
-        mojo.xmlOutputFile = xmlFile;
         mojo.deferReporting = true;
 
         mojo.execute();
@@ -428,9 +419,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
 
     @Test
     public void testXmlGenerationSkippedForNonLastModuleWithDeferredReporting() throws Exception {
-        File xmlFile = temporaryFolder.newFile("should-not-be-generated.xml");
-        xmlFile.delete(); // Start with no file
-
         // Create two projects for multi-module build
         MavenProject project1 = createProjectWithJacocoPlugin(null);
         project1.setGroupId("test.group");
@@ -448,7 +436,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
 
         mojo.jacocoExecFile = new File("nonexistent.exec");
         mojo.classesDirectory = new File("nonexistent/classes");
-        mojo.xmlOutputFile = xmlFile;
         mojo.deferReporting = true;
 
         mojo.execute();
@@ -458,6 +445,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
                 .anyMatch(line -> line.contains("Generating aggregated JaCoCo XML report"));
 
         assertFalse("Should not attempt XML generation for non-last module with deferred reporting", foundXmlGenerationLog);
-        assertFalse("XML file should not exist for non-last module with deferred reporting", xmlFile.exists());
+        assertFalse("XML file should not exist for non-last module with deferred reporting", mojo.xmlOutputFile.exists());
     }
 }

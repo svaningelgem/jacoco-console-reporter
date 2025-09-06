@@ -33,8 +33,6 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
 
         JacocoConsoleReporterMojo spyMojo = spy(mojo);
 
-        File xmlFile = temporaryFolder.newFile("spy-test.xml");
-        spyMojo.xmlOutputFile = xmlFile;
         spyMojo.jacocoExecFile = testProjectJacocoExec;
         spyMojo.classesDirectory = testProjectClasses;
         spyMojo.deferReporting = false;
@@ -51,7 +49,7 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
             assertNotNull("Bundle should not be null", capturedBundle);
 
         } catch (Exception e) {
-            assertTrue("XML file should exist after execution", xmlFile.exists());
+            assertTrue("XML file should exist after execution", mojo.xmlOutputFile.exists());
         }
     }
 
@@ -109,9 +107,6 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
                 "generateXmlReport", IBundleCoverage.class);
         generateXmlReportMethod.setAccessible(true);
 
-        File xmlFile = temporaryFolder.newFile("mocked-bundle-test.xml");
-        mojo.xmlOutputFile = xmlFile;
-
         IBundleCoverage mockBundle = createMockBundleWithPackage(
                 "MockedTestProject",
                 "com/example/mocked",
@@ -122,13 +117,13 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
         try {
             generateXmlReportMethod.invoke(mojo, mockBundle);
 
-            assertTrue("XML file should exist", xmlFile.exists());
+            assertTrue("XML file should exist", mojo.xmlOutputFile.exists());
 
             boolean foundGenerationLog = log.writtenData.stream()
                     .anyMatch(s -> s.contains("Generating aggregated JaCoCo XML report"));
             assertTrue("Should log XML generation start", foundGenerationLog);
 
-            if (xmlFile.length() > 100) {
+            if (mojo.xmlOutputFile.length() > 100) {
                 boolean foundSuccessLog = log.writtenData.stream()
                         .anyMatch(s -> s.contains("XML report generated successfully"));
                 assertTrue("Should log XML generation success", foundSuccessLog);

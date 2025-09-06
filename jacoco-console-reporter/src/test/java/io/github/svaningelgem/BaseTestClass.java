@@ -105,6 +105,10 @@ public class BaseTestClass {
         mojo.interpretSonarIgnorePatterns = true;
         mojo.targetDir = new File(project.getBuild().getDirectory()).getCanonicalFile();
         mojo.baseDir = project.getBasedir();
+        mojo.writeXmlReport = true;
+
+        mojo.xmlOutputFile = temporaryFolder.newFile("test-report.xml");
+        mojo.xmlOutputFile.delete(); // Ensure no starting file
 
         log = new MyLog();
         mojo.setLog(log);
@@ -123,9 +127,9 @@ public class BaseTestClass {
     /**
      * Parse XML file safely with DTD disabled
      */
-    protected Document parseXmlFile(File xmlFile) throws Exception {
+    protected Document parseXmlFile() throws Exception {
         DocumentBuilder builder = createSafeDocumentBuilder();
-        return builder.parse(xmlFile);
+        return builder.parse(mojo.xmlOutputFile);
     }
 
     /**
