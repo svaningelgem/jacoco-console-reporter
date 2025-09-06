@@ -8,7 +8,7 @@ A smart Maven plugin that generates textual tree-like coverage reports from JaCo
 - **JaCoCo Plugin Integration**: Automatically detects and applies exclusion patterns from your existing JaCoCo plugin configuration
 - **Sonar Pattern Support**: Reads and interprets `sonar.exclusions` and `sonar.coverage.exclusions` from project properties
 - **Build Directory Exclusion**: Automatically excludes auto-generated files by parsing package declarations in the build directory
-- **Multi-Module Discovery**: Automatically scans for `jacoco.exec` files across all project modules
+- **Multi-Module Support**: Aggregates coverage data across all modules when used in multi-module builds
 - **Charset Detection**: Automatically detects console encoding (UTF-8 vs ASCII) for proper tree character rendering
 
 ### Smart Defaults
@@ -94,24 +94,24 @@ While the plugin works with zero configuration, you can customize its behavior:
 | Parameter                      | Description                                                            | Default Value                                    |
 |--------------------------------|------------------------------------------------------------------------|--------------------------------------------------|
 | `deferReporting`               | Wait until last module in multi-module builds                          | `true`                                           |
-| `scanModules`                  | Auto-discover exec files across modules                                | `false`                                          |
 | `showFiles`                    | Display individual source files in tree                                | `false`                                          |
 | `showMissingLines`             | Display uncovered line numbers for each file (requires showFiles=true) | `false`                                          |
 | `showTree`                     | Display hierarchical package tree                                      | `true`                                           |
 | `showSummary`                  | Display overall coverage summary                                       | `true`                                           |
 | `ignoreFilesInBuildDirectory`  | Auto-exclude generated files                                           | `true`                                           |
 | `interpretSonarIgnorePatterns` | Apply Sonar exclusion patterns                                         | `true`                                           |
-| `xmlOutputFile`                | Generate aggregated XML report                                         | `${session.executionRootDirectory}/coverage.xml` |
+| `writeXmlReport`               | Enable XML report generation                                           | `false`                                          |
+| `xmlOutputFile`                | Path for the generated XML report                                      | `${session.executionRootDirectory}/coverage.xml` |
 
 ### Coverage Weight Customization
 Control how the combined coverage score is calculated:
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `weightClassCoverage` | Weight for class coverage | `0.1` |
-| `weightMethodCoverage` | Weight for method coverage | `0.1` |
-| `weightBranchCoverage` | Weight for branch coverage | `0.4` |
-| `weightLineCoverage` | Weight for line coverage | `0.4` |
+| Parameter              | Description                | Default |
+|------------------------|----------------------------|---------|
+| `weightClassCoverage`  | Weight for class coverage  | `0.1`   |
+| `weightMethodCoverage` | Weight for method coverage | `0.1`   |
+| `weightBranchCoverage` | Weight for branch coverage | `0.4`   |
+| `weightLineCoverage`   | Weight for line coverage   | `0.4`   |
 
 ## Sample Output
 
@@ -151,7 +151,7 @@ The missing lines are displayed in a compact format:
 - Individual uncovered lines: `23, 45, 67`
 - Ranges of consecutive uncovered lines: `33-35`
 - Combination: `23, 33-35, 39, 45-48`
-
+- Partially covered lines are shown with "partial: " prefix
 
 ### Summary Section
 ```text
@@ -166,15 +166,16 @@ The missing lines are displayed in a compact format:
 
 ## Advanced Configuration Examples
 
-### Multi-Module with Custom Weights
+### Multi-Module with Custom Weights and XML Output
 ```xml
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
     <version>1.0.0</version>
     <configuration>
-        <!-- Enable module scanning for automatic exec file discovery -->
-        <scanModules>true</scanModules>
+        <!-- Enable XML report generation -->
+        <writeXmlReport>true</writeXmlReport>
+        <xmlOutputFile>${project.build.directory}/aggregated-coverage.xml</xmlOutputFile>
         <!-- Emphasize line and branch coverage over class/method -->
         <weightClassCoverage>0.05</weightClassCoverage>
         <weightMethodCoverage>0.15</weightMethodCoverage>
@@ -192,7 +193,8 @@ The missing lines are displayed in a compact format:
     <version>1.0.0</version>
     <configuration>
         <showFiles>true</showFiles>
-        <xmlOutputFile>${project.build.directory}/aggregated-coverage.xml</xmlOutputFile>
+        <showMissingLines>true</showMissingLines>
+        <writeXmlReport>true</writeXmlReport>
     </configuration>
 </plugin>
 ```
@@ -211,23 +213,18 @@ The missing lines are displayed in a compact format:
 </plugin>
 ```
 
-### Detailed Coverage with Missing Lines
+### Immediate Reporting per Module
 ```xml
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
     <version>1.0.0</version>
     <configuration>
-        <!-- Show individual files and their uncovered lines -->
-        <showFiles>true</showFiles>
-        <showMissingLines>true</showMissingLines>
-        <!-- Generate XML report as well -->
-        <xmlOutputFile>${project.build.directory}/aggregated-coverage.xml</xmlOutputFile>
+        <!-- Report immediately for each module instead of waiting -->
+        <deferReporting>false</deferReporting>
     </configuration>
 </plugin>
 ```
-
-This configuration provides maximum detail, showing exactly which lines in each file need additional test coverage, similar to Python's coverage.py output.
 
 ## Integration with Existing Tools
 
@@ -248,12 +245,12 @@ The console reporter automatically respects your existing JaCoCo configuration:
     </configuration>
 </plugin>
 
-<!-- Console reporter automatically detects the above configuration -->
+        <!-- Console reporter automatically detects the above configuration -->
 <plugin>
-    <groupId>io.github.svaningelgem</groupId>
-    <artifactId>jacoco-console-reporter</artifactId>
-    <version>1.0.0</version>
-    <!-- No additional configuration needed -->
+<groupId>io.github.svaningelgem</groupId>
+<artifactId>jacoco-console-reporter</artifactId>
+<version>1.0.0</version>
+<!-- No additional configuration needed -->
 </plugin>
 ```
 
@@ -273,6 +270,45 @@ Works seamlessly with existing Sonar configurations:
         **/*Test.java
     </sonar.coverage.exclusions>
 </properties>
+```
+
+## Multi-Module Builds
+
+In multi-module projects, the plugin:
+1. Collects execution data from each module's JaCoCo configuration
+2. Aggregates all coverage data across modules
+3. By default, defers reporting until the last module (controlled by `deferReporting`)
+4. Deduplicates coverage data to prevent double-counting shared code
+
+Example multi-module configuration:
+
+```xml
+<!-- In parent pom.xml -->
+<build>
+    <pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>io.github.svaningelgem</groupId>
+                <artifactId>jacoco-console-reporter</artifactId>
+                <version>1.0.0</version>
+                <configuration>
+                    <deferReporting>true</deferReporting>
+                    <writeXmlReport>true</writeXmlReport>
+                </configuration>
+            </plugin>
+        </plugins>
+    </pluginManagement>
+</build>
+
+        <!-- In each module's pom.xml -->
+<build>
+<plugins>
+    <plugin>
+        <groupId>io.github.svaningelgem</groupId>
+        <artifactId>jacoco-console-reporter</artifactId>
+    </plugin>
+</plugins>
+</build>
 ```
 
 ## Technical Implementation
