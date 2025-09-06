@@ -475,7 +475,8 @@ public class BaseTestClass {
                 continue;
             }
 
-            SourceFileNode file = new SourceFileNode(name, defaultCoverage == null ? getRandomCoverage() : defaultCoverage.clone());
+            // Add null as the third parameter for missingLines
+            SourceFileNode file = new SourceFileNode(name, defaultCoverage == null ? getRandomCoverage() : defaultCoverage.clone(), null);
             toNode.getSourceFiles().add(file);
         }
     }

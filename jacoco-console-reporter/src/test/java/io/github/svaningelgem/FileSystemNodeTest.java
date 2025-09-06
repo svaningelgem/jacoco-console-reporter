@@ -10,16 +10,19 @@ public class FileSystemNodeTest {
     @Test
     public void testDirectoryBeforeFile() {
         DirectoryNode dir = new DirectoryNode("dir");
-        SourceFileNode file = new SourceFileNode("file", new CoverageMetrics());
+        // Add null as third parameter for missingLines
+        SourceFileNode file = new SourceFileNode("file", new CoverageMetrics(), null);
         assertTrue(dir.compareTo(file) < 0);
     }
 
     @Test
     public void testFileAfterDirectory() {
-        SourceFileNode file = new SourceFileNode("file", new CoverageMetrics());
+        // Add null as third parameter for missingLines
+        SourceFileNode file = new SourceFileNode("file", new CoverageMetrics(), null);
         DirectoryNode dir = new DirectoryNode("dir");
         assertTrue(file.compareTo(dir) > 0);
     }
+
 
     @Test
     public void testDirectoriesAlphabetical() {
@@ -30,8 +33,9 @@ public class FileSystemNodeTest {
 
     @Test
     public void testFilesAlphabetical() {
-        SourceFileNode file1 = new SourceFileNode("abc", new CoverageMetrics());
-        SourceFileNode file2 = new SourceFileNode("def", new CoverageMetrics());
+        // Add null as third parameter for missingLines
+        SourceFileNode file1 = new SourceFileNode("abc", new CoverageMetrics(), null);
+        SourceFileNode file2 = new SourceFileNode("def", new CoverageMetrics(), null);
         assertTrue(file1.compareTo(file2) < 0);
     }
 
