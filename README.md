@@ -69,8 +69,6 @@ Ensure the JaCoCo plugin has executed beforehand to generate jacoco.exec.
 | `showTree`                     | Whether to show the tree structure in the report          | `true`                                           |
 | `showSummary`                  | Whether to show the summary information                   | `true`                                           |
 | `scanModules`                  | Automatically scan for exec files in project modules      | `false`                                          |
-| `baseDir`                      | Base directory for module scanning                        | `${project.basedir}`                             |
-| `targetDir`                    | Base directory for compiled output                        | `${project.build.directory}`                     |
 | `additionalExecFiles`          | Additional exec files to include in the report            | `[]`                                             |
 | `weightClassCoverage`          | Weight for class coverage in combined score               | `0.1`                                            |
 | `weightMethodCoverage`         | Weight for method coverage in combined score              | `0.1`                                            |

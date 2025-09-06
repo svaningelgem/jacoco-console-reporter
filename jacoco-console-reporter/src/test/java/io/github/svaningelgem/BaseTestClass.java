@@ -90,13 +90,13 @@ public class BaseTestClass {
         mojo.project = project;
         mojo.mavenSession = createRealMavenSession(Collections.singletonList(project));
 
-        mojo.jacocoExecFile = new File(project.getBuild().getDirectory(), "jacoco.exec").getCanonicalFile();
+//        mojo.jacocoExecFile = new File(project.getBuild().getDirectory(), "jacoco.exec").getCanonicalFile();
         mojo.classesDirectory = new File(project.getBuild().getOutputDirectory()).getCanonicalFile();
         mojo.deferReporting = true;
         mojo.showFiles = false;
         mojo.showTree = true;
         mojo.showSummary = true;
-        mojo.scanModules = false;
+//        mojo.scanModules = false;
         mojo.weightClassCoverage = 0.1;
         mojo.weightMethodCoverage = 0.1;
         mojo.weightBranchCoverage = 0.4;

@@ -43,7 +43,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         File classesDir = new File("target/classes");
         classesDir.mkdirs();
 
-        mojo.jacocoExecFile = execFile;
+//        mojo.jacocoExecFile = execFile;
         mojo.classesDirectory = classesDir;
 
         // Should log a warning and return without throwing an exception
@@ -53,7 +53,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
     @Test
     public void testWithJacocoPlugin() throws Exception {
         // Set a non-existent file
-        mojo.jacocoExecFile = new File("target/nonexistent.exec");
+//        mojo.jacocoExecFile = new File("target/nonexistent.exec");
         mojo.classesDirectory = new File("target/classes");
 
         // Execute should detect the JaCoCo plugin

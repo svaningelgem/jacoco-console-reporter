@@ -32,7 +32,7 @@ public class JarFileHandlingTest extends BaseTestClass {
         copyDirectory(mainProjectClasses, testClassesDir);
 
         // Set up the mojo for testing
-        mojo.jacocoExecFile = testProjectJacocoExec;
+//        mojo.jacocoExecFile = testProjectJacocoExec;
         mojo.classesDirectory = testClassesDir;
         mojo.showSummary = false;
 

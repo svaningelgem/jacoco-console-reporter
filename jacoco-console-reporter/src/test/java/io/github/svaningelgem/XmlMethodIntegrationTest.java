@@ -33,7 +33,7 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
 
         JacocoConsoleReporterMojo spyMojo = spy(mojo);
 
-        spyMojo.jacocoExecFile = testProjectJacocoExec;
+//        spyMojo.jacocoExecFile = testProjectJacocoExec;
         spyMojo.classesDirectory = testProjectClasses;
         spyMojo.deferReporting = false;
 
@@ -58,7 +58,7 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
         JacocoConsoleReporterMojo spyMojo = spy(mojo);
 
         spyMojo.xmlOutputFile = null;
-        spyMojo.jacocoExecFile = new File("nonexistent.exec");
+//        spyMojo.jacocoExecFile = new File("nonexistent.exec");
         spyMojo.classesDirectory = new File("nonexistent/classes");
         spyMojo.deferReporting = false;
 

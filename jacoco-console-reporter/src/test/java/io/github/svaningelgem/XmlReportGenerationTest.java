@@ -186,7 +186,7 @@ public class XmlReportGenerationTest extends BaseTestClass {
             return;
         }
 
-        mojo.jacocoExecFile = testProjectJacocoExec;
+//        mojo.jacocoExecFile = testProjectJacocoExec;
         mojo.classesDirectory = testProjectClasses;
         mojo.deferReporting = false;
 

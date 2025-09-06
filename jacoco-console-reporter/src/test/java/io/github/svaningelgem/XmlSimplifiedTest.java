@@ -93,7 +93,7 @@ public class XmlSimplifiedTest extends BaseTestClass {
             return;
         }
 
-        mojo.jacocoExecFile = testProjectJacocoExec;
+//        mojo.jacocoExecFile = testProjectJacocoExec;
         mojo.classesDirectory = testProjectClasses;
         mojo.deferReporting = false;
 
@@ -126,7 +126,7 @@ public class XmlSimplifiedTest extends BaseTestClass {
 
         assertEquals("Parameter should be set correctly", xmlFile, mojo.xmlOutputFile);
 
-        mojo.jacocoExecFile = new File("nonexistent.exec");
+//        mojo.jacocoExecFile = new File("nonexistent.exec");
         mojo.classesDirectory = new File("nonexistent/classes");
         mojo.deferReporting = false;
 

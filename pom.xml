@@ -398,22 +398,35 @@
         <profile>
             <id>snapshot</id>
             <build>
-                <pluginManagement>
-                    <plugins>
-                        <plugin>
-                            <groupId>io.github.svaningelgem</groupId>
-                            <artifactId>jacoco-console-reporter</artifactId>
-                            <version>1.0-SNAPSHOT</version>
-                            <executions>
-                                <execution>
-                                    <goals>
-                                        <goal>report</goal>
-                                    </goals>
-                                </execution>
-                            </executions>
-                        </plugin>
-                    </plugins>
-                </pluginManagement>
+                <plugins>
+                    <plugin>
+                        <groupId>io.github.svaningelgem</groupId>
+                        <artifactId>jacoco-console-reporter</artifactId>
+                        <version>1.0-SNAPSHOT</version>
+                        <configuration>
+                            <deferReporting>true</deferReporting>
+                            <showFiles>true</showFiles>
+                            <showTree>true</showTree>
+                            <showSummary>true</showSummary>
+                            <weightClassCoverage>0.1</weightClassCoverage>
+                            <weightMethodCoverage>0.1</weightMethodCoverage>
+                            <weightBranchCoverage>0.4</weightBranchCoverage>
+                            <weightLineCoverage>0.4</weightLineCoverage>
+                            <ignoreFilesInBuildDirectory>true</ignoreFilesInBuildDirectory>
+                            <interpretSonarIgnorePatterns>true</interpretSonarIgnorePatterns>
+                            <xmlOutputFile>${session.executionRootDirectory}/coverage.xml</xmlOutputFile>
+                            <writeXmlReport>true</writeXmlReport>
+                        </configuration>
+
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
             </build>
         </profile>
     </profiles>
