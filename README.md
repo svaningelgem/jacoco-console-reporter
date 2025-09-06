@@ -1,28 +1,32 @@
 # JaCoCo Console Reporter Maven Plugin
 
-A custom Maven plugin that generates a textual tree-like coverage report from JaCoCo's execution data files, displaying
-coverage metrics (Class %, Method %, Branch %, Line %) for packages, source files, and the entire project.
+A smart Maven plugin that generates textual tree-like coverage reports from JaCoCo execution data with intelligent auto-detection of project configurations. Displays coverage metrics (Class %, Method %, Branch %, Line %) for packages, source files, and the entire project with minimal configuration required.
 
-## Features
+## Key Features
 
-- Reads coverage data from `jacoco.exec` files
-- Analyzes class files from the project's build output directory
-- Outputs a hierarchical console-based report with coverage metrics
+### Intelligent Auto-Detection
+- **JaCoCo Plugin Integration**: Automatically detects and applies exclusion patterns from your existing JaCoCo plugin configuration
+- **Sonar Pattern Support**: Reads and interprets `sonar.exclusions` and `sonar.coverage.exclusions` from project properties
+- **Build Directory Exclusion**: Automatically excludes auto-generated files by parsing package declarations in the build directory
+- **Multi-Module Discovery**: Automatically scans for `jacoco.exec` files across all project modules
+- **Charset Detection**: Automatically detects console encoding (UTF-8 vs ASCII) for proper tree character rendering
+
+### Smart Defaults
+- **Deferred Reporting**: Waits until the last module in multi-module builds to provide aggregated coverage
+- **Execution Data Deduplication**: Prevents double-counting of coverage when aggregating multiple modules
+- **Zero Configuration**: Works out-of-the-box with standard Maven/JaCoCo setups
+
+### Flexible Output Options
 - Tree-like package structure visualization with collapsible paths
-- Instant visibility of coverage metrics during build
-- Multi-module project support with option to defer reporting until the end
-- Automatic scanning for `jacoco.exec` files across modules
-- Support for custom JaCoCo execution file patterns
-- Combined weighted coverage score based on customizable weights
-- Exclude target directory to ignore generated files
-- Support for Sonar exclusion patterns
-- Generate aggregated JaCoCo XML reports
-- Integration with JaCoCo and Sonar exclusion configurations
+- Individual source file metrics (optional)
+- Combined weighted coverage score with customizable weights
+- Optional aggregated JaCoCo XML report generation
+- Console-optimized formatting with proper Unicode/ASCII fallback
 
 ## Prerequisites
 
 - Maven 3.x
-- JaCoCo plugin configured in your project to generate `jacoco.exec`
+- JaCoCo plugin configured in your project (the console reporter will auto-detect its configuration)
 
 ## Installation
 
@@ -56,62 +60,84 @@ Run the plugin after tests:
 mvn verify
 ```
 
-Ensure the JaCoCo plugin has executed beforehand to generate jacoco.exec.
+The plugin automatically detects your JaCoCo configuration and generates a console report with no additional setup required.
 
-## Configuration
+## How Auto-Detection Works
 
-| Parameter                      | Description                                               | Default Value                                    |
-|--------------------------------|-----------------------------------------------------------|--------------------------------------------------|
-| `jacocoExecFile`               | Path to the JaCoCo execution data file                    | `${project.build.directory}/jacoco.exec`         |
-| `classesDirectory`             | Directory containing compiled classes                     | `${project.build.outputDirectory}`               |
-| `deferReporting`               | Defer reporting until the end (for multi-module projects) | `true`                                           |
-| `showFiles`                    | Whether to show individual source files in the report     | `false`                                          |
-| `showTree`                     | Whether to show the tree structure in the report          | `true`                                           |
-| `showSummary`                  | Whether to show the summary information                   | `true`                                           |
-| `scanModules`                  | Automatically scan for exec files in project modules      | `false`                                          |
-| `additionalExecFiles`          | Additional exec files to include in the report            | `[]`                                             |
-| `weightClassCoverage`          | Weight for class coverage in combined score               | `0.1`                                            |
-| `weightMethodCoverage`         | Weight for method coverage in combined score              | `0.1`                                            |
-| `weightBranchCoverage`         | Weight for branch coverage in combined score              | `0.4`                                            |
-| `weightLineCoverage`           | Weight for line coverage in combined score                | `0.4`                                            |
-| `ignoreFilesInBuildDirectory`  | Ignore autogenerated files in build directory             | `true`                                           |
-| `interpretSonarIgnorePatterns` | Interpret and apply Sonar exclusion patterns              | `true`                                           |
-| `xmlOutputFile`                | Output file for aggregated JaCoCo XML report              | `${session.executionRootDirectory}/coverage.xml` |
+### JaCoCo Plugin Integration
+The plugin automatically scans your project's JaCoCo plugin configuration to extract:
+- **Exclusion patterns** from `<excludes><exclude>` elements
+- **Custom exec file locations** from `<destFile>` configurations
+- **Multiple execution configurations** across different plugin executions
 
-## Default Output
+### Sonar Integration
+Reads exclusion patterns from project properties:
+```xml
+<properties>
+    <sonar.exclusions>src/main/java/com/example/generated/**,**/*Generated.java</sonar.exclusions>
+    <sonar.coverage.exclusions>src/test/java/**,**/*Test.java</sonar.coverage.exclusions>
+</properties>
+```
 
+### Build Directory Analysis
+Automatically excludes generated files by:
+1. Scanning the `target` directory for `.java` files
+2. Parsing package declarations to determine class names
+3. Creating exclusion patterns for the corresponding `.class` files
+
+This prevents artificially low coverage scores caused by generated code.
+
+## Configuration Options
+
+While the plugin works with zero configuration, you can customize its behavior:
+
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| `deferReporting` | Wait until last module in multi-module builds | `true` |
+| `scanModules` | Auto-discover exec files across modules | `false` |
+| `showFiles` | Display individual source files in tree | `false` |
+| `showTree` | Display hierarchical package tree | `true` |
+| `showSummary` | Display overall coverage summary | `true` |
+| `ignoreFilesInBuildDirectory` | Auto-exclude generated files | `true` |
+| `interpretSonarIgnorePatterns` | Apply Sonar exclusion patterns | `true` |
+| `xmlOutputFile` | Generate aggregated XML report | `${session.executionRootDirectory}/coverage.xml` |
+
+### Coverage Weight Customization
+Control how the combined coverage score is calculated:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `weightClassCoverage` | Weight for class coverage | `0.1` |
+| `weightMethodCoverage` | Weight for method coverage | `0.1` |
+| `weightBranchCoverage` | Weight for branch coverage | `0.4` |
+| `weightLineCoverage` | Weight for line coverage | `0.4` |
+
+## Sample Output
+
+### Default Tree View
 ```text
 [INFO] Overall Coverage Summary
 [INFO] Package                                    │ Class, %         │ Method, %        │ Branch, %        │ Line, %
-[INFO] --------------------------------------------------------------------------------------------------------------------------------------------------------
+[INFO] ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 [INFO] com.example                                │ 100.00% (3/3)    │ 83.33% (5/6)     │ 50.00% (2/4)     │ 75.00% (15/20)
 [INFO] ├─model                                    │ 100.00% (1/1)    │ 100.00% (2/2)    │ 50.00% (1/2)     │ 87.50% (7/8)
 [INFO] └─util                                     │ 100.00% (1/1)    │ 100.00% (2/2)    │ 50.00% (1/2)     │ 87.50% (7/8)
-[INFO] --------------------------------------------------------------------------------------------------------------------------------------------------------
+[INFO] ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 [INFO] all classes                                │ 100.00% (3/3)    │ 83.33% (5/6)     │ 50.00% (2/4)     │ 75.00% (15/20)
-[INFO] Overall Coverage Summary
-[INFO] ------------------------
-[INFO] Class coverage : 100.00% (3/3)
-[INFO] Method coverage: 83.33% (5/6)
-[INFO] Branch coverage: 50.00% (2/4)
-[INFO] Line coverage  : 75.00% (15/20)
-[INFO] Combined coverage: 68.33% (Class 10%, Method 10%, Branch 40%, Line 40%)
 ```
 
-## Output with all options on
-
+### With File Details (`showFiles=true`)
 ```text
-[INFO] Overall Coverage Summary
-[INFO] Package                                    │ Class, %         │ Method, %        │ Branch, %        │ Line, %
-[INFO] --------------------------------------------------------------------------------------------------------------------------------------------------------
 [INFO] com.example                                │ 100.00% (3/3)    │ 83.33% (5/6)     │ 50.00% (2/4)     │ 75.00% (15/20)
 [INFO] ├─model                                    │ 100.00% (1/1)    │ 100.00% (2/2)    │ 50.00% (1/2)     │ 87.50% (7/8)
 [INFO] │ └─Model.java                             │ 100.00% (1/1)    │ 100.00% (2/2)    │ 50.00% (1/2)     │ 87.50% (7/8)
 [INFO] ├─util                                     │ 100.00% (1/1)    │ 100.00% (2/2)    │ 50.00% (1/2)     │ 87.50% (7/8)
 [INFO] │ └─Util.java                              │ 100.00% (1/1)    │ 100.00% (2/2)    │ 50.00% (1/2)     │ 87.50% (7/8)
 [INFO] └─Example.java                             │ 100.00% (1/1)    │ 33.33% (1/2)     │ 0.00% (0/0)      │ 25.00% (1/4)
-[INFO] --------------------------------------------------------------------------------------------------------------------------------------------------------
-[INFO] all classes                                │ 100.00% (3/3)    │ 83.33% (5/6)     │ 50.00% (2/4)     │ 75.00% (15/20)
+```
+
+### Summary Section
+```text
 [INFO] Overall Coverage Summary
 [INFO] ------------------------
 [INFO] Class coverage : 100.00% (3/3)
@@ -121,204 +147,128 @@ Ensure the JaCoCo plugin has executed beforehand to generate jacoco.exec.
 [INFO] Combined coverage: 68.33% (Class 10%, Method 10%, Branch 40%, Line 40%)
 ```
 
-## Advanced Usage
+## Advanced Configuration Examples
 
-### Multi-Module Projects
-
-The plugin is configured by default to defer reporting until the end.
-
-This will wait with generating the report until the last module in the build.
-
-### Custom JaCoCo File Locations
-
-If your JaCoCo plugin uses a non-default location for the execution data file:
-
+### Multi-Module with Custom Weights
 ```xml
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
     <version>1.0.0</version>
     <configuration>
-        <jacocoExecFile>${project.build.directory}/custom-jacoco.exec</jacocoExecFile>
+        <!-- Enable module scanning for automatic exec file discovery -->
+        <scanModules>true</scanModules>
+        <!-- Emphasize line and branch coverage over class/method -->
+        <weightClassCoverage>0.05</weightClassCoverage>
+        <weightMethodCoverage>0.15</weightMethodCoverage>
+        <weightBranchCoverage>0.4</weightBranchCoverage>
+        <weightLineCoverage>0.4</weightLineCoverage>
     </configuration>
-    <!-- ... -->
 </plugin>
 ```
 
-### Customizing Report Output
-
-You can configure which parts of the report are displayed:
-
+### Detailed File-Level Reporting
 ```xml
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
     <version>1.0.0</version>
     <configuration>
-        <!-- Show or hide the tree structure -->
-        <showTree>true</showTree>
-        <!-- Show or hide individual source files -->
         <showFiles>true</showFiles>
-        <!-- Show or hide the summary information -->
-        <showSummary>true</showSummary>
+        <xmlOutputFile>${project.build.directory}/aggregated-coverage.xml</xmlOutputFile>
     </configuration>
-    <!-- ... -->
 </plugin>
 ```
 
-### Customizing Coverage Weights
-
-You can adjust the weights used to calculate the combined coverage score:
-
+### Disable Auto-Detection Features
 ```xml
 <plugin>
     <groupId>io.github.svaningelgem</groupId>
     <artifactId>jacoco-console-reporter</artifactId>
     <version>1.0.0</version>
     <configuration>
-        <weightClassCoverage>0.2</weightClassCoverage>
-        <weightMethodCoverage>0.2</weightMethodCoverage>
-        <weightBranchCoverage>0.3</weightBranchCoverage>
-        <weightLineCoverage>0.3</weightLineCoverage>
+        <!-- Disable automatic exclusions if you want full control -->
+        <ignoreFilesInBuildDirectory>false</ignoreFilesInBuildDirectory>
+        <interpretSonarIgnorePatterns>false</interpretSonarIgnorePatterns>
     </configuration>
-    <!-- ... -->
 </plugin>
 ```
 
-### Generating XML Reports
+## Integration with Existing Tools
 
-The plugin can generate an aggregated JaCoCo XML report alongside the console output:
-
-```xml
-<plugin>
-    <groupId>io.github.svaningelgem</groupId>
-    <artifactId>jacoco-console-reporter</artifactId>
-    <version>1.0.0</version>
-    <configuration>
-        <!-- Generate XML report to custom location -->
-        <xmlOutputFile>${project.build.directory}/jacoco-aggregated.xml</xmlOutputFile>
-    </configuration>
-    <!-- ... -->
-</plugin>
-```
-
-### Excluding Files from Coverage
-
-The plugin supports excluding specific files or packages from coverage reports. There are multiple ways to configure exclusions:
-
-#### 1. Using JaCoCo Exclusions
-
-The plugin automatically respects exclusion patterns defined in your JaCoCo plugin configuration:
+### JaCoCo Plugin Compatibility
+The console reporter automatically respects your existing JaCoCo configuration:
 
 ```xml
+<!-- Your existing JaCoCo setup -->
 <plugin>
     <groupId>org.jacoco</groupId>
     <artifactId>jacoco-maven-plugin</artifactId>
     <configuration>
         <excludes>
             <exclude>com/example/generated/**/*</exclude>
-            <exclude>**/*Controller.class</exclude>
-            <exclude>com/example/model/*</exclude>
+            <exclude>**/*DTO.class</exclude>
         </excludes>
+        <destFile>${project.build.directory}/custom-jacoco.exec</destFile>
     </configuration>
+</plugin>
+
+<!-- Console reporter automatically detects the above configuration -->
+<plugin>
+    <groupId>io.github.svaningelgem</groupId>
+    <artifactId>jacoco-console-reporter</artifactId>
+    <version>1.0.0</version>
+    <!-- No additional configuration needed -->
 </plugin>
 ```
 
-#### 2. Using Sonar Exclusions
-
-The plugin can interpret Sonar exclusion patterns from your project properties:
+### Sonar Integration
+Works seamlessly with existing Sonar configurations:
 
 ```xml
 <properties>
-    <!-- File-based exclusion patterns -->
+    <!-- Console reporter automatically applies these patterns -->
     <sonar.exclusions>
         src/main/java/com/example/generated/**,
         **/*Generated.java,
         **/target/**
     </sonar.exclusions>
-    
-    <!-- Coverage-specific exclusions -->
     <sonar.coverage.exclusions>
         src/test/java/**,
-        **/*Test.java,
-        **/*DTO.java
+        **/*Test.java
     </sonar.coverage.exclusions>
 </properties>
 ```
 
-To disable Sonar pattern interpretation:
+## Technical Implementation
 
-```xml
-<plugin>
-    <groupId>io.github.svaningelgem</groupId>
-    <artifactId>jacoco-console-reporter</artifactId>
-    <configuration>
-        <interpretSonarIgnorePatterns>false</interpretSonarIgnorePatterns>
-    </configuration>
-</plugin>
-```
+### Execution Data Merging
+The plugin uses intelligent deduplication when processing multiple exec files:
+- Tracks unique class IDs to prevent double-counting
+- Merges execution data at the line level using JaCoCo's built-in merging
+- Handles overlapping coverage from shared dependencies
 
-#### 3. Automatically Exclude Build Directory Files
+### Pattern Matching
+Supports both JaCoCo-style and Sonar-style exclusion patterns:
+- **JaCoCo patterns**: `com/example/**/*.class`, `**/*Controller.class`
+- **Sonar patterns**: `src/main/java/**`, `**/*Test.java`
 
-By default, the plugin will ignore files in the build directory, which are typically auto-generated. You can disable this with:
-
-```xml
-<plugin>
-    <groupId>io.github.svaningelgem</groupId>
-    <artifactId>jacoco-console-reporter</artifactId>
-    <configuration>
-        <ignoreFilesInBuildDirectory>false</ignoreFilesInBuildDirectory>
-    </configuration>
-</plugin>
-```
-
-#### Exclusion Pattern Syntax
-
-**JaCoCo Patterns:**
-- `*` matches any character except path separators
-- `**` matches any directory
-- File paths use `/` as separator regardless of the operating system
-- Patterns without the `.class` suffix will automatically match class files
-
-**Sonar Patterns:**
-- `*` matches zero or more characters (but not directory separators)
-- `**` matches zero or more directories
-- `**/` at the beginning matches any number of directories
-- `/**` at the end matches all files and subdirectories
-
-Examples:
-- `com/example/model/*` - Excludes all files directly in the model package
-- `com/example/generated/**/*` - Excludes all files in generated and its subpackages
-- `**/*Controller.class` - Excludes all files ending with "Controller.class" in any package
-- `src/main/java/**` - Excludes all files under src/main/java (Sonar pattern)
-- `**/*Test.java` - Excludes all test files (Sonar pattern)
-
-## Implementation Details
-
-The plugin works by:
-
-1. Detecting JaCoCo execution data files (default or custom locations)
-2. Loading the execution data using JaCoCo's API
-3. Analyzing compiled classes using the execution data
-4. Building a hierarchical directory structure representing the package organization
-5. Calculating coverage metrics (class, method, branch, line) for each node
-6. Generating a tree-like report to the console
-7. Computing a weighted combined coverage score
-8. Applying exclusion patterns to filter out specific files or packages
-9. Optionally generating an aggregated XML report
+### Console Rendering
+Automatically detects terminal capabilities:
+- Uses Unicode box-drawing characters (├─└─│) for UTF-8 terminals
+- Falls back to ASCII characters (+-|\) for legacy terminals
+- Handles Windows console code page detection via JNA
 
 ## Contributing
 
-Contributions are welcome! Feel free to submit issues or pull requests to enhance this plugin.
+The plugin is designed to work with minimal configuration while providing extensive customization options for advanced use cases. Contributions are welcome!
 
 ### Building from Source
-
 ```bash
 mvn clean install
 ```
 
 ### Running Tests
-
 ```bash
 mvn test
 ```
