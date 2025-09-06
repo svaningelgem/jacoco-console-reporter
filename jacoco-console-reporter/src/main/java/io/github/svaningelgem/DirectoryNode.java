@@ -45,7 +45,7 @@ public class DirectoryNode implements FileSystemNode {
     }
 
     <T extends FileSystemNode> void printNodes(Log log, String prefix,
-                                                       String format, String packagePath, boolean showFiles, @NotNull List<T> nodes, boolean extraCheck) {
+                                               String format, String packagePath, boolean showFiles, @NotNull List<T> nodes, boolean extraCheck) {
         for (int i = 0; i < nodes.size(); i++) {
             boolean isLast = (i == nodes.size() - 1) && extraCheck;
             FileSystemNode node = nodes.get(i);
@@ -103,7 +103,7 @@ public class DirectoryNode implements FileSystemNode {
 
         // Print directory nodes first
         printNodes(log, prefix, format, packagePath, showFiles, dirNodes, fileNodes.isEmpty());
-        // Then files
+        // Then files (they will handle their own missing lines display)
         printNodes(log, prefix, format, packagePath, showFiles, fileNodes, true);
     }
 }

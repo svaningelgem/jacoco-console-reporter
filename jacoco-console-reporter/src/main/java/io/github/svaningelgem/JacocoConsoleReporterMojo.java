@@ -10,6 +10,7 @@ import org.jacoco.core.analysis.Analyzer;
 import org.jacoco.core.analysis.CoverageBuilder;
 import org.jacoco.core.analysis.IBundleCoverage;
 import org.jacoco.core.analysis.IClassCoverage;
+import org.jacoco.core.analysis.ICounter;
 import org.jacoco.core.analysis.IPackageCoverage;
 import org.jacoco.core.analysis.ISourceFileCoverage;
 import org.jacoco.core.data.ExecutionDataStore;
@@ -65,6 +66,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "false", property = PROPERTY_PREFIX + "showFiles")
     boolean showFiles;
+
+    /**
+     * Display missing line numbers for each source file.
+     * Only applies when showFiles is true.
+     */
+    @Parameter(defaultValue = "false", property = PROPERTY_PREFIX + "showMissingLines")
+    boolean showMissingLines;
 
     /**
      * Enable the hierarchical tree view in console output.
@@ -563,6 +571,55 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         getLog().info(String.format(Defaults.getInstance().lineFormat, "all classes", Defaults.getInstance().formatCoverage(total.getCoveredClasses(), total.getTotalClasses()), Defaults.getInstance().formatCoverage(total.getCoveredMethods(), total.getTotalMethods()), Defaults.getInstance().formatCoverage(total.getCoveredBranches(), total.getTotalBranches()), Defaults.getInstance().formatCoverage(total.getCoveredLines(), total.getTotalLines())));
     }
 
+    /**
+     * Formats missing lines into a compact string representation.
+     * Groups consecutive lines into ranges (e.g., "3-5") and lists singles (e.g., "7, 9")
+     */
+    @NotNull String formatMissingLines(@NotNull ISourceFileCoverage sourceFile) {
+        List<Integer> missingLines = new ArrayList<>();
+
+        // Collect all uncovered lines
+        for (int i = sourceFile.getFirstLine(); i <= sourceFile.getLastLine(); i++) {
+            if (sourceFile.getLine(i).getStatus() == ICounter.NOT_COVERED) {
+                missingLines.add(i);
+            }
+        }
+
+        if (missingLines.isEmpty()) {
+            return "";
+        }
+
+        // Group consecutive lines into ranges
+        List<String> groups = new ArrayList<>();
+        int start = missingLines.get(0);
+        int end = start;
+
+        for (int i = 1; i < missingLines.size(); i++) {
+            int current = missingLines.get(i);
+            if (current == end + 1) {
+                end = current;
+            } else {
+                // End of a sequence
+                if (start == end) {
+                    groups.add(String.valueOf(start));
+                } else {
+                    groups.add(start + "-" + end);
+                }
+                start = current;
+                end = current;
+            }
+        }
+
+        // Add the last group
+        if (start == end) {
+            groups.add(String.valueOf(start));
+        } else {
+            groups.add(start + "-" + end);
+        }
+
+        return String.join(", ", groups);
+    }
+
     void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IPackageCoverage packageCoverage, @NotNull ISourceFileCoverage sourceFileCoverage) {
         String filename = sourceFileCoverage.getName();
         String className = filename.substring(0, filename.lastIndexOf('.'));
@@ -604,7 +661,10 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         metrics.setTotalBranches(sourceFileCoverage.getBranchCounter().getTotalCount());
         metrics.setCoveredBranches(sourceFileCoverage.getBranchCounter().getCoveredCount());
 
-        current.getSourceFiles().add(new SourceFileNode(sourceFileName, metrics));
+        // Extract missing lines if requested
+        String missingLines = (showFiles && showMissingLines) ? formatMissingLines(sourceFileCoverage) : null;
+
+        current.getSourceFiles().add(new SourceFileNode(sourceFileName, metrics, missingLines));
     }
 
     void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IPackageCoverage packageCoverage) {
