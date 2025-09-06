@@ -33,9 +33,7 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
 
         JacocoConsoleReporterMojo spyMojo = spy(mojo);
 
-        File xmlFile = temporaryFolder.newFile("spy-test.xml");
-        spyMojo.xmlOutputFile = xmlFile;
-        spyMojo.jacocoExecFile = testProjectJacocoExec;
+//        spyMojo.jacocoExecFile = testProjectJacocoExec;
         spyMojo.classesDirectory = testProjectClasses;
         spyMojo.deferReporting = false;
 
@@ -51,7 +49,7 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
             assertNotNull("Bundle should not be null", capturedBundle);
 
         } catch (Exception e) {
-            assertTrue("XML file should exist after execution", xmlFile.exists());
+            assertTrue("XML file should exist after execution", mojo.xmlOutputFile.exists());
         }
     }
 
@@ -60,7 +58,7 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
         JacocoConsoleReporterMojo spyMojo = spy(mojo);
 
         spyMojo.xmlOutputFile = null;
-        spyMojo.jacocoExecFile = new File("nonexistent.exec");
+//        spyMojo.jacocoExecFile = new File("nonexistent.exec");
         spyMojo.classesDirectory = new File("nonexistent/classes");
         spyMojo.deferReporting = false;
 
@@ -105,13 +103,6 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
 
     @Test
     public void testGenerateXmlReportWithMockedBundle() throws Exception {
-        Method generateXmlReportMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod(
-                "generateXmlReport", IBundleCoverage.class);
-        generateXmlReportMethod.setAccessible(true);
-
-        File xmlFile = temporaryFolder.newFile("mocked-bundle-test.xml");
-        mojo.xmlOutputFile = xmlFile;
-
         IBundleCoverage mockBundle = createMockBundleWithPackage(
                 "MockedTestProject",
                 "com/example/mocked",
@@ -120,15 +111,18 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
         );
 
         try {
-            generateXmlReportMethod.invoke(mojo, mockBundle);
+            assertFalse("XML file should not exist", mojo.xmlOutputFile.exists());
 
-            assertTrue("XML file should exist", xmlFile.exists());
+            mojo.writeXmlReport = true;
+            mojo.generateXmlReport(mockBundle);
+
+            assertTrue("XML file should exist", mojo.xmlOutputFile.exists());
 
             boolean foundGenerationLog = log.writtenData.stream()
                     .anyMatch(s -> s.contains("Generating aggregated JaCoCo XML report"));
             assertTrue("Should log XML generation start", foundGenerationLog);
 
-            if (xmlFile.length() > 100) {
+            if (mojo.xmlOutputFile.length() > 100) {
                 boolean foundSuccessLog = log.writtenData.stream()
                         .anyMatch(s -> s.contains("XML report generated successfully"));
                 assertTrue("Should log XML generation success", foundSuccessLog);

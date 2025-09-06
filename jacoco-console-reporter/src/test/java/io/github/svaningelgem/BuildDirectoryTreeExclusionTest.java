@@ -21,7 +21,13 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
     public void testBuildDirectoryTreeWithExcludedFiles() throws Exception {
         // Create test files in the build directory to match our exclusion patterns
         File targetDir = temporaryFolder.newFolder("target");
-        mojo.targetDir = targetDir;
+        File classesDir = new File(targetDir, "classes");
+
+        // Configure project with our directories
+        configureProjectForTesting(targetDir, classesDir, null);
+
+        // Execute to set up targetDir and baseDir in mojo
+        mojo.execute();
 
         // Create Java source files with package declarations for our test
         createFile(targetDir, "classes/com/example/ExcludedClass.java",

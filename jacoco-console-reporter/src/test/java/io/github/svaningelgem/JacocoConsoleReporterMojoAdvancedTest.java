@@ -1,25 +1,25 @@
 package io.github.svaningelgem;
 
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.project.MavenProject;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.nio.file.Files;
 import java.util.Collections;
 
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.when;
 
 public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
 
     @Test
     public void testExecuteWithNoClassesDirectory() throws Exception {
         // Test the case where the classes directory doesn't exist
-        mojo.jacocoExecFile = testProjectJacocoExec;
-        mojo.classesDirectory = new File("nonexistent/classes");
+        File targetDir = temporaryFolder.newFolder("target");
+        File nonExistentClasses = new File(targetDir, "nonexistent/classes");
+
+        configureProjectForTesting(targetDir, nonExistentClasses, testProjectJacocoExec);
         mojo.deferReporting = false;
 
         // Should execute without throwing an exception
@@ -30,9 +30,10 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     public void testExecuteWithEmptyExecFile() throws Exception {
         // Create an empty exec file
         File emptyExecFile = temporaryFolder.newFile("empty.exec");
+        File targetDir = temporaryFolder.newFolder("target");
+        File classesDir = new File(targetDir, "classes");
 
-        mojo.jacocoExecFile = emptyExecFile;
-        mojo.classesDirectory = mainProjectClasses;
+        configureProjectForTesting(targetDir, classesDir, emptyExecFile);
         mojo.deferReporting = false;
 
         // Should execute without throwing an exception
@@ -45,8 +46,10 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         File corruptExecFile = temporaryFolder.newFile("corrupt.exec");
         Files.write(corruptExecFile.toPath(), "not a valid exec file".getBytes());
 
-        mojo.jacocoExecFile = corruptExecFile;
-        mojo.classesDirectory = mainProjectClasses;
+        File targetDir = temporaryFolder.newFolder("target");
+        File classesDir = new File(targetDir, "classes");
+
+        configureProjectForTesting(targetDir, classesDir, corruptExecFile);
         mojo.deferReporting = false;
 
         // This will throw MojoExecutionException due to corrupt file - that's expected behavior
@@ -66,13 +69,12 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         File invalidClass = new File(tempDir, "Invalid.class");
         Files.write(invalidClass.toPath(), "not a valid class file".getBytes());
 
-
         // Mock the executionDataStore
         org.jacoco.core.data.ExecutionDataStore mockStore = new org.jacoco.core.data.ExecutionDataStore();
 
-        // Replace mojo.classesDirectory with our temp directory
-        File originalClassesDir = mojo.classesDirectory;
-        mojo.classesDirectory = tempDir;
+        // Configure project with our temp directory
+        File targetDir = temporaryFolder.newFolder("target");
+        configureProjectForTesting(targetDir, tempDir, null);
 
         // Add a null element to the collectedClassesPaths
         JacocoConsoleReporterMojo.collectedClassesPaths.clear();
@@ -84,70 +86,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
             mojo.analyzeCoverage(mockStore);
         } catch (Exception e) {
             fail("Should not throw an exception: " + e.getMessage());
-        } finally {
-            // Restore the original classes directory
-            mojo.classesDirectory = originalClassesDir;
         }
-    }
-
-    @Test
-    public void testScanDirectoryCompleteTest() throws Exception {
-        // Create directory structure to cover all branches
-        File baseDir = temporaryFolder.newFolder("completeTest");
-
-        // Case 1: Target directory is a file
-        File fileTarget = new File(baseDir, "fileTarget");
-        fileTarget.mkdir();
-        File targetFile = new File(fileTarget, "target");
-        Files.write(targetFile.toPath(), "not a directory".getBytes());
-
-        // Case 2: Normal target directory with exec files
-        File normalDir = new File(baseDir, "normalDir");
-        normalDir.mkdir();
-        File normalTarget = new File(normalDir, "target");
-        normalTarget.mkdir();
-        File execFile = new File(normalTarget, "jacoco.exec");
-        execFile.createNewFile();
-
-        // Case 3: Target with null listFiles result
-        File mockDir = new File(baseDir, "mockDir");
-        mockDir.mkdir();
-        File mockTarget = new File(mockDir, "target");
-        mockTarget.mkdir();
-        File spyTarget = Mockito.spy(mockTarget);
-        Mockito.doReturn(null).when(spyTarget).listFiles((FilenameFilter) any());
-
-        // Case 4: Subdirectories with various filters
-        File subdirsDir = new File(baseDir, "subdirsDir");
-        subdirsDir.mkdir();
-        // Create a target directory (should be skipped for recursion)
-        new File(subdirsDir, "target").mkdir();
-        // Create a node_modules directory (should be skipped)
-        new File(subdirsDir, "node_modules").mkdir();
-        // Create a hidden directory (should be skipped)
-        new File(subdirsDir, ".hidden").mkdir();
-        // Create a regular directory (should be recursed into)
-        File regularSubdir = new File(subdirsDir, "regularSubdir");
-        regularSubdir.mkdir();
-        File regularTarget = new File(regularSubdir, "target");
-        regularTarget.mkdir();
-        File regularExec = new File(regularTarget, "jacoco.exec");
-        regularExec.createNewFile();
-
-
-        // Create a list of patterns
-        java.util.List<String> patterns = Collections.singletonList("jacoco.exec");
-
-        // Save the initial size
-        int initialSize = JacocoConsoleReporterMojo.collectedExecFilePaths.size();
-
-        // Call the method on the base directory
-        mojo.scanDirectoryForExecFiles(baseDir, patterns);
-
-        // Verify we found the exec files
-        assertEquals(initialSize + 2, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
-        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile));
-        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(regularExec));
     }
 
     @Test
@@ -164,20 +103,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
 
         // Call the method - it shouldn't throw an IOException
         new ExecutionDataMerger().loadExecFile(mockExecFile, executionDataStore, sessionInfoStore);
-    }
-
-    @Test
-    public void testExecuteWithNullAdditionalExecFiles() throws Exception {
-        mojo.additionalExecFiles = null;
-
-        // This should throw a NullPointerException, but the plugin should catch it
-        try {
-            mojo.execute();
-            fail("Should have thrown an exception");
-        } catch (Exception e) {
-            // Expected
-            assertTrue(e instanceof NullPointerException);
-        }
     }
 
     @Test
@@ -223,7 +148,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     public void testBuildDirectoryTreeWithEmptyBundle() {
         // Create a mock bundle with no packages
         org.jacoco.core.analysis.IBundleCoverage mockBundle = Mockito.mock(org.jacoco.core.analysis.IBundleCoverage.class);
-        when(mockBundle.getPackages()).thenReturn(Collections.emptyList());
+        Mockito.when(mockBundle.getPackages()).thenReturn(Collections.emptyList());
 
         // Call the method - it should handle an empty bundle
         DirectoryNode result = mojo.buildDirectoryTree(mockBundle);
@@ -251,13 +176,79 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     }
 
     @Test
-    public void testScanDirectoryForExecFilesWithNotExistingDir() throws Exception {
-        mojo.scanDirectoryForExecFiles(new File(temporaryFolder.getRoot(), "not_here"), null);
+    public void testExecuteWithMultipleProjects() throws Exception {
+        // Create multiple projects to test aggregation
+        File targetDir1 = temporaryFolder.newFolder("module1", "target");
+        File classesDir1 = new File(targetDir1, "classes");
+        File execFile1 = new File(targetDir1, "jacoco.exec");
+        Files.createFile(execFile1.toPath());
+
+        MavenProject project1 = createProjectWithJacocoPlugin(execFile1.getAbsolutePath());
+        project1.setGroupId("test.group");
+        project1.setArtifactId("module1");
+        project1.setVersion("1.0.0");
+        project1.getBuild().setDirectory(targetDir1.getAbsolutePath());
+        project1.getBuild().setOutputDirectory(classesDir1.getAbsolutePath());
+
+        File targetDir2 = temporaryFolder.newFolder("module2", "target");
+        File classesDir2 = new File(targetDir2, "classes");
+        File execFile2 = new File(targetDir2, "jacoco.exec");
+        Files.createFile(execFile2.toPath());
+
+        MavenProject project2 = createProjectWithJacocoPlugin(execFile2.getAbsolutePath());
+        project2.setGroupId("test.group");
+        project2.setArtifactId("module2");
+        project2.setVersion("1.0.0");
+        project2.getBuild().setDirectory(targetDir2.getAbsolutePath());
+        project2.getBuild().setOutputDirectory(classesDir2.getAbsolutePath());
+
+        // Set current project to the last one
+        mojo.project = project2;
+        mojo.mavenSession = createRealMavenSession(java.util.Arrays.asList(project1, project2));
+        mojo.deferReporting = true;
+
+        // Clear collected paths
+        JacocoConsoleReporterMojo.collectedExecFilePaths.clear();
+        JacocoConsoleReporterMojo.collectedClassesPaths.clear();
+
+        // Execute first module
+        mojo.project = project1;
+        mojo.execute();
+
+        // Should have collected from first module
+        assertTrue("Should collect exec file from first module",
+                JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile1));
+        assertTrue("Should collect classes from first module",
+                JacocoConsoleReporterMojo.collectedClassesPaths.contains(classesDir1));
+
+        // Execute second module
+        mojo.project = project2;
+        mojo.execute();
+
+        // Should have collected from both modules
+        assertTrue("Should collect exec file from second module",
+                JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile2));
+        assertTrue("Should collect classes from second module",
+                JacocoConsoleReporterMojo.collectedClassesPaths.contains(classesDir2));
     }
 
     @Test
-    public void testScanDirectoryForExecFilesWithFile() throws Exception {
-        File tmp = temporaryFolder.newFile("tmp");
-        mojo.scanDirectoryForExecFiles(tmp, null);
+    public void testProjectWithoutJacocoPlugin() throws Exception {
+        // Create a project without JaCoCo plugin
+        mojo.project.getBuild().getPlugins().clear();
+
+        File targetDir = temporaryFolder.newFolder("target");
+        File classesDir = new File(targetDir, "classes");
+        mojo.project.getBuild().setDirectory(targetDir.getAbsolutePath());
+        mojo.project.getBuild().setOutputDirectory(classesDir.getAbsolutePath());
+
+        // Should still execute but won't find destFile
+        mojo.execute();
+
+        // Should not have collected any exec files from plugin config
+        // (might still have the default from setUp)
+        boolean foundNoJacocoLog = log.writtenData.stream()
+                .anyMatch(s -> s.contains("Added exec file from current module"));
+        assertFalse("Should not find exec file without JaCoCo plugin", foundNoJacocoLog);
     }
 }

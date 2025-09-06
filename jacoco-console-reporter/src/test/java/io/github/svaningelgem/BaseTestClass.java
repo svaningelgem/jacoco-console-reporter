@@ -1,5 +1,6 @@
 package io.github.svaningelgem;
 
+import lombok.var;
 import org.apache.maven.execution.DefaultMavenExecutionRequest;
 import org.apache.maven.execution.DefaultMavenExecutionResult;
 import org.apache.maven.execution.MavenExecutionRequest;
@@ -83,28 +84,29 @@ public class BaseTestClass {
 
         mojo = (JacocoConsoleReporterMojo) container.lookup(Mojo.class, roleHint);
 
-        // Create a real project with JaCoCo plugin
-        MavenProject project = createProjectWithJacocoPlugin(null);
+        // Create a real project with JaCoCo plugin - use test project's jacoco.exec as default
+        MavenProject project = createProjectWithJacocoPlugin(testProjectJacocoExec.getAbsolutePath());
         project.setFile(pom.getParentFile());
 
         mojo.project = project;
         mojo.mavenSession = createRealMavenSession(Collections.singletonList(project));
 
-        mojo.jacocoExecFile = new File(project.getBuild().getDirectory(), "jacoco.exec").getCanonicalFile();
-        mojo.classesDirectory = new File(project.getBuild().getOutputDirectory()).getCanonicalFile();
+        mojo.setupDefaultVariables();
+
+        // Set parameters that still exist
         mojo.deferReporting = true;
         mojo.showFiles = false;
         mojo.showTree = true;
         mojo.showSummary = true;
-        mojo.scanModules = false;
         mojo.weightClassCoverage = 0.1;
         mojo.weightMethodCoverage = 0.1;
         mojo.weightBranchCoverage = 0.4;
         mojo.weightLineCoverage = 0.4;
         mojo.ignoreFilesInBuildDirectory = true;
         mojo.interpretSonarIgnorePatterns = true;
-        mojo.targetDir = new File(project.getBuild().getDirectory()).getCanonicalFile();
-        mojo.baseDir = project.getBasedir();
+        mojo.writeXmlReport = false;
+        mojo.xmlOutputFile = temporaryFolder.newFile("coverage.xml");
+        mojo.xmlOutputFile.delete();
 
         log = new MyLog();
         mojo.setLog(log);
@@ -118,14 +120,66 @@ public class BaseTestClass {
         JacocoConsoleReporterMojo.collectedSonarExcludePatterns.clear();
     }
 
+    /**
+     * Configure the project's build directories and JaCoCo settings
+     */
+    protected void configureProjectForTesting(File targetDir, File classesDir, @Nullable File jacocoExecFile) throws IOException {
+        if (targetDir != null) {
+            targetDir.mkdirs();
+            mojo.project.getBuild().setDirectory(targetDir.getAbsolutePath());
+        }
+
+        if (classesDir != null) {
+            classesDir.mkdirs();
+            mojo.project.getBuild().setOutputDirectory(classesDir.getAbsolutePath());
+        }
+
+        if (jacocoExecFile != null) {
+            // Update the JaCoCo plugin configuration with the exec file path
+            Plugin jacocoPlugin = findOrCreateJacocoPlugin(mojo.project);
+            Xpp3Dom configuration = (Xpp3Dom) jacocoPlugin.getConfiguration();
+            if (configuration == null) {
+                configuration = new Xpp3Dom("configuration");
+                jacocoPlugin.setConfiguration(configuration);
+            }
+
+            Xpp3Dom destFileNode = configuration.getChild("destFile");
+            if (destFileNode == null) {
+                destFileNode = new Xpp3Dom("destFile");
+                configuration.addChild(destFileNode);
+            }
+            destFileNode.setValue(jacocoExecFile.getAbsolutePath());
+        }
+    }
+
+    /**
+     * Find or create the JaCoCo plugin in the project
+     */
+    protected Plugin findOrCreateJacocoPlugin(MavenProject project) {
+        for (Plugin plugin : project.getBuild().getPlugins()) {
+            if ("org.jacoco".equals(plugin.getGroupId()) &&
+                    "jacoco-maven-plugin".equals(plugin.getArtifactId())) {
+                return plugin;
+            }
+        }
+
+        // Create new JaCoCo plugin
+        Plugin plugin = new Plugin();
+        plugin.setGroupId("org.jacoco");
+        plugin.setArtifactId("jacoco-maven-plugin");
+        plugin.setVersion("0.8.12");
+        project.getBuild().addPlugin(plugin);
+        return plugin;
+    }
+
     // ============= XML Testing Helper Methods =============
 
     /**
      * Parse XML file safely with DTD disabled
      */
-    protected Document parseXmlFile(File xmlFile) throws Exception {
+    protected Document parseXmlFile() throws Exception {
         DocumentBuilder builder = createSafeDocumentBuilder();
-        return builder.parse(xmlFile);
+        return builder.parse(mojo.xmlOutputFile);
     }
 
     /**
@@ -506,7 +560,11 @@ public class BaseTestClass {
 
         build.addPlugin(plugin);
 
-        return new MavenProject(model);
+        var project = new MavenProject(model);
+        File pomFile = new File(temporaryFolder.getRoot(), "pom.xml");
+        pomFile.createNewFile();
+        project.setFile(pomFile);
+        return project;
     }
 
     /**

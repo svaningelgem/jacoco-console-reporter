@@ -2,8 +2,10 @@ package io.github.svaningelgem;
 
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Model;
+import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.junit.Test;
 
 import java.io.File;
@@ -12,14 +14,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
+import static org.junit.Assert.*;
 
 public class JacocoConsoleReporterMojoTest extends BaseTestClass {
+
     @Test
     public void testExecuteWithNoExecFiles() throws Exception {
         assertNotNull("POM file not found", pom);
@@ -31,6 +29,15 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         model.setArtifactId("test-artifact");
         model.setVersion("1.0.0");
         MavenProject project = new MavenProject(model);
+
+        // Configure build directories
+        File targetDir = temporaryFolder.newFolder("target");
+        File classesDir = new File(targetDir, "classes");
+        classesDir.mkdirs();
+
+        project.getBuild().setDirectory(targetDir.getAbsolutePath());
+        project.getBuild().setOutputDirectory(classesDir.getAbsolutePath());
+
         mojo.project = project;
 
         // Create a real MavenSession with this as the only project
@@ -38,23 +45,19 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         projects.add(project);
         mojo.mavenSession = createRealMavenSession(projects);
 
-        // Set a non-existent jacoco.exec file
-        File execFile = new File("target/nonexistent.exec");
-        File classesDir = new File("target/classes");
-        classesDir.mkdirs();
-
-        mojo.jacocoExecFile = execFile;
-        mojo.classesDirectory = classesDir;
-
-        // Should log a warning and return without throwing an exception
+        // Should log a message about no JaCoCo plugin and return without throwing an exception
         mojo.execute();
     }
 
     @Test
     public void testWithJacocoPlugin() throws Exception {
-        // Set a non-existent file
-        mojo.jacocoExecFile = new File("target/nonexistent.exec");
-        mojo.classesDirectory = new File("target/classes");
+        // The default setUp already creates a project with JaCoCo plugin
+        // Just need to ensure the exec file doesn't exist
+        File targetDir = temporaryFolder.newFolder("target");
+        File classesDir = new File(targetDir, "classes");
+        classesDir.mkdirs();
+
+        configureProjectForTesting(targetDir, classesDir, new File(targetDir, "nonexistent.exec"));
 
         // Execute should detect the JaCoCo plugin
         mojo.execute();
@@ -68,16 +71,26 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
         // Create the first project
-        MavenProject project1 = createProjectWithJacocoPlugin(null);
+        File targetDir1 = temporaryFolder.newFolder("module1", "target");
+        File classesDir1 = new File(targetDir1, "classes");
+
+        MavenProject project1 = createProjectWithJacocoPlugin(new File(targetDir1, "jacoco.exec").getAbsolutePath());
         project1.setGroupId("test.group");
         project1.setArtifactId("module1");
         project1.setVersion("1.0.0");
+        project1.getBuild().setDirectory(targetDir1.getAbsolutePath());
+        project1.getBuild().setOutputDirectory(classesDir1.getAbsolutePath());
 
         // Create the second project
-        MavenProject project2 = createProjectWithJacocoPlugin(null);
+        File targetDir2 = temporaryFolder.newFolder("module2", "target");
+        File classesDir2 = new File(targetDir2, "classes");
+
+        MavenProject project2 = createProjectWithJacocoPlugin(new File(targetDir2, "jacoco.exec").getAbsolutePath());
         project2.setGroupId("test.group");
         project2.setArtifactId("module2");
         project2.setVersion("1.0.0");
+        project2.getBuild().setDirectory(targetDir2.getAbsolutePath());
+        project2.getBuild().setOutputDirectory(classesDir2.getAbsolutePath());
 
         // Set current project to the first one
         mojo.project = project1;
@@ -89,12 +102,12 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         // Set deferred reporting
         mojo.deferReporting = true;
 
-        // Set a non-existent jacoco.exec file
-        mojo.jacocoExecFile = new File("target/nonexistent.exec");
-        mojo.classesDirectory = new File("target/classes");
-
         // Should log a message about deferring and return without exception
         mojo.execute();
+
+        // Check for deferring message
+        assertTrue("Should log deferring message",
+                log.writtenData.stream().anyMatch(s -> s.contains("Deferring JaCoCo reporting")));
     }
 
     @Test
@@ -103,16 +116,27 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
         // Create the first project
-        MavenProject project1 = createProjectWithJacocoPlugin(null);
+        File targetDir1 = temporaryFolder.newFolder("module1", "target");
+        File classesDir1 = new File(targetDir1, "classes");
+
+        MavenProject project1 = createProjectWithJacocoPlugin(new File(targetDir1, "jacoco.exec").getAbsolutePath());
         project1.setGroupId("test.group");
         project1.setArtifactId("module1");
         project1.setVersion("1.0.0");
+        project1.getBuild().setDirectory(targetDir1.getAbsolutePath());
+        project1.getBuild().setOutputDirectory(classesDir1.getAbsolutePath());
 
         // Create the last project (our current one)
-        MavenProject project2 = createProjectWithJacocoPlugin(null);
+        File targetDir2 = temporaryFolder.newFolder("module2", "target");
+        File classesDir2 = new File(targetDir2, "classes");
+
+        MavenProject project2 = createProjectWithJacocoPlugin(new File(targetDir2, "jacoco.exec").getAbsolutePath());
         project2.setGroupId("test.group");
         project2.setArtifactId("module2");
         project2.setVersion("1.0.0");
+        project2.getBuild().setDirectory(targetDir2.getAbsolutePath());
+        project2.getBuild().setOutputDirectory(classesDir2.getAbsolutePath());
+
         mojo.project = project2;
 
         // Create a real MavenSession with multiple projects
@@ -121,10 +145,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
 
         // Set deferred reporting
         mojo.deferReporting = true;
-
-        // Set a non-existent jacoco.exec file
-        mojo.jacocoExecFile = new File("target/nonexistent.exec");
-        mojo.classesDirectory = new File("target/classes");
 
         // Should execute since this is the last module
         mojo.execute();
@@ -140,84 +160,15 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
+        // Configure the project to use test project files
+        File targetDir = testProjectJacocoExec.getParentFile();
+        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
+
         // Set showFiles to false
         mojo.showFiles = false;
-        mojo.jacocoExecFile = testProjectJacocoExec;
-        mojo.classesDirectory = testProjectClasses;
 
         // Should execute without throwing an exception
         mojo.execute();
-    }
-
-    @Test
-    public void testScanModules() throws Exception {
-        // Create a temporary directory structure with exec files
-        File execFile1 = new File(temporaryFolder.getRoot(), "module1/target/jacoco.exec");
-        File execFile2 = new File(temporaryFolder.getRoot(), "module2/target/jacoco.exec");
-
-        execFile1.getParentFile().mkdirs();
-        execFile2.getParentFile().mkdirs();
-
-        // Create empty files
-        Files.createFile(execFile1.toPath());
-        Files.createFile(execFile2.toPath());
-
-        // Configure mojo
-        mojo.scanModules = true;
-        mojo.jacocoExecFile = new File("nonexistent.exec");
-        mojo.baseDir = temporaryFolder.getRoot();
-        mojo.classesDirectory = testProjectClasses;
-
-        assertEquals(0, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
-
-        // Execute and verify files were found
-        mojo.execute();
-
-        // Verify that both files were found
-        assertEquals(3, JacocoConsoleReporterMojo.collectedExecFilePaths.size());
-        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile1));
-        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(execFile2));
-        assertTrue(JacocoConsoleReporterMojo.collectedExecFilePaths.contains(mojo.jacocoExecFile.getAbsoluteFile()));
-    }
-
-    @Test
-    public void testCustomExecFilePattern() throws Exception {
-        File baseDir = temporaryFolder.newFolder("custom-exec");
-        File targetDir = new File(baseDir, "target");
-        targetDir.mkdirs();
-
-        // Create a custom exec file
-        File customExec = new File(targetDir, "custom-coverage.exec");
-        Files.createFile(customExec.toPath());
-
-        // Configure the mojo
-        // Create project with custom destFile
-        MavenProject project = createProjectWithJacocoPlugin("${project.build.directory}/custom-coverage.exec");
-        mojo.project = project;
-
-        // Create a real MavenSession with this as the only project
-        List<MavenProject> projects = new ArrayList<>();
-        projects.add(project);
-        mojo.mavenSession = createRealMavenSession(projects);
-
-        // Configure the mojo
-        mojo.baseDir = baseDir;
-        mojo.scanModules = true;
-        mojo.jacocoExecFile = new File("nonexistent.exec");
-        mojo.classesDirectory = testProjectClasses;
-
-        // Execute and verify custom file was found
-        mojo.execute();
-
-        // Verify the custom file was found
-        boolean found = false;
-        for (File file : JacocoConsoleReporterMojo.collectedExecFilePaths) {
-            if (file.getAbsolutePath().equals(customExec.getAbsolutePath())) {
-                found = true;
-                break;
-            }
-        }
-        assertTrue("Custom exec file was not found", found);
     }
 
     @Test
@@ -228,12 +179,11 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         // Create a temporary exec file
         File tempExecFile = temporaryFolder.newFile("temp.exec");
 
-        // Use the temporary JaCoCo execution data but with an invalid classes directory
+        // Use a non-existent directory
         File nonExistentDir = new File("nonexistent/classes");
+        File targetDir = temporaryFolder.newFolder("target");
 
-        mojo.jacocoExecFile = testProjectJacocoExec;
-        mojo.additionalExecFiles.add(tempExecFile);
-        mojo.classesDirectory = nonExistentDir;
+        configureProjectForTesting(targetDir, nonExistentDir, tempExecFile);
 
         mojo.execute();
     }
@@ -247,8 +197,9 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         assertNotNull("POM file not found", pom);
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
-        mojo.jacocoExecFile = testProjectJacocoExec;
-        mojo.classesDirectory = testProjectClasses;
+        // Configure the project to use test project files
+        File targetDir = testProjectJacocoExec.getParentFile();
+        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
 
         // Should execute without throwing an exception
         mojo.execute();
@@ -270,15 +221,25 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
     @Test
     public void testShouldReport() throws Exception {
         // Create two projects for a multi-module build
-        MavenProject project1 = createProjectWithJacocoPlugin(null);
+        File targetDir1 = temporaryFolder.newFolder("module1", "target");
+        File classesDir1 = new File(targetDir1, "classes");
+
+        MavenProject project1 = createProjectWithJacocoPlugin(new File(targetDir1, "jacoco.exec").getAbsolutePath());
         project1.setGroupId("test.group");
         project1.setArtifactId("module1");
         project1.setVersion("1.0.0");
+        project1.getBuild().setDirectory(targetDir1.getAbsolutePath());
+        project1.getBuild().setOutputDirectory(classesDir1.getAbsolutePath());
 
-        MavenProject project2 = createProjectWithJacocoPlugin(null);
+        File targetDir2 = temporaryFolder.newFolder("module2", "target");
+        File classesDir2 = new File(targetDir2, "classes");
+
+        MavenProject project2 = createProjectWithJacocoPlugin(new File(targetDir2, "jacoco.exec").getAbsolutePath());
         project2.setGroupId("test.group");
         project2.setArtifactId("module2");
         project2.setVersion("1.0.0");
+        project2.getBuild().setDirectory(targetDir2.getAbsolutePath());
+        project2.getBuild().setOutputDirectory(classesDir2.getAbsolutePath());
 
         // Create a real MavenSession with both projects
         List<MavenProject> projects = Arrays.asList(project1, project2);
@@ -303,7 +264,6 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         hasReported = (boolean) mojo.shouldReport();
         assertTrue("Module should report when not deferring", hasReported);
     }
-    // Additional tests to add to JacocoConsoleReporterMojoTest.java
 
     @Test
     public void testExecuteWithXmlOutputFile() throws Exception {
@@ -313,16 +273,18 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         }
 
         File xmlFile = temporaryFolder.newFile("test-report.xml");
+        File targetDir = testProjectJacocoExec.getParentFile();
 
-        mojo.jacocoExecFile = testProjectJacocoExec;
-        mojo.classesDirectory = testProjectClasses;
+        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
+
         mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
         mojo.deferReporting = false;
 
         // Should execute and attempt to generate XML report
         mojo.execute();
 
-        // Check if XML generation was attempted (may fail due to session info issues in test)
+        // Check if XML generation was attempted
         boolean foundXmlGenerationLog = log.writtenData.stream()
                 .anyMatch(line -> line.contains("Generating aggregated JaCoCo XML report"));
 
@@ -342,10 +304,13 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
     @Test
     public void testExecuteWithXmlOutputFileAndNoExecFile() throws Exception {
         File xmlFile = temporaryFolder.newFile("empty-report.xml");
+        File targetDir = temporaryFolder.newFolder("target");
+        File classesDir = new File(targetDir, "classes");
 
-        mojo.jacocoExecFile = new File("nonexistent.exec");
-        mojo.classesDirectory = new File("nonexistent/classes");
+        configureProjectForTesting(targetDir, classesDir, new File(targetDir, "nonexistent.exec"));
+
         mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
         mojo.deferReporting = false;
 
         // Should execute without throwing exception
@@ -363,10 +328,12 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
 
         File nonExistentDir = new File(temporaryFolder.getRoot(), "nonexistent");
         File xmlFile = new File(nonExistentDir, "report.xml");
+        File targetDir = testProjectJacocoExec.getParentFile();
 
-        mojo.jacocoExecFile = testProjectJacocoExec;
-        mojo.classesDirectory = testProjectClasses;
+        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
+
         mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
         mojo.deferReporting = false;
 
         try {
@@ -397,23 +364,30 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         File xmlFile = temporaryFolder.newFile("deferred-report.xml");
 
         // Create two projects for multi-module build
-        MavenProject project1 = createProjectWithJacocoPlugin(null);
+        File targetDir1 = temporaryFolder.newFolder("module1", "target");
+        File classesDir1 = new File(targetDir1, "classes");
+
+        MavenProject project1 = createProjectWithJacocoPlugin(new File(targetDir1, "jacoco.exec").getAbsolutePath());
         project1.setGroupId("test.group");
         project1.setArtifactId("module1");
         project1.setVersion("1.0.0");
+        project1.getBuild().setDirectory(targetDir1.getAbsolutePath());
+        project1.getBuild().setOutputDirectory(classesDir1.getAbsolutePath());
 
-        MavenProject project2 = createProjectWithJacocoPlugin(null);
+        // Use test project files for second module
+        MavenProject project2 = createProjectWithJacocoPlugin(testProjectJacocoExec.getAbsolutePath());
         project2.setGroupId("test.group");
         project2.setArtifactId("module2");
         project2.setVersion("1.0.0");
+        project2.getBuild().setDirectory(testProjectJacocoExec.getParentFile().getAbsolutePath());
+        project2.getBuild().setOutputDirectory(testProjectClasses.getAbsolutePath());
 
         // Set current project to the last one (should trigger reporting)
         mojo.project = project2;
         mojo.mavenSession = createRealMavenSession(Arrays.asList(project1, project2));
 
-        mojo.jacocoExecFile = testProjectJacocoExec;
-        mojo.classesDirectory = testProjectClasses;
         mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
         mojo.deferReporting = true;
 
         mojo.execute();
@@ -432,23 +406,32 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         xmlFile.delete(); // Start with no file
 
         // Create two projects for multi-module build
-        MavenProject project1 = createProjectWithJacocoPlugin(null);
+        File targetDir1 = temporaryFolder.newFolder("module1", "target");
+        File classesDir1 = new File(targetDir1, "classes");
+
+        MavenProject project1 = createProjectWithJacocoPlugin(new File(targetDir1, "jacoco.exec").getAbsolutePath());
         project1.setGroupId("test.group");
         project1.setArtifactId("module1");
         project1.setVersion("1.0.0");
+        project1.getBuild().setDirectory(targetDir1.getAbsolutePath());
+        project1.getBuild().setOutputDirectory(classesDir1.getAbsolutePath());
 
-        MavenProject project2 = createProjectWithJacocoPlugin(null);
+        File targetDir2 = temporaryFolder.newFolder("module2", "target");
+        File classesDir2 = new File(targetDir2, "classes");
+
+        MavenProject project2 = createProjectWithJacocoPlugin(new File(targetDir2, "jacoco.exec").getAbsolutePath());
         project2.setGroupId("test.group");
         project2.setArtifactId("module2");
         project2.setVersion("1.0.0");
+        project2.getBuild().setDirectory(targetDir2.getAbsolutePath());
+        project2.getBuild().setOutputDirectory(classesDir2.getAbsolutePath());
 
         // Set current project to the first one (should NOT trigger reporting)
         mojo.project = project1;
         mojo.mavenSession = createRealMavenSession(Arrays.asList(project1, project2));
 
-        mojo.jacocoExecFile = new File("nonexistent.exec");
-        mojo.classesDirectory = new File("nonexistent/classes");
         mojo.xmlOutputFile = xmlFile;
+        mojo.writeXmlReport = true;
         mojo.deferReporting = true;
 
         mojo.execute();
@@ -459,5 +442,41 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
 
         assertFalse("Should not attempt XML generation for non-last module with deferred reporting", foundXmlGenerationLog);
         assertFalse("XML file should not exist for non-last module with deferred reporting", xmlFile.exists());
+    }
+
+    @Test
+    public void testCustomExecFilePattern() throws Exception {
+        File baseDir = temporaryFolder.newFolder("custom-exec");
+        File targetDir = new File(baseDir, "target");
+        targetDir.mkdirs();
+
+        // Create a custom exec file
+        File customExec = new File(targetDir, "custom-coverage.exec");
+        Files.createFile(customExec.toPath());
+
+        // Create project with custom destFile
+        MavenProject project = createProjectWithJacocoPlugin(customExec.getAbsolutePath());
+        project.getBuild().setDirectory(targetDir.getAbsolutePath());
+        project.getBuild().setOutputDirectory(new File(targetDir, "classes").getAbsolutePath());
+
+        mojo.project = project;
+
+        // Create a real MavenSession with this as the only project
+        List<MavenProject> projects = new ArrayList<>();
+        projects.add(project);
+        mojo.mavenSession = createRealMavenSession(projects);
+
+        // Execute
+        mojo.execute();
+
+        // Verify the custom file was found in collected paths
+        boolean found = false;
+        for (File file : JacocoConsoleReporterMojo.collectedExecFilePaths) {
+            if (file.getAbsolutePath().equals(customExec.getAbsolutePath())) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue("Custom exec file was found", found);
     }
 }

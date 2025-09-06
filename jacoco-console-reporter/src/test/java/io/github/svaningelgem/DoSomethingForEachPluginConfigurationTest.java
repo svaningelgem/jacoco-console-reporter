@@ -29,13 +29,12 @@ public class DoSomethingForEachPluginConfigurationTest extends BaseTestClass {
 
     @Override
     @Before
-    public void setUp() {
-        mojo = new JacocoConsoleReporterMojo();
-        mockProject = mock(MavenProject.class);
-        mojo.project = mockProject;
+    public void setUp() throws Exception {
+        super.setUp();
 
-        log = new MyLog();
-        mojo.setLog(log);
+        mockProject = mock(MavenProject.class);
+        when(mockProject.getBuild()).thenReturn(mojo.project.getBuild());
+        mojo.project = mockProject;
 
         values = new ArrayList<>();
         consumer = values::add;

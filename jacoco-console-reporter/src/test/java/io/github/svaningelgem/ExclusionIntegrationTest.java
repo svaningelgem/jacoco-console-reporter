@@ -1,6 +1,8 @@
 package io.github.svaningelgem;
 
+import lombok.var;
 import org.apache.maven.model.Plugin;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Before;
@@ -13,6 +15,8 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
@@ -59,8 +63,14 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         File generatedDir = new File(classesDir, "com/example/generated");
         generatedDir.mkdirs();
 
-        // Add this to the mojo's class paths
-        mojo.classesDirectory = classesDir;
+        // Configure project to use our classes directory
+        File targetDir = temporaryFolder.newFolder("target");
+        configureProjectForTesting(targetDir, classesDir, null);
+
+        // Execute to initialize targetDir and baseDir
+        mojo.execute();
+
+        // Clear and add this to the mojo's class paths
         JacocoConsoleReporterMojo.collectedClassesPaths.clear();
         JacocoConsoleReporterMojo.collectedClassesPaths.add(classesDir);
 
@@ -101,22 +111,39 @@ public class ExclusionIntegrationTest extends BaseTestClass {
     }
 
     @Test
-    public void testAddBuildDirExclusionEnabled() throws IOException {
+    public void testAddBuildDirExclusionEnabled() throws IOException, MojoExecutionException {
         assertEquals(0, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
         mojo.ignoreFilesInBuildDirectory = true;
 
+        // Set up project directories
+        File targetDir = temporaryFolder.newFolder("target");
+        File classesDir = new File(targetDir, "classes");
+        configureProjectForTesting(targetDir, classesDir, null);
+
+        // Execute to initialize targetDir
+        mojo.execute();
+
         // Create a few files in the target directory
-        createFile(mojo.targetDir, "classes/com/example/TestClass.java", "package io.sample;");
-        createFile(mojo.targetDir, "classes/com/sth/Else.java", "not-a-package io.sample;");
-        createFile(mojo.targetDir, "classes/com/example/ProductionClass.class", "package io.sample2;");
+        createFile(targetDir, "classes/com/example/TestClass.java", "package io.sample;");
+        createFile(targetDir, "classes/com/sth/Else.java", "not-a-package io.sample;");
+        createFile(targetDir, "classes/com/example/ProductionClass.class", "package io.sample2;");
 
         mojo.addBuildDirExclusion();
 
-        assertPatternEquals(Collections.singletonList("^io/sample/TestClass$"), JacocoConsoleReporterMojo.collectedExcludePatterns);
+        var patterns = JacocoConsoleReporterMojo.collectedExcludePatterns.stream().map(Pattern::pattern).collect(Collectors.toSet());
+        assertTrue(patterns.contains("^io/sample/TestClass$"));
     }
 
     @Test
-    public void testThrowingExceptionDuringCanonicalPath() throws IOException {
+    public void testThrowingExceptionDuringCanonicalPath() throws IOException, MojoExecutionException {
+        // Set up project directories
+        File targetDir = temporaryFolder.newFolder("target");
+        File classesDir = new File(targetDir, "classes");
+        configureProjectForTesting(targetDir, classesDir, null);
+
+        // Execute to initialize targetDir
+        mojo.execute();
+
         mojo.fileReader = new FileReader() {
             @Override
             public String canonicalPath(@NotNull File f) throws IOException {
@@ -131,7 +158,15 @@ public class ExclusionIntegrationTest extends BaseTestClass {
     }
 
     @Test
-    public void testThrowingExceptionDuringReadingFile() throws IOException {
+    public void testThrowingExceptionDuringReadingFile() throws IOException, MojoExecutionException {
+        // Set up project directories
+        File targetDir = temporaryFolder.newFolder("target");
+        File classesDir = new File(targetDir, "classes");
+        configureProjectForTesting(targetDir, classesDir, null);
+
+        // Execute to initialize targetDir
+        mojo.execute();
+
         mojo.fileReader = new FileReader() {
             @Override
             public String readAllBytes(Path path, Charset cs) throws IOException {
@@ -139,7 +174,7 @@ public class ExclusionIntegrationTest extends BaseTestClass {
             }
         };
 
-        createFile(mojo.targetDir, "classes/com/example/TestClass.java", "package io.sample;");
+        createFile(targetDir, "classes/com/example/TestClass.java", "package io.sample;");
         mojo.addBuildDirExclusion();
 
         String[] expected = {"[warn] Failed to read file: "};
@@ -147,10 +182,19 @@ public class ExclusionIntegrationTest extends BaseTestClass {
     }
 
     @Test
-    public void testAddBuildDirExclusionDisabled() {
+    public void testAddBuildDirExclusionDisabled() throws Exception {
         assertEquals(0, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
         mojo.ignoreFilesInBuildDirectory = false;
+
+        // Set up project directories
+        File targetDir = temporaryFolder.newFolder("target");
+        File classesDir = new File(targetDir, "classes");
+        configureProjectForTesting(targetDir, classesDir, null);
+
+        // Execute to initialize targetDir
+        mojo.execute();
+
         mojo.addBuildDirExclusion();
-        assertEquals(0, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
+        assertEquals(3, JacocoConsoleReporterMojo.collectedExcludePatterns.size());
     }
 }

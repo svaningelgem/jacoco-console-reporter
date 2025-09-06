@@ -3,6 +3,7 @@ package io.github.svaningelgem;
 import org.jacoco.core.analysis.IBundleCoverage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Before;
 import org.junit.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -17,11 +18,14 @@ import static org.junit.Assert.*;
 
 public class XmlContentValidationTest extends BaseTestClass {
 
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+        mojo.writeXmlReport = true;
+    }
+
     @Test
     public void testGeneratedXmlContainsCorrectStructure() throws Exception {
-        File xmlFile = temporaryFolder.newFile("structure-test.xml");
-        mojo.xmlOutputFile = xmlFile;
-
         IBundleCoverage mockBundle = createMockBundleWithPackage(
                 "DetailedTestProject",
                 "com/example/service",
@@ -36,8 +40,8 @@ public class XmlContentValidationTest extends BaseTestClass {
         try {
             generateXmlReportMethod.invoke(mojo, mockBundle);
 
-            if (xmlFile.exists() && xmlFile.length() > 100) {
-                Document doc = parseXmlFile(xmlFile);
+            if (mojo.xmlOutputFile.exists() && mojo.xmlOutputFile.length() > 100) {
+                Document doc = parseXmlFile();
 
                 Element root = doc.getDocumentElement();
                 assertEquals("Root element should be 'report'", "report", root.getTagName());
@@ -70,9 +74,6 @@ public class XmlContentValidationTest extends BaseTestClass {
 
     @Test
     public void testGeneratedXmlContainsCorrectCoverageValues() throws Exception {
-        File xmlFile = temporaryFolder.newFile("values-test.xml");
-        mojo.xmlOutputFile = xmlFile;
-
         IBundleCoverage mockBundle = createMockBundleWithPackage(
                 "SpecificValuesProject",
                 "com/example/test",
@@ -87,8 +88,8 @@ public class XmlContentValidationTest extends BaseTestClass {
         try {
             generateXmlReportMethod.invoke(mojo, mockBundle);
 
-            if (xmlFile.exists() && xmlFile.length() > 100) {
-                Document doc = parseXmlFile(xmlFile);
+            if (mojo.xmlOutputFile.exists() && mojo.xmlOutputFile.length() > 100) {
+                Document doc = parseXmlFile();
 
                 NodeList classes = doc.getElementsByTagName("class");
                 if (classes.getLength() > 0) {
@@ -111,9 +112,6 @@ public class XmlContentValidationTest extends BaseTestClass {
 
     @Test
     public void testGeneratedXmlIsValidXml() throws Exception {
-        File xmlFile = temporaryFolder.newFile("validity-test.xml");
-        mojo.xmlOutputFile = xmlFile;
-
         IBundleCoverage mockBundle = createMockBundleWithPackage(
                 "ValidityTestProject",
                 "com/example/validity",
@@ -126,18 +124,15 @@ public class XmlContentValidationTest extends BaseTestClass {
         generateXmlReportMethod.setAccessible(true);
         generateXmlReportMethod.invoke(mojo, mockBundle);
 
-        Document doc = parseXmlFile(xmlFile);
+        Document doc = parseXmlFile();
         assertNotNull("Should be able to parse as valid XML", doc);
 
-        String content = new String(java.nio.file.Files.readAllBytes(xmlFile.toPath()));
+        String content = new String(java.nio.file.Files.readAllBytes(mojo.xmlOutputFile.toPath()));
         assertTrue("Should start with XML declaration", content.startsWith("<?xml"));
     }
 
     @Test
     public void testGeneratedXmlWithMultiplePackagesAndClasses() throws Exception {
-        File xmlFile = temporaryFolder.newFile("multi-package-test.xml");
-        mojo.xmlOutputFile = xmlFile;
-
         Map<String, String[]> packageToClasses = new HashMap<>();
         packageToClasses.put("com/example/service", new String[]{"UserService"});
         packageToClasses.put("com/example/controller", new String[]{"UserController"});
@@ -151,8 +146,8 @@ public class XmlContentValidationTest extends BaseTestClass {
         try {
             generateXmlReportMethod.invoke(mojo, mockBundle);
 
-            if (xmlFile.exists() && xmlFile.length() > 100) {
-                Document doc = parseXmlFile(xmlFile);
+            if (mojo.xmlOutputFile.exists() && mojo.xmlOutputFile.length() > 100) {
+                Document doc = parseXmlFile();
 
                 NodeList packages = doc.getElementsByTagName("package");
                 if (packages.getLength() >= 2) {
@@ -183,9 +178,6 @@ public class XmlContentValidationTest extends BaseTestClass {
 
     @Test
     public void testGeneratedXmlWithEmptyPackage() throws Exception {
-        File xmlFile = temporaryFolder.newFile("empty-package-test.xml");
-        mojo.xmlOutputFile = xmlFile;
-
         IBundleCoverage mockBundle = createSimpleMockBundle("EmptyPackageProject");
 
         Method generateXmlReportMethod = JacocoConsoleReporterMojo.class.getDeclaredMethod(
@@ -193,7 +185,7 @@ public class XmlContentValidationTest extends BaseTestClass {
         generateXmlReportMethod.setAccessible(true);
         generateXmlReportMethod.invoke(mojo, mockBundle);
 
-        Document doc = parseXmlFile(xmlFile);
+        Document doc = parseXmlFile();
 
         NodeList packages = doc.getElementsByTagName("package");
         if (packages.getLength() > 0) {
