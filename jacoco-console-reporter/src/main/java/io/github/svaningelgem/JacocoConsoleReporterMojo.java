@@ -50,101 +50,102 @@ import java.util.regex.Pattern;
 @Mojo(name = "report", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class JacocoConsoleReporterMojo extends AbstractMojo {
     private final Pattern PACKAGE_PATTERN = Pattern.compile("(?:^|\\*/)\\s*package\\s+([^;]+);", Pattern.DOTALL | Pattern.MULTILINE);
+    private final String PROPERTY_PREFIX = "jacoco.reporter.";
 
     /**
      * Location of the JaCoCo execution data file.
      */
-    @Parameter(defaultValue = "${project.build.directory}/jacoco.exec", property = "jacocoExecFile", required = true)
+    @Parameter(defaultValue = "${project.build.directory}/jacoco.exec", property = PROPERTY_PREFIX + "jacocoExecFile", required = true)
     File jacocoExecFile;
 
     /**
      * Directory containing the compiled Java classes.
      */
-    @Parameter(defaultValue = "${project.build.outputDirectory}", property = "classesDirectory", required = true)
+    @Parameter(defaultValue = "${project.build.outputDirectory}", property = PROPERTY_PREFIX + "classesDirectory", required = true)
     File classesDirectory;
 
     /**
      * Option to defer reporting until the end (for multi-module projects).
      * When true, the plugin will not report during module execution.
      */
-    @Parameter(defaultValue = "true", property = "deferReporting")
+    @Parameter(defaultValue = "true", property = PROPERTY_PREFIX + "deferReporting")
     boolean deferReporting;
 
     /**
      * Option to show individual files in the report.
      * When false, only packages will be displayed.
      */
-    @Parameter(defaultValue = "false", property = "showFiles")
+    @Parameter(defaultValue = "false", property = PROPERTY_PREFIX + "showFiles")
     boolean showFiles;
 
     /**
      * Option to show individual files in the report.
      * When false, only packages will be displayed.
      */
-    @Parameter(defaultValue = "true", property = "showTree")
+    @Parameter(defaultValue = "true", property = PROPERTY_PREFIX + "showTree")
     boolean showTree;
 
     /**
      * Option to show the summary in the report.
      * When false, only packages will be displayed.
      */
-    @Parameter(defaultValue = "true", property = "showSummary")
+    @Parameter(defaultValue = "true", property = PROPERTY_PREFIX + "showSummary")
     boolean showSummary;
 
     /**
      * Additional exec files to include in the report.
      * Useful for aggregating multiple module reports.
      */
-    @Parameter(property = "additionalExecFiles")
+    @Parameter(property = PROPERTY_PREFIX + "additionalExecFiles")
     List<File> additionalExecFiles = new ArrayList<>();
 
     /**
      * Option to scan for exec files in project modules.
      * When true, this will automatically discover all jacoco.exec files in the project.
      */
-    @Parameter(defaultValue = "false", property = "scanModules")
+    @Parameter(defaultValue = "false", property = PROPERTY_PREFIX + "scanModules")
     boolean scanModules;
 
-    @Parameter(defaultValue = "0.1", property = "weightClassCoverage")
+    @Parameter(defaultValue = "0.1", property = PROPERTY_PREFIX + "weightClassCoverage")
     double weightClassCoverage;
 
-    @Parameter(defaultValue = "0.1", property = "weightMethodCoverage")
+    @Parameter(defaultValue = "0.1", property = PROPERTY_PREFIX + "weightMethodCoverage")
     double weightMethodCoverage;
 
-    @Parameter(defaultValue = "0.4", property = "weightBranchCoverage")
+    @Parameter(defaultValue = "0.4", property = PROPERTY_PREFIX + "weightBranchCoverage")
     double weightBranchCoverage;
 
-    @Parameter(defaultValue = "0.4", property = "weightLineCoverage")
+    @Parameter(defaultValue = "0.4", property = PROPERTY_PREFIX + "weightLineCoverage")
     double weightLineCoverage;
 
     /**
      * When true, ignore the files in the build directory. 99.9% of the time these are automatically generated files.
      */
-    @Parameter(defaultValue = "true", property = "ignoreFilesInBuildDirectory")
+    @Parameter(defaultValue = "true", property = PROPERTY_PREFIX + "ignoreFilesInBuildDirectory")
     boolean ignoreFilesInBuildDirectory;
 
     /**
      * When true, ignore the files in the build directory. 99.9% of the time these are automatically generated files.
      */
-    @Parameter(defaultValue = "true", property = "interpretSonarIgnorePatterns")
+    @Parameter(defaultValue = "true", property = PROPERTY_PREFIX + "interpretSonarIgnorePatterns")
     boolean interpretSonarIgnorePatterns;
 
     /**
      * Output file for the aggregated JaCoCo XML report.
      */
-    @Parameter(defaultValue = "${project.build.directory}/jacoco.xml", property = "xmlOutputFile")
+    @Parameter(defaultValue = "${session.executionRootDirectory}/coverage.xml", property = PROPERTY_PREFIX + "xmlOutputFile")
     File xmlOutputFile;
 
     /**
      * Base directory for compiled output.
      */
-    @Parameter(defaultValue = "${project.build.directory}", property = "targetDir")
+    @Parameter(defaultValue = "${project.build.directory}", property = PROPERTY_PREFIX + "targetDir")
     File targetDir;
 
     /**
      * Base directory for module scanning.
      */
-    @Parameter(defaultValue = "${project.basedir}", property = "baseDir")
+    @Parameter(defaultValue = "${project.basedir}", property = PROPERTY_PREFIX + "baseDir")
     File baseDir;
 
     /**
