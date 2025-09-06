@@ -346,4 +346,34 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
         };
         assertLogNotContains(notExpected, false);
     }
+
+    @Test
+    public void testFormatMissingLinesOnlyPartial() {
+        // Create a source file with only partial coverage (no missing lines)
+        ISourceFileCoverage sourceCoverage = mock(ISourceFileCoverage.class);
+        lenient().when(sourceCoverage.getFirstLine()).thenReturn(1);
+        lenient().when(sourceCoverage.getLastLine()).thenReturn(3);
+
+        lenient().when(sourceCoverage.getLine(anyInt())).thenAnswer(invocation -> {
+            int lineNr = invocation.getArgument(0);
+            ILine line = mock(ILine.class);
+
+            if (lineNr == 1) {
+                // Fully covered line
+                setupLine(line, 2, 2, 1, 1);
+            } else if (lineNr == 2) {
+                // Partially covered line
+                setupLine(line, 2, 1, 2, 1);
+            } else if (lineNr == 3) {
+                // Another partially covered line
+                setupLine(line, 2, 1, 2, 1);
+            }
+
+            return line;
+        });
+
+        String result = mojo.formatMissingLines(sourceCoverage);
+
+        assertEquals("partial: 2, 3", result);
+    }
 }
