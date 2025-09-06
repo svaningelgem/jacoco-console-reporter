@@ -51,8 +51,7 @@ public class XmlSimplifiedTest extends BaseTestClass {
         Method method = JacocoConsoleReporterMojo.class.getDeclaredMethod("generateXmlReport", IBundleCoverage.class);
         method.setAccessible(true);
 
-        File xmlFile = temporaryFolder.newFile("test-report.xml");
-        mojo.xmlOutputFile = xmlFile;
+        mojo.xmlOutputFile = temporaryFolder.newFile("test-report.xml");
 
         IBundleCoverage mockBundle = createSimpleMockBundle("TestProject");
 

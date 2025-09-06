@@ -56,7 +56,7 @@ public class XmlMethodIntegrationTest extends BaseTestClass {
     }
 
     @Test
-    public void testGenerateReportDoesNotCallGenerateXmlReportWhenNull() throws Exception {
+    public void testGenerateReportDoesNotCallGenerateXmlReportWhenNull() {
         JacocoConsoleReporterMojo spyMojo = spy(mojo);
 
         spyMojo.xmlOutputFile = null;

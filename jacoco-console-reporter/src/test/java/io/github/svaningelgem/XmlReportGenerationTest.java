@@ -127,10 +127,9 @@ public class XmlReportGenerationTest extends BaseTestClass {
     }
 
     @Test
-    public void testGenerateXmlReportHandlesIOException() throws Exception {
+    public void testGenerateXmlReportHandlesIOException() {
         File nonExistentDir = new File(temporaryFolder.getRoot(), "nonexistent");
-        File xmlFile = new File(nonExistentDir, "jacoco-report.xml");
-        mojo.xmlOutputFile = xmlFile;
+        mojo.xmlOutputFile = new File(nonExistentDir, "jacoco-report.xml");
 
         IBundleCoverage mockBundle = createSimpleMockBundle("TestProject");
 
@@ -139,8 +138,7 @@ public class XmlReportGenerationTest extends BaseTestClass {
             fail("Should have thrown IOException");
         } catch (Exception e) {
             assertTrue("Should be IOException or similar",
-                    e instanceof java.io.FileNotFoundException ||
-                            e instanceof java.io.IOException ||
+                    e instanceof java.io.IOException ||
                             e.getCause() instanceof java.io.IOException);
         }
     }
