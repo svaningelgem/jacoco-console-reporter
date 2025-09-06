@@ -99,7 +99,6 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
         return packageCoverage;
     }
 
-
     // Helper to create counter
     ICounter createCounter(int total, int covered) {
         ICounter counter = mock(ICounter.class);
@@ -135,9 +134,32 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
     void setupLine(@NotNull ILine line, int instrTotal, int instrCovered, int branchTotal, int branchCovered) {
         ICounter instrCounter = createCounter(instrTotal, instrCovered);
         ICounter branchCounter = createCounter(branchTotal, branchCovered);
+
+        // Calculate status directly from values to avoid calling mocked methods during stubbing
+        int instrStatus = calculateStatus(instrTotal, instrCovered);
+        int branchStatus = calculateStatus(branchTotal, branchCovered);
+        int finalStatus = combineStatuses(instrStatus, branchStatus);
+
         lenient().when(line.getInstructionCounter()).thenReturn(instrCounter);
         lenient().when(line.getBranchCounter()).thenReturn(branchCounter);
-        lenient().when(line.getStatus()).thenReturn(computeStatus(instrCounter, branchCounter));
+        lenient().when(line.getStatus()).thenReturn(finalStatus);
+    }
+
+    private int calculateStatus(int total, int covered) {
+        if (total == 0) return ICounter.EMPTY;
+        if (covered == 0) return ICounter.NOT_COVERED;
+        if (covered == total) return ICounter.FULLY_COVERED;
+        return ICounter.PARTLY_COVERED;
+    }
+
+    private int combineStatuses(int instrStatus, int branchStatus) {
+        if (instrStatus == ICounter.EMPTY) {
+            return branchStatus;
+        } else if (branchStatus == ICounter.EMPTY) {
+            return instrStatus;
+        } else {
+            return Math.min(instrStatus, branchStatus);
+        }
     }
 
     /**
@@ -147,46 +169,65 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
         ISourceFileCoverage sourceCoverage = mock(ISourceFileCoverage.class);
         lenient().when(sourceCoverage.getName()).thenReturn(fileName);
 
-        ILine[] lines = new ILine[10];
-        for (int i = 0; i < lines.length; i++) {
-            lines[i] = mock(ILine.class);
-        }
+        // Mock the line range - crucial for iteration
+        lenient().when(sourceCoverage.getFirstLine()).thenReturn(1);
+        lenient().when(sourceCoverage.getLastLine()).thenReturn(15);
 
-        // Line 1: single fully covered line
-        setupLine(lines[0], 1, 1, 0, 0);
-
-        // Lines 2-4: 3 consecutive covered lines with fully covered branches
-        for (int i = 1; i <= 3; i++) {
-            setupLine(lines[i], 2, 1, 1, 1);
-        }
-
-        // Line 5: not covered with uncovered branch
-        setupLine(lines[4], 0, 0, 1, 0);
-
-        // Lines 6-9: partly covered lines
-        for (int i = 5; i <= 8; i++) {
-            setupLine(lines[i], 2, 1, 0, 0);
-        }
-
-        // Line 10: not covered line
-        setupLine(lines[9], 1, 0, 0, 0);
-
-        // Mock getLine
+        // Mock getLine to handle any line number - never return null to avoid NPE
         lenient().when(sourceCoverage.getLine(anyInt())).thenAnswer(invocation -> {
             int lineNr = invocation.getArgument(0);
-            if (lineNr < 1 || lineNr > 10) return null;
-            return lines[lineNr - 1];
+
+            // Always return a valid line mock, even for invalid line numbers
+            ILine line = mock(ILine.class);
+
+            if (lineNr == 1) {
+                // Line 1: single missing line
+                setupLine(line, 1, 0, 0, 0);
+            } else if (lineNr == 2) {
+                // Line 2: separator - fully covered
+                setupLine(line, 2, 2, 1, 1);
+            } else if (lineNr >= 3 && lineNr <= 4) {
+                // Lines 3-4: 2 consecutive missing lines
+                setupLine(line, 1, 0, 0, 0);
+            } else if (lineNr == 5) {
+                // Line 5: separator - fully covered
+                setupLine(line, 2, 2, 1, 1);
+            } else if (lineNr >= 6 && lineNr <= 8) {
+                // Lines 6-8: 3 consecutive missing lines
+                setupLine(line, 1, 0, 0, 0);
+            } else if (lineNr >= 9 && lineNr <= 11) {
+                // Lines 9-11: 3 fully covered lines
+                setupLine(line, 2, 2, 1, 1);
+            } else if (lineNr == 12) {
+                // Line 12: 1 partially covered line
+                setupLine(line, 2, 1, 2, 1);
+            } else if (lineNr == 13) {
+                // Line 13: separator - fully covered
+                setupLine(line, 2, 2, 1, 1);
+            } else if (lineNr == 14) {
+                // Line 14: another partially covered line
+                setupLine(line, 2, 1, 2, 1);
+            } else if (lineNr == 15) {
+                // Line 15: single missing line
+                setupLine(line, 1, 0, 0, 0);
+            } else {
+                // Other lines: empty (no executable code)
+                setupLine(line, 0, 0, 0, 0);
+            }
+
+            return line;
         });
 
-        // Create mock counters for lines and branches
+        // Mock counters for lines and branches
         ICounter lineCounter = mock(ICounter.class);
-        lenient().when(lineCounter.getTotalCount()).thenReturn(10);
-        lenient().when(lineCounter.getCoveredCount()).thenReturn(8);
+        lenient().when(lineCounter.getTotalCount()).thenReturn(15);
+        lenient().when(lineCounter.getCoveredCount()).thenReturn(7); // Lines 2, 5, 9-11, 13 are fully covered
         ICounter branchCounter = mock(ICounter.class);
-        lenient().when(branchCounter.getTotalCount()).thenReturn(4);
-        lenient().when(branchCounter.getCoveredCount()).thenReturn(3);
+        lenient().when(branchCounter.getTotalCount()).thenReturn(8);
+        lenient().when(branchCounter.getCoveredCount()).thenReturn(6);
         lenient().when(sourceCoverage.getLineCounter()).thenReturn(lineCounter);
         lenient().when(sourceCoverage.getBranchCounter()).thenReturn(branchCounter);
+
         return sourceCoverage;
     }
 
@@ -219,11 +260,7 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
         when(packageCoverage.getClasses()).thenReturn(classes);
     }
 
-    @Test
-    public void testCoverMissingInAddingDirTree() {
-        mojo.showFiles = true;
-        mojo.showMissingLines = true;
-
+    void setupMissingCoverage() {
         // Create a root directory node
         DirectoryNode root = new DirectoryNode("");
 
@@ -239,8 +276,74 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
             ISourceFileCoverage sourceCoverage = createMockSourceFileCoverage(fileName);
             mojo.buildDirectoryTreeAddNode(root, packageCoverage, sourceCoverage);
         }
+        mojo.printCoverageReport(root);
+    }
 
-        int a = 1;
+    @Test
+    public void testCoverMissingInAddingDirTree() {
+        mojo.showFiles = true;
+        mojo.showMissingLines = true;
 
+        setupMissingCoverage();
+
+        String[] expected = {
+                "[info] └─IncludedClass.java                               | 100.00% (1/1)        | 80.00% (4/5)         | 75.00% (6/8)         | 46.67% (7/15)          Missing: 1, 3-4, 6-8, 15, partial: 12, 14"
+        };
+        assertLogContains(expected, true);
+    }
+
+    @Test
+    public void testCoverMissingInAddingDirTreeNoShowFiles() {
+        mojo.showFiles = false;
+        mojo.showMissingLines = true;
+
+        setupMissingCoverage();
+
+        String[] expected = {
+                "[info] com.example                                        | 100.00% (1/1)        | 80.00% (4/5)         | 75.00% (6/8)         | 46.67% (7/15)       "
+        };
+        assertLogContains(expected, true);
+
+        String[] notExpected = {
+                "[info] └─IncludedClass.java"
+        };
+        assertLogNotContains(notExpected, false);
+    }
+
+    @Test
+    public void testCoverMissingInAddingDirTreeShowFilesNoMissingLines() {
+        mojo.showFiles = true;
+        mojo.showMissingLines = false;
+
+        setupMissingCoverage();
+
+        String[] expected = {
+                "[info] com.example                                        | 100.00% (1/1)        | 80.00% (4/5)         | 75.00% (6/8)         | 46.67% (7/15)       ",
+                "[info] └─IncludedClass.java                               | 100.00% (1/1)        | 80.00% (4/5)         | 75.00% (6/8)         | 46.67% (7/15)       "
+        };
+        assertLogContains(expected, true);
+
+        String[] notExpected = {
+                "[info] └─IncludedClass.java                               | 100.00% (1/1)        | 80.00% (4/5)         | 75.00% (6/8)         | 46.67% (7/15)          Missing: 1, 3-4, 6-8, 15, partial: 12, 14"
+        };
+        assertLogNotContains(notExpected, true);
+    }
+
+    @Test
+    public void testCoverMissingInAddingDirTreeNoShowFilesNoMissingLines() {
+        mojo.showFiles = false;
+        mojo.showMissingLines = false;
+
+        setupMissingCoverage();
+
+        String[] expected = {
+                "[info] com.example                                        | 100.00% (1/1)        | 80.00% (4/5)         | 75.00% (6/8)         | 46.67% (7/15)       "
+        };
+        assertLogContains(expected, true);
+
+        String[] notExpected = {
+                "[info] └─IncludedClass.java"
+        };
+        assertLogNotContains(notExpected, false);
     }
 }

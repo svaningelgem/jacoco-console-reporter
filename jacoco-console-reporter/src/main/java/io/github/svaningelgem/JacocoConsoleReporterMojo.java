@@ -574,50 +574,67 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     /**
      * Formats missing lines into a compact string representation.
      * Groups consecutive lines into ranges (e.g., "3-5") and lists singles (e.g., "7, 9")
+     * Also includes partially covered lines with "partial: " prefix
      */
     @NotNull String formatMissingLines(@NotNull ISourceFileCoverage sourceFile) {
         List<Integer> missingLines = new ArrayList<>();
+        List<Integer> partialLines = new ArrayList<>();
 
-        // Collect all uncovered lines
+        // Collect uncovered and partially covered lines
         for (int i = sourceFile.getFirstLine(); i <= sourceFile.getLastLine(); i++) {
-            if (sourceFile.getLine(i).getStatus() == ICounter.NOT_COVERED) {
+            int status = sourceFile.getLine(i).getStatus();
+            if (status == ICounter.NOT_COVERED) {
                 missingLines.add(i);
+            } else if (status == ICounter.PARTLY_COVERED) {
+                partialLines.add(i);
             }
         }
 
-        if (missingLines.isEmpty()) {
+        if (missingLines.isEmpty() && partialLines.isEmpty()) {
             return "";
         }
 
-        // Group consecutive lines into ranges
-        List<String> groups = new ArrayList<>();
-        int start = missingLines.get(0);
-        int end = start;
+        List<String> result = new ArrayList<>();
 
-        for (int i = 1; i < missingLines.size(); i++) {
-            int current = missingLines.get(i);
-            if (current == end + 1) {
-                end = current;
-            } else {
-                // End of a sequence
-                if (start == end) {
-                    groups.add(String.valueOf(start));
+        // Group consecutive missing lines into ranges
+        if (!missingLines.isEmpty()) {
+            List<String> groups = new ArrayList<>();
+            int start = missingLines.get(0);
+            int end = start;
+
+            for (int i = 1; i < missingLines.size(); i++) {
+                int current = missingLines.get(i);
+                if (current == end + 1) {
+                    end = current;
                 } else {
-                    groups.add(start + "-" + end);
+                    // End of a sequence
+                    if (start == end) {
+                        groups.add(String.valueOf(start));
+                    } else {
+                        groups.add(start + "-" + end);
+                    }
+                    start = current;
+                    end = current;
                 }
-                start = current;
-                end = current;
             }
+
+            // Add the last group
+            if (start == end) {
+                groups.add(String.valueOf(start));
+            } else {
+                groups.add(start + "-" + end);
+            }
+
+            result.addAll(groups);
         }
 
-        // Add the last group
-        if (start == end) {
-            groups.add(String.valueOf(start));
-        } else {
-            groups.add(start + "-" + end);
+        // Add partial lines (not grouped)
+        if (!partialLines.isEmpty()) {
+            List<String> partialStrings = partialLines.stream().map(String::valueOf).collect(java.util.stream.Collectors.toList());
+            result.add("partial: " + String.join(", ", partialStrings));
         }
 
-        return String.join(", ", groups);
+        return String.join(", ", result);
     }
 
     void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IPackageCoverage packageCoverage, @NotNull ISourceFileCoverage sourceFileCoverage) {
