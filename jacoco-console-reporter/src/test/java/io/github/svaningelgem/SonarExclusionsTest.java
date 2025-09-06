@@ -56,6 +56,20 @@ public class SonarExclusionsTest extends BaseTestClass {
     }
 
     @Test
+    public void testDisabledSonarExclusions() {
+        // Same as `testAddSonarExclusionsWithSonarExclusions`, but now with `interpretSonarIgnorePatterns` turned off
+        mojo.interpretSonarIgnorePatterns = false;
+
+        Properties props = new Properties();
+        props.setProperty("sonar.exclusions", "src/main/java/com/example/generated/**,**/*Generated.java,**/target/**");
+        mojo.project.getModel().setProperties(props);
+
+        int initialSize = JacocoConsoleReporterMojo.collectedSonarExcludePatterns.size();
+        mojo.addSonarExclusions();
+        assertEquals(initialSize, JacocoConsoleReporterMojo.collectedSonarExcludePatterns.size());
+    }
+
+    @Test
     public void testAddSonarExclusionsWithSonarCoverageExclusions() {
         Properties props = new Properties();
         props.setProperty("sonar.coverage.exclusions", "src/test/java/**,**/*Test.java,**/*DTO.java");

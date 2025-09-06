@@ -4,29 +4,11 @@ import org.junit.Test;
 
 import java.util.Collections;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class DirectoryNodeTest extends BaseTestClass {
-
-    @Test
-    public void testShouldInclude() {
-        DirectoryNode emptyNode = new DirectoryNode("empty");
-        assertFalse("Empty directory should not be included", emptyNode.shouldInclude());
-
-        DirectoryNode withFiles = new DirectoryNode("withFiles");
-        withFiles.getSourceFiles().add(new SourceFileNode("Test.java", new CoverageMetrics()));
-        assertTrue("Directory with files should be included", withFiles.shouldInclude());
-
-        DirectoryNode withSubDir = new DirectoryNode("withSubDir");
-        DirectoryNode subDir = new DirectoryNode("subDir");
-        subDir.getSourceFiles().add(new SourceFileNode("Test.java", new CoverageMetrics()));
-        withSubDir.getSubdirectories().put("subDir", subDir);
-        assertTrue("Directory with non-empty subdirectory should be included", withSubDir.shouldInclude());
-
-        DirectoryNode withEmptySubDir = new DirectoryNode("withEmptySubDir");
-        withEmptySubDir.getSubdirectories().put("emptySubDir", new DirectoryNode("emptySubDir"));
-        assertFalse("Directory with only empty subdirectory should not be included", withEmptySubDir.shouldInclude());
-    }
 
     @Test
     public void testCollapseSingleNodeDirectory() {
@@ -50,32 +32,14 @@ public class DirectoryNodeTest extends BaseTestClass {
 
         // Add a file to each directory so shouldInclude() returns true
         root.getSubdirectories().get("dir1").getSourceFiles().add(
-                new SourceFileNode("Test1.java", new CoverageMetrics()));
+                new SourceFileNode("Test1.java", new CoverageMetrics(), null));
         root.getSubdirectories().get("dir2").getSourceFiles().add(
-                new SourceFileNode("Test2.java", new CoverageMetrics()));
+                new SourceFileNode("Test2.java", new CoverageMetrics(), null));
 
         // This will test the !shouldCollapse condition
         root.printTree(log, "", Defaults.getInstance().lineFormat, "", false);
 
         // The log should contain the root and both directories as separate entries
-        assertTrue("Log should contain the root node",
-                log.writtenData.stream().anyMatch(s -> s.contains("<root>")));
-    }
-
-    @Test
-    public void testNoCollapseWithFiles() {
-        DirectoryNode root = new DirectoryNode("");
-        root.getSubdirectories().put("dir", new DirectoryNode("dir"));
-        root.getSourceFiles().add(new SourceFileNode("RootTest.java", new CoverageMetrics()));
-
-        // Add a file to the directory so shouldInclude() returns true
-        root.getSubdirectories().get("dir").getSourceFiles().add(
-                new SourceFileNode("Test.java", new CoverageMetrics()));
-
-        // This will test the !shouldCollapse condition due to files in root
-        root.printTree(log, "", Defaults.getInstance().lineFormat, "", true);
-
-        // The log should contain the root and directory as separate entries
         assertTrue("Log should contain the root node",
                 log.writtenData.stream().anyMatch(s -> s.contains("<root>")));
     }
@@ -110,4 +74,46 @@ public class DirectoryNodeTest extends BaseTestClass {
         assertEquals("Should add corner to prefix without modification",
                 otherPrefix + Defaults.getInstance().corner, result3);
     }
+
+    @Test
+    public void testShouldInclude() {
+        DirectoryNode emptyNode = new DirectoryNode("empty");
+        assertFalse("Empty directory should not be included", emptyNode.shouldInclude());
+
+        DirectoryNode withFiles = new DirectoryNode("withFiles");
+        // Add null as third parameter for missingLines
+        withFiles.getSourceFiles().add(new SourceFileNode("Test.java", new CoverageMetrics(), null));
+        assertTrue("Directory with files should be included", withFiles.shouldInclude());
+
+        DirectoryNode withSubDir = new DirectoryNode("withSubDir");
+        DirectoryNode subDir = new DirectoryNode("subDir");
+        // Add null as third parameter for missingLines
+        subDir.getSourceFiles().add(new SourceFileNode("Test.java", new CoverageMetrics(), null));
+        withSubDir.getSubdirectories().put("subDir", subDir);
+        assertTrue("Directory with non-empty subdirectory should be included", withSubDir.shouldInclude());
+
+        DirectoryNode withEmptySubDir = new DirectoryNode("withEmptySubDir");
+        withEmptySubDir.getSubdirectories().put("emptySubDir", new DirectoryNode("emptySubDir"));
+        assertFalse("Directory with only empty subdirectory should not be included", withEmptySubDir.shouldInclude());
+    }
+
+    @Test
+    public void testNoCollapseWithFiles() {
+        DirectoryNode root = new DirectoryNode("");
+        root.getSubdirectories().put("dir", new DirectoryNode("dir"));
+        // Add null as third parameter for missingLines
+        root.getSourceFiles().add(new SourceFileNode("RootTest.java", new CoverageMetrics(), null));
+
+        // Add a file to the directory so shouldInclude() returns true
+        root.getSubdirectories().get("dir").getSourceFiles().add(
+                new SourceFileNode("Test.java", new CoverageMetrics(), null));
+
+        // This will test the !shouldCollapse condition due to files in root
+        root.printTree(log, "", Defaults.getInstance().lineFormat, "", true);
+
+        // The log should contain the root and directory as separate entries
+        assertTrue("Log should contain the root node",
+                log.writtenData.stream().anyMatch(s -> s.contains("<root>")));
+    }
+
 }

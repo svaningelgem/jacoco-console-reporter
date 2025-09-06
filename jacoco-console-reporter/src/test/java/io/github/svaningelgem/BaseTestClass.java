@@ -1,6 +1,5 @@
 package io.github.svaningelgem;
 
-import lombok.var;
 import org.apache.maven.execution.DefaultMavenExecutionRequest;
 import org.apache.maven.execution.DefaultMavenExecutionResult;
 import org.apache.maven.execution.MavenExecutionRequest;
@@ -30,15 +29,25 @@ import org.w3c.dom.Document;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.*;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Random;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 
 public class BaseTestClass {
     protected final static Random RANDOM = new Random();
@@ -207,17 +216,6 @@ public class BaseTestClass {
     }
 
     /**
-     * Create a mock ICounter with lenient stubbing
-     */
-    protected ICounter createMockCounterLenient(int total, int covered) {
-        ICounter mockCounter = mock(ICounter.class);
-        lenient().when(mockCounter.getTotalCount()).thenReturn(total);
-        lenient().when(mockCounter.getCoveredCount()).thenReturn(covered);
-        lenient().when(mockCounter.getMissedCount()).thenReturn(total - covered);
-        return mockCounter;
-    }
-
-    /**
      * Create a simple mock bundle with minimal configuration
      */
     protected IBundleCoverage createSimpleMockBundle(String name) {
@@ -381,8 +379,12 @@ public class BaseTestClass {
     }
 
     protected void assertLogNotContains(@NotNull String @NotNull [] expected) {
+        assertLogNotContains(expected, false);
+    }
+
+    protected void assertLogNotContains(@NotNull String @NotNull [] expected, boolean exactMatch) {
         try {
-            assertLogContains(expected);
+            assertLogContains(expected, exactMatch);
         } catch (AssertionError e) {
             return; // Good!
         }
@@ -391,10 +393,27 @@ public class BaseTestClass {
     }
 
     protected void assertLogContains(@NotNull String @NotNull [] expected) {
+        assertLogContains(expected, false);
+    }
+
+    boolean doesLineMatch(String currentLine, boolean exactMatch, String expectedMatch) {
+        String expectedAsUtf8 = expectedMatch.replace("|", "│").replace("+-", "├─").replace("\\-", "└─");
+        String expectedAsAscii = expectedMatch.replace("│", "|").replace("├─", "+-").replace("└─", "\\-");
+
+        if (!exactMatch && (currentLine.startsWith(expectedAsUtf8) || currentLine.startsWith(expectedAsAscii))) {
+            return true;
+        } else if (exactMatch && (currentLine.equals(expectedAsUtf8) || currentLine.equals(expectedAsAscii))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected void assertLogContains(@NotNull String @NotNull [] expected, boolean exactMatch) {
         assertTrue("Wrong test: we need SOMETHING to check!", expected.length > 0);
 
         int line = 0;
-        while (line < log.writtenData.size() && !log.writtenData.get(line).contains(expected[0])) {
+        while (line < log.writtenData.size() && !doesLineMatch(log.writtenData.get(line), exactMatch, expected[0])) {
             line++;
         }
 
@@ -402,14 +421,9 @@ public class BaseTestClass {
             fail("I couldn't find the initial line even: " + expected[0]);
         }
 
-        final int begin = line;
         assertTrue("We should have at least enough lines left to check the whole expected array", line <= log.writtenData.size() - expected.length);
-        for (; line < log.writtenData.size() && line - begin < expected.length; line++) {
-            String expectedAsUtf8 = expected[line - begin];
-            String expectedAsAscii = expectedAsUtf8.replace("│", "|").replace("├─", "+-").replace("└─", "\\-");
-
-            String currentLine = log.writtenData.get(line);
-            if (currentLine.startsWith(expectedAsUtf8) || currentLine.startsWith(expectedAsAscii)) {
+        for (int begin = line; line < log.writtenData.size() && line - begin < expected.length; line++) {
+            if (doesLineMatch(log.writtenData.get(line), exactMatch, expected[line - begin])) {
                 continue;
             }
 
@@ -475,7 +489,8 @@ public class BaseTestClass {
                 continue;
             }
 
-            SourceFileNode file = new SourceFileNode(name, defaultCoverage == null ? getRandomCoverage() : defaultCoverage.clone());
+            // Add null as the third parameter for missingLines
+            SourceFileNode file = new SourceFileNode(name, defaultCoverage == null ? getRandomCoverage() : defaultCoverage.clone(), null);
             toNode.getSourceFiles().add(file);
         }
     }
@@ -560,7 +575,7 @@ public class BaseTestClass {
 
         build.addPlugin(plugin);
 
-        var project = new MavenProject(model);
+        MavenProject project = new MavenProject(model);
         File pomFile = new File(temporaryFolder.getRoot(), "pom.xml");
         pomFile.createNewFile();
         project.setFile(pomFile);
@@ -642,41 +657,5 @@ public class BaseTestClass {
         try (FileWriter writer = new FileWriter(file)) {
             writer.write(content);
         }
-    }
-
-    /**
-     * Asserts that two Pattern objects are equal based on pattern string
-     */
-    public static void assertPatternEquals(String expected, Pattern actual) {
-        if (expected == null || actual == null) {
-            fail("One pattern is null");
-        }
-
-        boolean patternsEqual = expected.equals(actual.pattern());
-
-        if (!patternsEqual) {
-            fail(String.format("Patterns not equal: expected='%s', actual='%s'", expected, actual.pattern()));
-        }
-    }
-
-    /**
-     * Asserts that two collections of Pattern objects are equal
-     */
-    public static void assertPatternEquals(Collection<String> expected, Collection<Pattern> actual) {
-        if (expected == null || actual == null) {
-            fail("One collection is null");
-        }
-
-        // Convert to lists and sort by pattern and flags for consistent comparison
-        List<String> expectedPatterns = new ArrayList<>(expected).stream()
-                .sorted()
-                .collect(Collectors.toList());
-
-        List<String> actualPatterns = actual.stream()
-                .map(Pattern::pattern)
-                .sorted()
-                .collect(Collectors.toList());
-
-        assertEquals(expectedPatterns, actualPatterns);
     }
 }
