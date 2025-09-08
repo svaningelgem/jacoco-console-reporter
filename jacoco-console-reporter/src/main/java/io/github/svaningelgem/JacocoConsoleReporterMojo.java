@@ -1,6 +1,10 @@
 package io.github.svaningelgem;
 
+import lombok.var;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginExecution;
 import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -18,6 +22,7 @@ import org.jacoco.report.IReportVisitor;
 import org.jacoco.report.MultiSourceFileLocator;
 import org.jacoco.report.xml.XMLFormatter;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -36,9 +41,11 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -148,6 +155,12 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "${session}", readonly = true, required = true)
     org.apache.maven.execution.MavenSession mavenSession;
+
+    /**
+     * The execution step
+     */
+    @Parameter(defaultValue = "${mojoExecution}", readonly = true)
+    private MojoExecution mojoExecution;
 
     /**
      * JaCoCo plugin info for dependency discovery
@@ -310,12 +323,16 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * <exclude>com/baeldung/** /*DTO.*</exclude>
      * <exclude>** /config/*</exclude>
      */
-    Pattern convertExclusionToPattern(@NotNull String jacocoPattern) {
-        jacocoPattern = jacocoPattern.replace("\\", "/");
+    @Nullable Pattern convertExclusionToPattern(@NotNull String jacocoPattern) {
+        jacocoPattern = jacocoPattern.replace("\\", "/").trim();
 
         // Handle the .class extension
         if (jacocoPattern.toLowerCase(Locale.ENGLISH).endsWith(".class")) {
-            jacocoPattern = jacocoPattern.substring(0, jacocoPattern.length() - 6);
+            jacocoPattern = jacocoPattern.substring(0, jacocoPattern.length() - 6).trim();
+        }
+
+        if (jacocoPattern.isEmpty()) {
+            return null;
         }
 
         // Use temporary placeholders to avoid interference between replacements
@@ -335,8 +352,13 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     void addExclusion(@NotNull String jacocoPattern) {
-        Pattern pattern = convertExclusionToPattern(jacocoPattern);
-        collectedExcludePatterns.add(pattern);
+        String[] split = jacocoPattern.split(",");
+        for (String pattern : split) {
+            var converted = convertExclusionToPattern(pattern);
+            if (converted != null) {
+                collectedExcludePatterns.add(converted);
+            }
+        }
     }
 
     /**
@@ -400,6 +422,61 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         return !deferReporting || project.getId().equals(mavenSession.getProjects().get(mavenSession.getProjects().size() - 1).getId());
     }
 
+    Queue<Xpp3Dom> digIntoConfig(Xpp3Dom config, String[] parts) {
+        if (config == null || parts.length == 0) {
+            return null;
+        }
+
+        // Queue of nodes to process at the current level
+        Queue<Xpp3Dom> currentLevelNodes = new LinkedList<>();
+        currentLevelNodes.add(config);
+
+        // Process each part of the path
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+            Queue<Xpp3Dom> nextLevelNodes = new LinkedList<>();
+
+            // Process all nodes at the current level
+            for (Xpp3Dom currentNode : currentLevelNodes) {
+                // Get all children with matching name
+                Xpp3Dom[] children = currentNode.getChildren(part);
+                Collections.addAll(nextLevelNodes, children);
+            }
+
+            // If this is the last part in the path, apply consumer to all matching nodes
+            if (nextLevelNodes.isEmpty()) {
+                // If no matching nodes found at this level, stop processing
+                break;
+            }
+
+            if (i == parts.length - 1) {
+                return nextLevelNodes;
+            }
+
+            // Continue with the next level
+            currentLevelNodes = nextLevelNodes;
+        }
+
+        return null;
+    }
+
+    Queue<Xpp3Dom> getConfiguration(Plugin plugin, String[] parts) {
+        Queue<Xpp3Dom> config = null;
+
+        if (mojoExecution != null) {
+            PluginExecution exec = plugin.getExecutionsAsMap().get(mojoExecution.getGoal());
+            if (exec != null) {
+                config = digIntoConfig((Xpp3Dom) exec.getConfiguration(), parts);
+            }
+        }
+
+        if (config != null) {
+            return config;
+        }
+
+        return digIntoConfig((Xpp3Dom) plugin.getConfiguration(), parts);
+    }
+
     void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull String configValue, Consumer<String> configurationConsumer, String defaultValue) {
         final String[] parts = Arrays.stream(configValue.split("\\.")).filter(s -> !s.isEmpty()).toArray(String[]::new);
 
@@ -408,47 +485,20 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             boolean artifactEquals = artifactId.equals(plugin.getArtifactId());
             return groupEquals && artifactEquals;
         }).forEach(plugin -> {
-            boolean[] foundValue = new boolean[1];
+            AtomicBoolean foundValue = new AtomicBoolean(false);
 
-            Xpp3Dom config = (Xpp3Dom) plugin.getConfiguration();
+            Queue<Xpp3Dom> config = getConfiguration(plugin, parts);
             if (config != null) {
+                config.forEach(node -> {
+                    String value = node.getValue().trim();
+                    if (value.isEmpty()) return;
 
-                // Queue of nodes to process at the current level
-                Queue<Xpp3Dom> currentLevelNodes = new LinkedList<>();
-                currentLevelNodes.add(config);
-
-                // Process each part of the path
-                for (int i = 0; i < parts.length; i++) {
-                    String part = parts[i];
-                    Queue<Xpp3Dom> nextLevelNodes = new LinkedList<>();
-
-                    // Process all nodes at the current level
-                    for (Xpp3Dom currentNode : currentLevelNodes) {
-                        // Get all children with matching name
-                        Xpp3Dom[] children = currentNode.getChildren(part);
-                        Collections.addAll(nextLevelNodes, children);
-                    }
-
-                    // If this is the last part in the path, apply consumer to all matching nodes
-                    if (i == parts.length - 1) {
-                        nextLevelNodes.forEach(node -> {
-                            String value = node.getValue().trim();
-                            if (value.isEmpty()) return;
-
-                            configurationConsumer.accept(value);
-                            foundValue[0] = true;
-                        });
-                    } else if (nextLevelNodes.isEmpty()) {
-                        // If no matching nodes found at this level, stop processing
-                        break;
-                    } else {
-                        // Continue with the next level
-                        currentLevelNodes = nextLevelNodes;
-                    }
-                }
+                    configurationConsumer.accept(value);
+                    foundValue.set(true);
+                });
             }
 
-            if (!foundValue[0] && defaultValue != null) {
+            if (!foundValue.get() && defaultValue != null) {
                 configurationConsumer.accept(defaultValue);
             }
         });
