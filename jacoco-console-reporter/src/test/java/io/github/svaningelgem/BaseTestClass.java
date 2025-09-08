@@ -76,6 +76,9 @@ public class BaseTestClass {
 
     private int fileCounter = 0;
 
+    protected File targetDir;
+    protected File classesDir;
+
     protected String getBasedir() {
         return System.getProperty("basedir", new File("").getAbsolutePath());
     }
@@ -121,11 +124,23 @@ public class BaseTestClass {
         mojo.xmlOutputFile = temporaryFolder.newFile("coverage.xml");
         mojo.xmlOutputFile.delete();
 
+        targetDir = temporaryFolder.newFolder("target");
+        classesDir = new File(targetDir, "classes");
+
+        setDirectories(targetDir, classesDir);
+
         log = new MyLog();
         mojo.setLog(log);
     }
 
-    private MojoExecution createExecution() {
+    void setDirectories(File targetDir, File classesDir) {
+        targetDir.mkdirs();
+        mojo.project.getBuild().setDirectory(targetDir.getAbsolutePath());
+        classesDir.mkdirs();
+        mojo.project.getBuild().setOutputDirectory(classesDir.getAbsolutePath());
+    }
+
+    private @NotNull MojoExecution createExecution() {
         Plugin plugin = new Plugin();
         plugin.setGroupId("io.github.svaningelgem");
         plugin.setArtifactId("jacoco-console-reporter");
@@ -151,33 +166,25 @@ public class BaseTestClass {
     /**
      * Configure the project's build directories and JaCoCo settings
      */
-    protected void configureProjectForTesting(File targetDir, File classesDir, @Nullable File jacocoExecFile) {
-        if (targetDir != null) {
-            targetDir.mkdirs();
-            mojo.project.getBuild().setDirectory(targetDir.getAbsolutePath());
+    protected void configureProjectForTesting(@Nullable File jacocoExecFile) {
+        if (jacocoExecFile == null) {
+            return;
         }
 
-        if (classesDir != null) {
-            classesDir.mkdirs();
-            mojo.project.getBuild().setOutputDirectory(classesDir.getAbsolutePath());
+        // Update the JaCoCo plugin configuration with the exec file path
+        Plugin jacocoPlugin = findOrCreateJacocoPlugin(mojo.project);
+        Xpp3Dom configuration = (Xpp3Dom) jacocoPlugin.getConfiguration();
+        if (configuration == null) {
+            configuration = new Xpp3Dom("configuration");
+            jacocoPlugin.setConfiguration(configuration);
         }
 
-        if (jacocoExecFile != null) {
-            // Update the JaCoCo plugin configuration with the exec file path
-            Plugin jacocoPlugin = findOrCreateJacocoPlugin(mojo.project);
-            Xpp3Dom configuration = (Xpp3Dom) jacocoPlugin.getConfiguration();
-            if (configuration == null) {
-                configuration = new Xpp3Dom("configuration");
-                jacocoPlugin.setConfiguration(configuration);
-            }
-
-            Xpp3Dom destFileNode = configuration.getChild("destFile");
-            if (destFileNode == null) {
-                destFileNode = new Xpp3Dom("destFile");
-                configuration.addChild(destFileNode);
-            }
-            destFileNode.setValue(jacocoExecFile.getAbsolutePath());
+        Xpp3Dom destFileNode = configuration.getChild("destFile");
+        if (destFileNode == null) {
+            destFileNode = new Xpp3Dom("destFile");
+            configuration.addChild(destFileNode);
         }
+        destFileNode.setValue(jacocoExecFile.getAbsolutePath());
     }
 
     /**
@@ -669,8 +676,8 @@ public class BaseTestClass {
         }
     }
 
-    protected void createFile(File parent, String path, String content) throws IOException {
-        File file = new File(parent, path);
+    protected void createFile(String path, String content) throws IOException {
+        File file = new File(mojo.targetDir, path);
         file.getParentFile().mkdirs();
 
         try (FileWriter writer = new FileWriter(file)) {

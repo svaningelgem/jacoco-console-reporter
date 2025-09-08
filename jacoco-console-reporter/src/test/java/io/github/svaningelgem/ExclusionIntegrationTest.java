@@ -60,13 +60,11 @@ public class ExclusionIntegrationTest extends BaseTestClass {
     @Test
     public void testExclusionFromAnalysis() throws Exception {
         // Create a fake directory structure for class file analysis
-        File classesDir = temporaryFolder.newFolder("classes");
         File generatedDir = new File(classesDir, "com/example/generated");
         generatedDir.mkdirs();
 
         // Configure project to use our classes directory
-        File targetDir = temporaryFolder.newFolder("target");
-        configureProjectForTesting(targetDir, classesDir, null);
+        configureProjectForTesting(null);
 
         // Execute to initialize targetDir and baseDir
         mojo.execute();
@@ -117,17 +115,15 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         mojo.ignoreFilesInBuildDirectory = true;
 
         // Set up project directories
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-        configureProjectForTesting(targetDir, classesDir, null);
+        configureProjectForTesting(null);
 
         // Execute to initialize targetDir
         mojo.execute();
 
         // Create a few files in the target directory
-        createFile(targetDir, "classes/com/example/TestClass.java", "package io.sample;");
-        createFile(targetDir, "classes/com/sth/Else.java", "not-a-package io.sample;");
-        createFile(targetDir, "classes/com/example/ProductionClass.class", "package io.sample2;");
+        createFile("classes/com/example/TestClass.java", "package io.sample;");
+        createFile("classes/com/sth/Else.java", "not-a-package io.sample;");
+        createFile("classes/com/example/ProductionClass.class", "package io.sample2;");
 
         mojo.addBuildDirExclusion();
 
@@ -138,9 +134,7 @@ public class ExclusionIntegrationTest extends BaseTestClass {
     @Test
     public void testThrowingExceptionDuringCanonicalPath() throws IOException, MojoExecutionException {
         // Set up project directories
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-        configureProjectForTesting(targetDir, classesDir, null);
+        configureProjectForTesting(null);
 
         // Execute to initialize targetDir
         mojo.execute();
@@ -161,9 +155,7 @@ public class ExclusionIntegrationTest extends BaseTestClass {
     @Test
     public void testThrowingExceptionDuringReadingFile() throws IOException, MojoExecutionException {
         // Set up project directories
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-        configureProjectForTesting(targetDir, classesDir, null);
+        configureProjectForTesting(null);
 
         // Execute to initialize targetDir
         mojo.execute();
@@ -175,7 +167,7 @@ public class ExclusionIntegrationTest extends BaseTestClass {
             }
         };
 
-        createFile(targetDir, "classes/com/example/TestClass.java", "package io.sample;");
+        createFile("classes/com/example/TestClass.java", "package io.sample;");
         mojo.addBuildDirExclusion();
 
         String[] expected = {"[warn] Failed to read file: "};
@@ -188,9 +180,7 @@ public class ExclusionIntegrationTest extends BaseTestClass {
         mojo.ignoreFilesInBuildDirectory = false;
 
         // Set up project directories
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-        configureProjectForTesting(targetDir, classesDir, null);
+        configureProjectForTesting(null);
 
         // Execute to initialize targetDir
         mojo.execute();

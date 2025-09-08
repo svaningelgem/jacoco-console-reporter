@@ -16,10 +16,8 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     @Test
     public void testExecuteWithNoClassesDirectory() throws Exception {
         // Test the case where the classes directory doesn't exist
-        File targetDir = temporaryFolder.newFolder("target");
-        File nonExistentClasses = new File(targetDir, "nonexistent/classes");
-
-        configureProjectForTesting(targetDir, nonExistentClasses, testProjectJacocoExec);
+        classesDir.delete();
+        configureProjectForTesting(testProjectJacocoExec);
         mojo.deferReporting = false;
 
         // Should execute without throwing an exception
@@ -30,10 +28,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     public void testExecuteWithEmptyExecFile() throws Exception {
         // Create an empty exec file
         File emptyExecFile = temporaryFolder.newFile("empty.exec");
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-
-        configureProjectForTesting(targetDir, classesDir, emptyExecFile);
+        configureProjectForTesting(emptyExecFile);
         mojo.deferReporting = false;
 
         // Should execute without throwing an exception
@@ -46,10 +41,7 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
         File corruptExecFile = temporaryFolder.newFile("corrupt.exec");
         Files.write(corruptExecFile.toPath(), "not a valid exec file".getBytes());
 
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-
-        configureProjectForTesting(targetDir, classesDir, corruptExecFile);
+        configureProjectForTesting(corruptExecFile);
         mojo.deferReporting = false;
 
         // This will throw MojoExecutionException due to corrupt file - that's expected behavior
@@ -65,21 +57,19 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     @Test
     public void testAnalyzeCoverageWithNullAndInvalidClasses() throws Exception {
         // Test the case where a class file is invalid
-        File tempDir = temporaryFolder.newFolder("classes");
-        File invalidClass = new File(tempDir, "Invalid.class");
+        File invalidClass = new File(classesDir, "Invalid.class");
         Files.write(invalidClass.toPath(), "not a valid class file".getBytes());
 
         // Mock the executionDataStore
         org.jacoco.core.data.ExecutionDataStore mockStore = new org.jacoco.core.data.ExecutionDataStore();
 
         // Configure project with our temp directory
-        File targetDir = temporaryFolder.newFolder("target");
-        configureProjectForTesting(targetDir, tempDir, null);
+        configureProjectForTesting(null);
 
         // Add a null element to the collectedClassesPaths
         JacocoConsoleReporterMojo.collectedClassesPaths.clear();
         JacocoConsoleReporterMojo.collectedClassesPaths.add(null);
-        JacocoConsoleReporterMojo.collectedClassesPaths.add(tempDir);
+        JacocoConsoleReporterMojo.collectedClassesPaths.add(classesDir);
 
         try {
             // Call the method
@@ -236,11 +226,6 @@ public class JacocoConsoleReporterMojoAdvancedTest extends BaseTestClass {
     public void testProjectWithoutJacocoPlugin() throws Exception {
         // Create a project without JaCoCo plugin
         mojo.project.getBuild().getPlugins().clear();
-
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-        mojo.project.getBuild().setDirectory(targetDir.getAbsolutePath());
-        mojo.project.getBuild().setOutputDirectory(classesDir.getAbsolutePath());
 
         // Should still execute but won't find destFile
         mojo.execute();

@@ -114,7 +114,9 @@ public class XmlSimplifiedTest extends BaseTestClass {
 
         // Configure project with test project files
         File targetDir = testProjectJacocoExec.getParentFile();
-        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
+
+        setDirectories(targetDir, testProjectClasses);
+        configureProjectForTesting(testProjectJacocoExec);
 
         mojo.deferReporting = false;
 
@@ -148,9 +150,7 @@ public class XmlSimplifiedTest extends BaseTestClass {
         assertEquals("Parameter should be set correctly", xmlFile, mojo.xmlOutputFile);
 
         // Configure project for testing
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-        configureProjectForTesting(targetDir, classesDir, new File(targetDir, "nonexistent.exec"));
+        configureProjectForTesting(new File(targetDir, "nonexistent.exec"));
 
         mojo.deferReporting = false;
 

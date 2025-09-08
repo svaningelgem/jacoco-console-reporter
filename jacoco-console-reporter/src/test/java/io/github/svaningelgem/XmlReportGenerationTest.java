@@ -214,7 +214,7 @@ public class XmlReportGenerationTest extends BaseTestClass {
 
         // Configure project with test project files
         File targetDir = testProjectJacocoExec.getParentFile();
-        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
+        configureProjectForTesting(testProjectJacocoExec);
 
         mojo.deferReporting = false;
 

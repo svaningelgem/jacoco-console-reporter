@@ -63,14 +63,11 @@ public class JacocoConsoleReporterMojoLoadExecTest extends BaseTestClass {
     @Test
     public void testLoadExecutionDataFromProjectConfiguration() throws Exception {
         // Create a temp exec file
-        File tempExecFile = temporaryFolder.newFile("project-config.exec");
+        File tempExecFile = new File(targetDir, "project-config.exec");
+        tempExecFile.createNewFile();
 
         // Configure project with the exec file
-        File targetDir = tempExecFile.getParentFile();
-        File classesDir = new File(targetDir, "classes");
-        classesDir.mkdirs();
-
-        configureProjectForTesting(targetDir, classesDir, tempExecFile);
+        configureProjectForTesting(tempExecFile);
 
         // Clear collected paths
         JacocoConsoleReporterMojo.collectedExecFilePaths.clear();

@@ -29,21 +29,51 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
     }
 
     @Test
-    public void testBuildDirectoryTreeWithExcludedFiles() throws Exception {
-        // Create test files in the build directory to match our exclusion patterns
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-
+    public void testAllPossibleExclusions() throws Exception {
         // Configure project with our directories
-        configureProjectForTesting(targetDir, classesDir, null);
+        configureProjectForTesting(null);
 
         // Execute to set up targetDir and baseDir in mojo
         mojo.execute();
 
         // Create Java source files with package declarations for our test
-        createFile(targetDir, "classes/com/example/ExcludedClass.java",
+        createFile("classes/com/example/ExcludedClass.java",
                 "package com.example;\npublic class ExcludedClass {}");
-        createFile(targetDir, "classes/com/example/IncludedClass.java",
+        createFile("classes/com/example/IncludedClass.java",
+                "package com.example;\npublic class IncludedClass {}");
+
+        // Create a pattern that will exclude ExcludedClass
+        mojo.addExclusion("com/example/ExcludedClass");
+
+        // Create a root directory node
+        DirectoryNode root = new DirectoryNode("");
+
+        // Create mocks for package, source file, and class coverage
+        IPackageCoverage packageCoverage = createMockPackageCoverage("com/example");
+
+        // Add source files to the package - one excluded, one included
+        List<String> fileNames = Arrays.asList("ExcludedClass.java", "IncludedClass.java");
+        setupMockSourceFiles(packageCoverage, fileNames);
+
+        // Test the buildDirectoryTreeAddNode method
+        for (String fileName : fileNames) {
+            ISourceFileCoverage sourceCoverage = createMockSourceFileCoverage(fileName);
+            mojo.buildDirectoryTreeAddNode(root, packageCoverage, sourceCoverage);
+        }
+    }
+
+    @Test
+    public void testBuildDirectoryTreeWithExcludedFiles() throws Exception {
+        // Configure project with our directories
+        configureProjectForTesting(null);
+
+        // Execute to set up targetDir and baseDir in mojo
+        mojo.execute();
+
+        // Create Java source files with package declarations for our test
+        createFile("classes/com/example/ExcludedClass.java",
+                "package com.example;\npublic class ExcludedClass {}");
+        createFile("classes/com/example/IncludedClass.java",
                 "package com.example;\npublic class IncludedClass {}");
 
         // Create a pattern that will exclude ExcludedClass
