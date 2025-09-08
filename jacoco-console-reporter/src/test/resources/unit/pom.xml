@@ -19,6 +19,13 @@
                     <jacocoExecFile>${basedir}/src/test/resources/jacoco.exec</jacocoExecFile>
                     <classesDirectory>${basedir}/target/classes</classesDirectory>
                 </configuration>
+                <executions>
+                    <execution>
+                        <configuration>
+                            <destFile>...</destFile>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
