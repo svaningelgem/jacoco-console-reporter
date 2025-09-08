@@ -1,6 +1,7 @@
 package io.github.svaningelgem;
 
 import lombok.var;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.plugin.AbstractMojo;
@@ -9,6 +10,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jacoco.core.analysis.Analyzer;
 import org.jacoco.core.analysis.CoverageBuilder;
@@ -148,19 +150,19 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
      * The Maven project.
      */
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
-    org.apache.maven.project.MavenProject project;
+    MavenProject project;
 
     /**
      * The Maven session.
      */
     @Parameter(defaultValue = "${session}", readonly = true, required = true)
-    org.apache.maven.execution.MavenSession mavenSession;
+    MavenSession mavenSession;
 
     /**
      * The execution step
      */
     @Parameter(defaultValue = "${mojoExecution}", readonly = true)
-    private MojoExecution mojoExecution;
+    MojoExecution mojoExecution;
 
     /**
      * JaCoCo plugin info for dependency discovery
@@ -422,18 +424,18 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     Queue<Xpp3Dom> digIntoConfig(Xpp3Dom config, String[] parts) {
-        if (config == null || parts.length == 0) {
+        if (config == null || parts == null || parts.length == 0) {
             return null;
         }
 
         // Queue of nodes to process at the current level
         Queue<Xpp3Dom> currentLevelNodes = new LinkedList<>();
+        Queue<Xpp3Dom> nextLevelNodes = null;
         currentLevelNodes.add(config);
 
         // Process each part of the path
-        for (int i = 0; i < parts.length; i++) {
-            String part = parts[i];
-            Queue<Xpp3Dom> nextLevelNodes = new LinkedList<>();
+        for (String part : parts) {
+            nextLevelNodes = new LinkedList<>();
 
             // Process all nodes at the current level
             for (Xpp3Dom currentNode : currentLevelNodes) {
@@ -445,18 +447,14 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             // If this is the last part in the path, apply consumer to all matching nodes
             if (nextLevelNodes.isEmpty()) {
                 // If no matching nodes found at this level, stop processing
-                break;
-            }
-
-            if (i == parts.length - 1) {
-                return nextLevelNodes;
+                return null;
             }
 
             // Continue with the next level
             currentLevelNodes = nextLevelNodes;
         }
 
-        return null;
+        return nextLevelNodes;
     }
 
     Queue<Xpp3Dom> getConfiguration(Plugin plugin, String[] parts) {

@@ -8,6 +8,9 @@ import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.Mojo;
+import org.apache.maven.plugin.MojoExecution;
+import org.apache.maven.plugin.descriptor.MojoDescriptor;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.PlexusContainer;
@@ -99,6 +102,7 @@ public class BaseTestClass {
 
         mojo.project = project;
         mojo.mavenSession = createRealMavenSession(Collections.singletonList(project));
+        mojo.mojoExecution = createExecution();
 
         mojo.setupDefaultVariables();
 
@@ -121,6 +125,21 @@ public class BaseTestClass {
         mojo.setLog(log);
     }
 
+    private MojoExecution createExecution() {
+        Plugin plugin = new Plugin();
+        plugin.setGroupId("io.github.svaningelgem");
+        plugin.setArtifactId("jacoco-console-reporter");
+        plugin.setVersion("1.0.0");
+
+        MojoDescriptor mojoDescriptor = new MojoDescriptor();
+        mojoDescriptor.setGoal("report");
+        mojoDescriptor.setPluginDescriptor(new PluginDescriptor());
+
+        MojoExecution mojoExecution = new MojoExecution(plugin, "report", "default-report");
+        mojoExecution.setMojoDescriptor(mojoDescriptor);
+        return mojoExecution;
+    }
+
     @After
     public void tearDown() {
         JacocoConsoleReporterMojo.collectedClassesPaths.clear();
@@ -132,7 +151,7 @@ public class BaseTestClass {
     /**
      * Configure the project's build directories and JaCoCo settings
      */
-    protected void configureProjectForTesting(File targetDir, File classesDir, @Nullable File jacocoExecFile) throws IOException {
+    protected void configureProjectForTesting(File targetDir, File classesDir, @Nullable File jacocoExecFile) {
         if (targetDir != null) {
             targetDir.mkdirs();
             mojo.project.getBuild().setDirectory(targetDir.getAbsolutePath());

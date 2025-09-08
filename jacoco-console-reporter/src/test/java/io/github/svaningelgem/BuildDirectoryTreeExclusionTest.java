@@ -23,6 +23,12 @@ import static org.mockito.Mockito.when;
 
 public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
     @Test
+    public void testEmptyExclusionWithClassFileSuffix() {
+        mojo.addExclusion(".Class");
+        assertTrue(JacocoConsoleReporterMojo.collectedExcludePatterns.isEmpty());
+    }
+
+    @Test
     public void testBuildDirectoryTreeWithExcludedFiles() throws Exception {
         // Create test files in the build directory to match our exclusion patterns
         File targetDir = temporaryFolder.newFolder("target");
