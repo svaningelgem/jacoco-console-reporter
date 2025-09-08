@@ -181,7 +181,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             if (jacocoExecFile.exists()) {
                 getLog().debug("Added exec file from current module: " + jacocoExecFile);
             }
-        });
+        }, project.getBuild().getDirectory() + "/jacoco.exec");
 
         collectedClassesPaths.add(classesDirectory);
         getLog().debug("Collected Classes: " + collectedClassesPaths);
@@ -259,7 +259,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         doSomethingForEachPluginConfiguration(JACOCO_GROUP_ID, JACOCO_ARTIFACT_ID, "excludes.exclude", excludePattern -> {
             addExclusion(excludePattern);
             getLog().debug("Excluded pattern: " + excludePattern);
-        });
+        }, null);
     }
 
     /**
@@ -400,13 +400,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         return !deferReporting || project.getId().equals(mavenSession.getProjects().get(mavenSession.getProjects().size() - 1).getId());
     }
 
-    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull Iterable<String> configValue, Consumer<String> configurationConsumer) {
-        for (String config : configValue) {
-            doSomethingForEachPluginConfiguration(groupId, artifactId, config, configurationConsumer);
-        }
-    }
-
-    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull String configValue, Consumer<String> configurationConsumer) {
+    void doSomethingForEachPluginConfiguration(String groupId, String artifactId, @NotNull String configValue, Consumer<String> configurationConsumer, String defaultValue) {
         final String[] parts = Arrays.stream(configValue.split("\\.")).filter(s -> !s.isEmpty()).toArray(String[]::new);
 
         project.getBuildPlugins().stream().filter(plugin -> {
@@ -414,42 +408,48 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
             boolean artifactEquals = artifactId.equals(plugin.getArtifactId());
             return groupEquals && artifactEquals;
         }).forEach(plugin -> {
+            boolean[] foundValue = new boolean[1];
+
             Xpp3Dom config = (Xpp3Dom) plugin.getConfiguration();
-            if (config == null) {
-                return;
+            if (config != null) {
+
+                // Queue of nodes to process at the current level
+                Queue<Xpp3Dom> currentLevelNodes = new LinkedList<>();
+                currentLevelNodes.add(config);
+
+                // Process each part of the path
+                for (int i = 0; i < parts.length; i++) {
+                    String part = parts[i];
+                    Queue<Xpp3Dom> nextLevelNodes = new LinkedList<>();
+
+                    // Process all nodes at the current level
+                    for (Xpp3Dom currentNode : currentLevelNodes) {
+                        // Get all children with matching name
+                        Xpp3Dom[] children = currentNode.getChildren(part);
+                        Collections.addAll(nextLevelNodes, children);
+                    }
+
+                    // If this is the last part in the path, apply consumer to all matching nodes
+                    if (i == parts.length - 1) {
+                        nextLevelNodes.forEach(node -> {
+                            String value = node.getValue().trim();
+                            if (value.isEmpty()) return;
+
+                            configurationConsumer.accept(value);
+                            foundValue[0] = true;
+                        });
+                    } else if (nextLevelNodes.isEmpty()) {
+                        // If no matching nodes found at this level, stop processing
+                        break;
+                    } else {
+                        // Continue with the next level
+                        currentLevelNodes = nextLevelNodes;
+                    }
+                }
             }
 
-            // Queue of nodes to process at the current level
-            Queue<Xpp3Dom> currentLevelNodes = new LinkedList<>();
-            currentLevelNodes.add(config);
-
-            // Process each part of the path
-            for (int i = 0; i < parts.length; i++) {
-                String part = parts[i];
-                Queue<Xpp3Dom> nextLevelNodes = new LinkedList<>();
-
-                // Process all nodes at the current level
-                for (Xpp3Dom currentNode : currentLevelNodes) {
-                    // Get all children with matching name
-                    Xpp3Dom[] children = currentNode.getChildren(part);
-                    Collections.addAll(nextLevelNodes, children);
-                }
-
-                // If this is the last part in the path, apply consumer to all matching nodes
-                if (i == parts.length - 1) {
-                    nextLevelNodes.forEach(node -> {
-                        String value = node.getValue().trim();
-                        if (value.isEmpty()) return;
-
-                        configurationConsumer.accept(value);
-                    });
-                } else if (nextLevelNodes.isEmpty()) {
-                    // If no matching nodes found at this level, stop processing
-                    return;
-                } else {
-                    // Continue with the next level
-                    currentLevelNodes = nextLevelNodes;
-                }
+            if (!foundValue[0] && defaultValue != null) {
+                configurationConsumer.accept(defaultValue);
             }
         });
     }
