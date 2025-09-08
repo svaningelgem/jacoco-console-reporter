@@ -352,8 +352,7 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
     }
 
     void addExclusion(@NotNull String jacocoPattern) {
-        String[] split = jacocoPattern.split(",");
-        for (String pattern : split) {
+        for (String pattern : jacocoPattern.split(",")) {
             var converted = convertExclusionToPattern(pattern);
             if (converted != null) {
                 collectedExcludePatterns.add(converted);
