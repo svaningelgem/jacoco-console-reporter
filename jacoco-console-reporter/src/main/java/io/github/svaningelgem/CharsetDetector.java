@@ -4,8 +4,20 @@ import com.sun.jna.Library;
 import com.sun.jna.Native;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+
+@Retention(RUNTIME)
+@Target(TYPE)
+@interface Generated {
+    String value();
+}
 
 public class CharsetDetector {
     static CharsetDetector instance = null;
@@ -20,10 +32,12 @@ public class CharsetDetector {
         return instance;
     }
 
+    @Generated("not covered on linux")
     public interface Kernel32 extends Library {
         int GetConsoleOutputCP();
     }
 
+    @Generated("not covered on linux")
     static class Kernel32Holder {
         static final Kernel32 INSTANCE = Native.load("kernel32", Kernel32.class);
     }
