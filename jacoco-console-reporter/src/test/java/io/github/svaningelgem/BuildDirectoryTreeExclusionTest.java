@@ -1,5 +1,6 @@
 package io.github.svaningelgem;
 
+import lombok.var;
 import org.jacoco.core.analysis.IClassCoverage;
 import org.jacoco.core.analysis.ICounter;
 import org.jacoco.core.analysis.ILine;
@@ -8,7 +9,6 @@ import org.jacoco.core.analysis.ISourceFileCoverage;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Test;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,36 +29,36 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
     }
 
     @Test
-    public void testAllPossibleExclusions() throws Exception {
-        // Configure project with our directories
-        configureProjectForTesting(null);
-
-        // Execute to set up targetDir and baseDir in mojo
-        mojo.execute();
-
-        // Create Java source files with package declarations for our test
-        createFile("classes/com/example/ExcludedClass.java",
-                "package com.example;\npublic class ExcludedClass {}");
-        createFile("classes/com/example/IncludedClass.java",
-                "package com.example;\npublic class IncludedClass {}");
-
-        // Create a pattern that will exclude ExcludedClass
+    public void testAllPossibleExclusions() {
         mojo.addExclusion("com/example/ExcludedClass");
+        mojo.project.getProperties().put("sonar.exclusions", "**/example/**, src/main/java/**/special/**,src/test/java/**/it/**");
+        mojo.addSonarExclusions();
 
-        // Create a root directory node
-        DirectoryNode root = new DirectoryNode("");
+        var exclusions = new Object[][]{
+                // JaCoCo pattern exclusion
+                {"com/example", "ExcludedClass.java", true},
 
-        // Create mocks for package, source file, and class coverage
-        IPackageCoverage packageCoverage = createMockPackageCoverage("com/example");
+                // Sonar exclusion on javaFilePath (matches **/example/**)
+                {"com/example", "AnotherClass.java", true},
 
-        // Add source files to the package - one excluded, one included
-        List<String> fileNames = Arrays.asList("ExcludedClass.java", "IncludedClass.java");
-        setupMockSourceFiles(packageCoverage, fileNames);
+                // Sonar exclusion on src/main/java path
+                {"com/special/pkg", "MainApp.java", true},   // matches src/main/java/**/special/**
 
-        // Test the buildDirectoryTreeAddNode method
-        for (String fileName : fileNames) {
-            ISourceFileCoverage sourceCoverage = createMockSourceFileCoverage(fileName);
-            mojo.buildDirectoryTreeAddNode(root, packageCoverage, sourceCoverage);
+                // Sonar exclusion on src/test/java path
+                {"com/it/cases", "IntegrationTest.java", true}, // matches src/test/java/**/it/**
+
+                // Negative control, nothing excluded
+                {"com/myapp/util", "UtilityClass.java", false}
+        };
+
+        for (Object[] exclusion : exclusions) {
+            log.writtenData.clear();
+            var pkg = mock(IPackageCoverage.class);
+            when(pkg.getName()).thenReturn((String) exclusion[0]);
+            var file = mock(ISourceFileCoverage.class);
+            when(file.getName()).thenReturn((String) exclusion[1]);
+
+            assertEquals(exclusion[2], mojo.isSourceFileExcluded(pkg, file));
         }
     }
 

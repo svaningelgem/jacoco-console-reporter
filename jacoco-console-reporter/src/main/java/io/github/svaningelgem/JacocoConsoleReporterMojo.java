@@ -684,23 +684,43 @@ public class JacocoConsoleReporterMojo extends AbstractMojo {
         return String.join(", ", result);
     }
 
-    void buildDirectoryTreeAddNode(DirectoryNode root, @NotNull IPackageCoverage packageCoverage, @NotNull ISourceFileCoverage sourceFileCoverage) {
+    /**
+     * Checks if a given source file should be excluded.
+     */
+    boolean isSourceFileExcluded(@NotNull IPackageCoverage packageCoverage,
+                                         @NotNull ISourceFileCoverage sourceFileCoverage) {
         String filename = sourceFileCoverage.getName();
         String className = filename.substring(0, filename.lastIndexOf('.'));
         String packageName = packageCoverage.getName();
         String classPath = packageName + "/" + className;
 
         // Construct potential file paths for Sonar pattern matching
-        String javaFilePath = packageName.replace("/", "/") + "/" + filename;
+        String javaFilePath = packageName.replace("\\", "/") + "/" + filename;
         String srcMainJavaPath = "src/main/java/" + javaFilePath;
         String srcTestJavaPath = "src/test/java/" + javaFilePath;
 
         // Check exclusions with both package-style and file-style paths
-        if (isExcluded(classPath) || isExcluded(classPath, javaFilePath) || isExcluded(classPath, srcMainJavaPath) || isExcluded(classPath, srcTestJavaPath)) {
+        if (isExcluded(classPath) ||
+                isExcluded(classPath, javaFilePath) ||
+                isExcluded(classPath, srcMainJavaPath) ||
+                isExcluded(classPath, srcTestJavaPath)) {
             getLog().debug("Excluded source file: " + javaFilePath);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Adds a source file to the directory tree unless excluded.
+     */
+    void buildDirectoryTreeAddNode(DirectoryNode root,
+                                   @NotNull IPackageCoverage packageCoverage,
+                                   @NotNull ISourceFileCoverage sourceFileCoverage) {
+        if (isSourceFileExcluded(packageCoverage, sourceFileCoverage)) {
             return;
         }
 
+        String packageName = packageCoverage.getName();
         String[] pathComponents = packageName.split("/");
         DirectoryNode current = root;
         for (String component : pathComponents) {
