@@ -34,7 +34,7 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
         mojo.project.getProperties().put("sonar.exclusions", "**/example/**, src/main/java/**/special/**,src/test/java/**/it/**");
         mojo.addSonarExclusions();
 
-        var exclusions = new Object[][]{
+        Object[][] exclusions = new Object[][]{
                 // JaCoCo pattern exclusion
                 {"com/example", "ExcludedClass.java", true},
 
@@ -53,9 +53,9 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
 
         for (Object[] exclusion : exclusions) {
             log.writtenData.clear();
-            var pkg = mock(IPackageCoverage.class);
+            IPackageCoverage pkg = mock(IPackageCoverage.class);
             when(pkg.getName()).thenReturn((String) exclusion[0]);
-            var file = mock(ISourceFileCoverage.class);
+            ISourceFileCoverage file = mock(ISourceFileCoverage.class);
             when(file.getName()).thenReturn((String) exclusion[1]);
 
             assertEquals(exclusion[2], mojo.isSourceFileExcluded(pkg, file));
