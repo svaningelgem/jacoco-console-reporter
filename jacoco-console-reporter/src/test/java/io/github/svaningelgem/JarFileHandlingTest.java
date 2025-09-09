@@ -18,29 +18,25 @@ public class JarFileHandlingTest extends BaseTestClass {
         assertTrue("We need the test projects jacoco.exec!", testProjectJacocoExec.exists());
         assertTrue("We need the main projects compiled files!", mainProjectClasses.exists());
 
-        // Create a temporary directory structure to hold test classes and jar
-        File testClassesDir = temporaryFolder.newFolder("test-classes");
-
         // Copy a real JAR file from resources to the test directory
-        File jarFile = new File(testClassesDir, "test.jar");
+        File jarFile = new File(classesDir, "test.jar");
         copyResourceToFile("/sample-classes.jar", jarFile);
 
         // Verify files exist
         assertTrue("JAR file should exist", jarFile.exists());
 
         // Copy files from test-project classes to our test directory
-        copyDirectory(mainProjectClasses, testClassesDir);
+        copyDirectory(mainProjectClasses, classesDir);
 
         // Set up the mojo for testing - configure project with proper directories
-        File targetDir = temporaryFolder.newFolder("target");
-        configureProjectForTesting(targetDir, testClassesDir, testProjectJacocoExec);
+        configureProjectForTesting(testProjectJacocoExec);
 
         mojo.showSummary = false;
 
         collectedExecFilePaths.clear();
         collectedClassesPaths.clear();
         collectedExecFilePaths.add(testProjectJacocoExec);
-        collectedClassesPaths.add(testClassesDir);
+        collectedClassesPaths.add(classesDir);
 
         mojo.generateReports();
 

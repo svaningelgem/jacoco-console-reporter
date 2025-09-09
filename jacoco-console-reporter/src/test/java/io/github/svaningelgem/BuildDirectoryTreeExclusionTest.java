@@ -1,5 +1,6 @@
 package io.github.svaningelgem;
 
+import lombok.var;
 import org.jacoco.core.analysis.IClassCoverage;
 import org.jacoco.core.analysis.ICounter;
 import org.jacoco.core.analysis.ILine;
@@ -8,7 +9,6 @@ import org.jacoco.core.analysis.ISourceFileCoverage;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Test;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,21 +29,51 @@ public class BuildDirectoryTreeExclusionTest extends BaseTestClass {
     }
 
     @Test
-    public void testBuildDirectoryTreeWithExcludedFiles() throws Exception {
-        // Create test files in the build directory to match our exclusion patterns
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
+    public void testAllPossibleExclusions() {
+        mojo.addExclusion("com/example/ExcludedClass");
+        mojo.project.getProperties().put("sonar.exclusions", "**/example/**, src/main/java/**/special/**,src/test/java/**/it/**");
+        mojo.addSonarExclusions();
 
+        Object[][] exclusions = new Object[][]{
+                // JaCoCo pattern exclusion
+                {"com/example", "ExcludedClass.java", true},
+
+                // Sonar exclusion on javaFilePath (matches **/example/**)
+                {"com/example", "AnotherClass.java", true},
+
+                // Sonar exclusion on src/main/java path
+                {"com/special/pkg", "MainApp.java", true},   // matches src/main/java/**/special/**
+
+                // Sonar exclusion on src/test/java path
+                {"com/it/cases", "IntegrationTest.java", true}, // matches src/test/java/**/it/**
+
+                // Negative control, nothing excluded
+                {"com/myapp/util", "UtilityClass.java", false}
+        };
+
+        for (Object[] exclusion : exclusions) {
+            log.writtenData.clear();
+            IPackageCoverage pkg = mock(IPackageCoverage.class);
+            when(pkg.getName()).thenReturn((String) exclusion[0]);
+            ISourceFileCoverage file = mock(ISourceFileCoverage.class);
+            when(file.getName()).thenReturn((String) exclusion[1]);
+
+            assertEquals(exclusion[2], mojo.isSourceFileExcluded(pkg, file));
+        }
+    }
+
+    @Test
+    public void testBuildDirectoryTreeWithExcludedFiles() throws Exception {
         // Configure project with our directories
-        configureProjectForTesting(targetDir, classesDir, null);
+        configureProjectForTesting(null);
 
         // Execute to set up targetDir and baseDir in mojo
         mojo.execute();
 
         // Create Java source files with package declarations for our test
-        createFile(targetDir, "classes/com/example/ExcludedClass.java",
+        createFile("classes/com/example/ExcludedClass.java",
                 "package com.example;\npublic class ExcludedClass {}");
-        createFile(targetDir, "classes/com/example/IncludedClass.java",
+        createFile("classes/com/example/IncludedClass.java",
                 "package com.example;\npublic class IncludedClass {}");
 
         // Create a pattern that will exclude ExcludedClass

@@ -8,6 +8,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Collections;
+import java.util.List;
+import java.util.Queue;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -21,19 +23,19 @@ public class ConfigRetrievalTest extends BaseTestClass {
         super.setUp();
 
         jacocoPlugin = findOrCreateJacocoPlugin(mojo.project);
-        var configuration = new Xpp3Dom("configuration");
+        Xpp3Dom configuration = new Xpp3Dom("configuration");
         jacocoPlugin.setConfiguration(configuration);
 
-        var destFileNode = new Xpp3Dom("destFile");
+        Xpp3Dom destFileNode = new Xpp3Dom("destFile");
         destFileNode.setValue("jacoco.exec");
         configuration.addChild(destFileNode);
 
-        var configuration2 = new Xpp3Dom("configuration");
-        var destFile2 = new Xpp3Dom("destFile");
+        Xpp3Dom configuration2 = new Xpp3Dom("configuration");
+        Xpp3Dom destFile2 = new Xpp3Dom("destFile");
         destFile2.setValue("jacoco2.exec");
         configuration2.addChild(destFile2);
 
-        var pe = new PluginExecution();
+        PluginExecution pe = new PluginExecution();
         pe.setId("report");
         pe.setPhase("verify");
         pe.setGoals(Collections.singletonList("report"));
@@ -43,8 +45,8 @@ public class ConfigRetrievalTest extends BaseTestClass {
 
     @Test
     public void testConfigRetrievalViaExecutionStep() {
-        var x = mojo.getConfiguration(jacocoPlugin, new String[]{"destFile"});
-        var allValues = x.stream().map(Xpp3Dom::getValue).collect(Collectors.toList());
+        Queue<Xpp3Dom> x = mojo.getConfiguration(jacocoPlugin, new String[]{"destFile"});
+        List<String> allValues = x.stream().map(Xpp3Dom::getValue).collect(Collectors.toList());
         assertEquals(1, allValues.size());
         assertEquals("jacoco2.exec", allValues.get(0)); // execution step overrules
     }
@@ -52,8 +54,8 @@ public class ConfigRetrievalTest extends BaseTestClass {
     @Test
     public void testConfigRetrievalWithoutExecutionStep() {
         mojo.mojoExecution = null;
-        var x = mojo.getConfiguration(jacocoPlugin, new String[]{"destFile"});
-        var allValues = x.stream().map(Xpp3Dom::getValue).collect(Collectors.toList());
+        Queue<Xpp3Dom> x = mojo.getConfiguration(jacocoPlugin, new String[]{"destFile"});
+        List<String> allValues = x.stream().map(Xpp3Dom::getValue).collect(Collectors.toList());
         assertEquals(1, allValues.size());
         assertEquals("jacoco.exec", allValues.get(0)); // we retrieve the generic configuration value
     }
@@ -61,8 +63,8 @@ public class ConfigRetrievalTest extends BaseTestClass {
     @Test
     public void testConfigRetrievalViaGenericConfiguration() {
         jacocoPlugin.setExecutions(null);
-        var x = mojo.getConfiguration(jacocoPlugin, new String[]{"destFile"});
-        var allValues = x.stream().map(Xpp3Dom::getValue).collect(Collectors.toList());
+        Queue<Xpp3Dom> x = mojo.getConfiguration(jacocoPlugin, new String[]{"destFile"});
+        List<String> allValues = x.stream().map(Xpp3Dom::getValue).collect(Collectors.toList());
         assertEquals(1, allValues.size());
         assertEquals("jacoco.exec", allValues.get(0)); // we retrieve the generic configuration value
     }

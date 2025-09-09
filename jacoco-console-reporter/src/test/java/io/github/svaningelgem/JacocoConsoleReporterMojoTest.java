@@ -30,15 +30,8 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         model.setVersion("1.0.0");
         MavenProject project = new MavenProject(model);
 
-        // Configure build directories
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-        classesDir.mkdirs();
-
-        project.getBuild().setDirectory(targetDir.getAbsolutePath());
-        project.getBuild().setOutputDirectory(classesDir.getAbsolutePath());
-
         mojo.project = project;
+        setDirectories(targetDir, classesDir);
 
         // Create a real MavenSession with this as the only project
         List<MavenProject> projects = new ArrayList<>();
@@ -53,11 +46,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
     public void testWithJacocoPlugin() throws Exception {
         // The default setUp already creates a project with JaCoCo plugin
         // Just need to ensure the exec file doesn't exist
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-        classesDir.mkdirs();
-
-        configureProjectForTesting(targetDir, classesDir, new File(targetDir, "nonexistent.exec"));
+        configureProjectForTesting(new File(targetDir, "nonexistent.exec"));
 
         // Execute should detect the JaCoCo plugin
         mojo.execute();
@@ -162,7 +151,8 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
 
         // Configure the project to use test project files
         File targetDir = testProjectJacocoExec.getParentFile();
-        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
+        setDirectories(targetDir, testProjectClasses);
+        configureProjectForTesting(testProjectJacocoExec);
 
         // Set showFiles to false
         mojo.showFiles = false;
@@ -179,11 +169,8 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         // Create a temporary exec file
         File tempExecFile = temporaryFolder.newFile("temp.exec");
 
-        // Use a non-existent directory
-        File nonExistentDir = new File("nonexistent/classes");
-        File targetDir = temporaryFolder.newFolder("target");
-
-        configureProjectForTesting(targetDir, nonExistentDir, tempExecFile);
+        classesDir.delete();
+        configureProjectForTesting(tempExecFile);
 
         mojo.execute();
     }
@@ -198,8 +185,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         assertTrue("POM file does not exist: " + pom.getAbsolutePath(), pom.exists());
 
         // Configure the project to use test project files
-        File targetDir = testProjectJacocoExec.getParentFile();
-        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
+        configureProjectForTesting(testProjectJacocoExec);
 
         // Should execute without throwing an exception
         mojo.execute();
@@ -275,7 +261,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         File xmlFile = temporaryFolder.newFile("test-report.xml");
         File targetDir = testProjectJacocoExec.getParentFile();
 
-        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
+        configureProjectForTesting(testProjectJacocoExec);
 
         mojo.xmlOutputFile = xmlFile;
         mojo.writeXmlReport = true;
@@ -304,10 +290,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
     @Test
     public void testExecuteWithXmlOutputFileAndNoExecFile() throws Exception {
         File xmlFile = temporaryFolder.newFile("empty-report.xml");
-        File targetDir = temporaryFolder.newFolder("target");
-        File classesDir = new File(targetDir, "classes");
-
-        configureProjectForTesting(targetDir, classesDir, new File(targetDir, "nonexistent.exec"));
+        configureProjectForTesting(new File(targetDir, "nonexistent.exec"));
 
         mojo.xmlOutputFile = xmlFile;
         mojo.writeXmlReport = true;
@@ -330,7 +313,7 @@ public class JacocoConsoleReporterMojoTest extends BaseTestClass {
         File xmlFile = new File(nonExistentDir, "report.xml");
         File targetDir = testProjectJacocoExec.getParentFile();
 
-        configureProjectForTesting(targetDir, testProjectClasses, testProjectJacocoExec);
+        configureProjectForTesting(testProjectJacocoExec);
 
         mojo.xmlOutputFile = xmlFile;
         mojo.writeXmlReport = true;

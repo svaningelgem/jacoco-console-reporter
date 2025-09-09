@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+
 public class CharsetDetector {
     static CharsetDetector instance = null;
 
@@ -24,10 +25,12 @@ public class CharsetDetector {
         int GetConsoleOutputCP();
     }
 
+    @Generated("not covered on linux")
     static class Kernel32Holder {
         static final Kernel32 INSTANCE = Native.load("kernel32", Kernel32.class);
     }
 
+    @Generated("not covered on linux")
     Kernel32 getKernel32Instance() {
         return Kernel32Holder.INSTANCE;
     }
