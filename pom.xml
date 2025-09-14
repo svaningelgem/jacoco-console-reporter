@@ -29,7 +29,7 @@
         <slf4j-simple.version>2.0.17</slf4j-simple.version>
         <maven-plugin-plugin.version>3.15.1</maven-plugin-plugin.version>
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
-        <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
+        <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
         <!-- Added properties for deployment -->
         <gpg.keyname>Steven Van Ingelgem</gpg.keyname>
         <central-publishing-maven-plugin.version>0.8.0</central-publishing-maven-plugin.version>
