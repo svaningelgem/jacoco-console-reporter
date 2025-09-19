@@ -36,7 +36,7 @@
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.11.3</maven-javadoc-plugin.version>
-        <lombok.version>1.18.40</lombok.version>
+        <lombok.version>1.18.42</lombok.version>
         <jline.version>3.30.6</jline.version>
         <flatten-maven-plugin.version>1.7.2</flatten-maven-plugin.version>
         <mockito-core.version>5.19.0</mockito-core.version>
