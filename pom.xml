@@ -38,7 +38,7 @@
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <lombok.version>1.18.42</lombok.version>
         <jline.version>3.30.6</jline.version>
-        <flatten-maven-plugin.version>1.7.2</flatten-maven-plugin.version>
+        <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
         <mockito-core.version>5.20.0</mockito-core.version>
         <jna.version>5.17.0</jna.version>
     </properties>
