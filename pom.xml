@@ -22,7 +22,7 @@
         <junit.version>6.0.0</junit.version>
         <junit4.version>4.13.2</junit4.version>
         <maven.plugin.api.version>3.9.11</maven.plugin.api.version>
-        <maven.plugin.annotations.version>3.15.1</maven.plugin.annotations.version>
+        <maven.plugin.annotations.version>3.15.2</maven.plugin.annotations.version>
         <jacoco.version>0.8.14</jacoco.version>
         <maven.plugin.testing.version>3.3.0</maven.plugin.testing.version>
         <jetbrains-annotations.version>26.0.2-1</jetbrains-annotations.version>
