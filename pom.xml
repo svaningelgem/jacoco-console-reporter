@@ -32,7 +32,7 @@
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
         <!-- Added properties for deployment -->
         <gpg.keyname>Steven Van Ingelgem</gpg.keyname>
-        <central-publishing-maven-plugin.version>0.9.0</central-publishing-maven-plugin.version>
+        <central-publishing-maven-plugin.version>0.10.0</central-publishing-maven-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
