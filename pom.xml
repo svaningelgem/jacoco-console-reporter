@@ -28,7 +28,7 @@
         <jetbrains-annotations.version>26.0.2-1</jetbrains-annotations.version>
         <slf4j-simple.version>2.0.17</slf4j-simple.version>
         <maven-plugin-plugin.version>3.15.2</maven-plugin-plugin.version>
-        <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
+        <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
         <!-- Added properties for deployment -->
         <gpg.keyname>Steven Van Ingelgem</gpg.keyname>
