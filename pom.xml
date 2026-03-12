@@ -39,7 +39,7 @@
         <lombok.version>1.18.44</lombok.version>
         <jline.version>4.0.4</jline.version>
         <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
-        <mockito-core.version>5.22.0</mockito-core.version>
+        <mockito-core.version>5.23.0</mockito-core.version>
         <jna.version>5.18.1</jna.version>
     </properties>
 
