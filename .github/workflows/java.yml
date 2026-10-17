@@ -15,5 +15,7 @@ permissions:
 jobs:
   java:
     uses: svaningelgem/ci-workflows/.github/workflows/java.yml@v1
+    with:
+      command: mvn -B --ntp -U verify
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
